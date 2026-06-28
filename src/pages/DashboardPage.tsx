@@ -71,7 +71,6 @@ export default function DashboardPage() {
       value: stats.lowStockCount,
       icon: PackageX,
       sub: "Needs attention",
-      alert: stats.lowStockCount > 0,
     },
   ];
 
@@ -106,7 +105,7 @@ export default function DashboardPage() {
                   </p>
                   <p
                     className={`text-2xl font-semibold tracking-tight ${
-                      "alert" in card && card.alert
+                      card.label === "Low Stock Items" && stats.lowStockCount > 0
                         ? "text-destructive"
                         : ""
                     }`}

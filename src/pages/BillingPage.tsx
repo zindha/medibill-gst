@@ -1,5 +1,4 @@
 import { api } from "@/convex/_generated/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -8,7 +7,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,16 +22,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
-  Delete,
   Loader2,
-  Minus,
   Plus,
-  Printer,
   Save,
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -66,7 +61,6 @@ export default function BillingPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const medicines = useQuery(api.medicines.list);
-  const suppliers = useQuery(api.suppliers.list);
   const createInvoice = useMutation(api.invoices.create);
   const getNextInvoiceNo = useQuery(api.invoices.getNextInvoiceNo);
   const [submitting, setSubmitting] = useState(false);
@@ -123,9 +117,9 @@ export default function BillingPage() {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const updateItem = (index: number, field: keyof LineItem, value: unknown) => {
+  const updateItem = <K extends keyof LineItem>(index: number, field: K, value: LineItem[K]) => {
     const newItems = [...items];
-    (newItems[index] as Record<string, unknown>)[field] = value;
+    newItems[index][field] = value;
 
     // Recalculate
     if (field === "quantity" || field === "rate" || field === "gstRate") {
@@ -143,7 +137,7 @@ export default function BillingPage() {
     setItems(newItems);
   };
 
-  const selectMedicine = (med: typeof medicines[0]) => {
+  const selectMedicine = (med: NonNullable<typeof medicines>[number]) => {
     if (pickerIndex === null) return;
     const qty = 1;
     const rate = med.sellingPrice;
@@ -395,7 +389,7 @@ export default function BillingPage() {
               <div className="col-span-2 sm:col-span-1">
                 <Select
                   value={String(item.gstRate)}
-                  onValueChange={(v) => updateItem(i, "gstRate", Number(v))}
+                  onValueChange={(v) => updateItem(i, "gstRate", Number(v) as 0 | 5 | 12 | 18 | 28)}
                 >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />

@@ -1,5 +1,4 @@
 import { api } from "@/convex/_generated/api";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,10 +17,6 @@ import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
-// We'll use Tesseract.js for OCR
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let Tesseract: any = null;
-
 export default function ScanBillPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -37,11 +32,8 @@ export default function ScanBillPage() {
   }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
+  const processImage = useCallback(
+    async (file: File) => {
       // Show preview
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -54,17 +46,11 @@ export default function ScanBillPage() {
 
       try {
         // Dynamically import Tesseract.js
-        Tesseract = await import("tesseract.js");
+        const Tesseract = await import("tesseract.js");
 
         const {
           data: { text },
-        } = await Tesseract.recognize(file, "eng", {
-          logger: (m: any) => {
-            if (m.status === "recognizing text") {
-              // Could show progress
-            }
-          },
-        });
+        } = await Tesseract.recognize(file, "eng");
 
         setOcrResult(text);
 
@@ -94,6 +80,15 @@ export default function ScanBillPage() {
       }
     },
     [createPurchaseBill],
+  );
+
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      await processImage(file);
+    },
+    [processImage],
   );
 
   const extractBillData = (
@@ -149,7 +144,6 @@ export default function ScanBillPage() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
       });
-      // Create a video element and capture a frame
       const video = document.createElement("video");
       video.srcObject = stream;
       await video.play();
@@ -161,21 +155,12 @@ export default function ScanBillPage() {
       ctx?.drawImage(video, 0, 0);
       const dataUrl = canvas.toDataURL("image/jpeg");
 
-      // Stop the stream
       stream.getTracks().forEach((t) => t.stop());
 
-      // Convert data URL to file
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], "bill.jpg", { type: "image/jpeg" });
 
-      // Process it
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInputRef.current.files = dt.files;
-        const event = new Event("change", { bubbles: true });
-        fileInputRef.current.dispatchEvent(event);
-      }
+      await processImage(file);
     } catch (error) {
       console.error("Camera error:", error);
       toast("Camera access denied or not available on this device");

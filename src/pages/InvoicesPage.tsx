@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +27,11 @@ export default function InvoicesPage() {
   const invoices = useQuery(api.invoices.list);
   const removeInvoice = useMutation(api.invoices.remove);
   const [search, setSearch] = useState("");
-  const [viewInvoice, setViewInvoice] = useState<typeof invoices[0] | null>(
-    null,
+  const [viewInvoiceId, setViewInvoiceId] = useState<Id<"invoices"> | null>(null);
+  const invoiceDetail = useQuery(
+    api.invoices.get,
+    viewInvoiceId ? { id: viewInvoiceId } : "skip",
   );
-  const [viewItems, setViewItems] = useState<any[]>([]);
 
   const filtered = invoices?.filter(
     (inv) =>
@@ -39,15 +40,11 @@ export default function InvoicesPage() {
         inv.customerName.toLowerCase().includes(search.toLowerCase())),
   );
 
-  const handleView = async (inv: (typeof invoices)[0]) => {
-    setViewInvoice(inv);
-    const result = await fetch(`/api/invoices/${inv._id}`);
-    // Use the get query
-    const items = await queryInvoiceItems(inv._id);
-    setViewItems(items || []);
+  const handleView = (inv: NonNullable<typeof invoices>[number]) => {
+    setViewInvoiceId(inv._id);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: Id<"invoices">) => {
     try {
       await removeInvoice({ id });
       toast("Invoice deleted");
@@ -160,15 +157,15 @@ export default function InvoicesPage() {
 
       {/* View Invoice Dialog */}
       <Dialog
-        open={!!viewInvoice}
-        onOpenChange={(open) => !open && setViewInvoice(null)}
+        open={!!viewInvoiceId}
+        onOpenChange={(open) => !open && setViewInvoiceId(null)}
       >
         <DialogContent className="sm:max-w-2xl">
-          {viewInvoice && (
+          {invoiceDetail && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between">
-                  <span>{viewInvoice.invoiceNo}</span>
+                  <span>{invoiceDetail.invoice.invoiceNo}</span>
                   <Button variant="outline" size="sm">
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
                     Print
@@ -180,55 +177,86 @@ export default function InvoicesPage() {
                   <div>
                     <p className="text-muted-foreground text-xs">Customer</p>
                     <p className="font-medium">
-                      {viewInvoice.customerName || "Walk-in Customer"}
+                      {invoiceDetail.invoice.customerName || "Walk-in Customer"}
                     </p>
-                    {viewInvoice.customerPhone && (
+                    {invoiceDetail.invoice.customerPhone && (
                       <p className="text-muted-foreground text-xs">
-                        {viewInvoice.customerPhone}
+                        {invoiceDetail.invoice.customerPhone}
                       </p>
                     )}
                   </div>
                   <div className="text-right">
                     <p className="text-muted-foreground text-xs">Date</p>
-                    <p>{formatDate(viewInvoice.date)}</p>
+                    <p>{formatDate(invoiceDetail.invoice.date)}</p>
                     <p className="text-muted-foreground text-xs">
-                      {viewInvoice.paymentMode}
+                      {invoiceDetail.invoice.paymentMode}
                     </p>
                   </div>
                 </div>
 
-                {/* This is a simplified view — items are loaded via the get query */}
+                {/* Line Items */}
+                {invoiceDetail.items.length > 0 && (
+                  <div className="border-t border-border pt-3">
+                    <h4 className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                      Items
+                    </h4>
+                    <div className="space-y-1">
+                      {invoiceDetail.items.map((item, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between text-sm py-1"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className="truncate block">
+                              {item.medicineName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {item.quantity} × ₹{item.rate.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0 ml-4">
+                            <span>₹{item.amount.toFixed(2)}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              GST: ₹{item.gstAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-t border-border pt-3">
                   <div className="flex justify-between text-sm font-medium">
                     <span>Subtotal</span>
-                    <span>₹{viewInvoice.subtotal.toFixed(2)}</span>
+                    <span>₹{invoiceDetail.invoice.subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>CGST</span>
-                    <span>₹{viewInvoice.cgst.toFixed(2)}</span>
+                    <span>₹{invoiceDetail.invoice.cgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>SGST</span>
-                    <span>₹{viewInvoice.sgst.toFixed(2)}</span>
+                    <span>₹{invoiceDetail.invoice.sgst.toFixed(2)}</span>
                   </div>
-                  {viewInvoice.discount ? (
+                  {invoiceDetail.invoice.discount ? (
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Discount</span>
-                      <span>-₹{viewInvoice.discount.toFixed(2)}</span>
+                      <span>-₹{invoiceDetail.invoice.discount.toFixed(2)}</span>
                     </div>
                   ) : null}
                   <div className="flex justify-between text-base font-semibold pt-2 border-t border-border mt-2">
                     <span>Grand Total</span>
-                    <span>₹{viewInvoice.grandTotal.toFixed(2)}</span>
+                    <span>₹{invoiceDetail.invoice.grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
 
-                {viewInvoice.notes && (
+                {invoiceDetail.invoice.notes && (
                   <div className="text-sm text-muted-foreground pt-2 border-t border-border">
                     <p className="text-xs font-medium uppercase tracking-wider mb-1">
                       Notes
                     </p>
-                    <p>{viewInvoice.notes}</p>
+                    <p>{invoiceDetail.invoice.notes}</p>
                   </div>
                 )}
               </div>
@@ -238,11 +266,4 @@ export default function InvoicesPage() {
       </Dialog>
     </motion.div>
   );
-}
-
-// Helper to fetch invoice items
-async function queryInvoiceItems(invoiceId: string) {
-  // This is a workaround — in production, you'd use a proper convex query
-  // For now, just return null to keep the UI simple
-  return null;
 }

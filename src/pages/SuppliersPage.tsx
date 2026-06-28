@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -104,7 +104,8 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: Id<"suppliers">) => {
+    if (!window.confirm("Are you sure you want to remove this supplier?")) return;
     try {
       await removeSupplier({ id });
       toast("Supplier removed");
