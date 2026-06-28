@@ -124,3 +124,384 @@
     cursor: pointer;
   }
 }
+
+/* ===== GST Invoice Print Styles ===== */
+
+/* Print overlay — fills screen for preview */
+.print-container-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: oklch(0.97 0 0);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+}
+
+.print-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: white;
+  border: 1px solid oklch(0.9 0 0);
+  border-radius: 0.25rem;
+  width: 100%;
+  max-width: 210mm;
+  justify-content: center;
+}
+
+.print-action-btn {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid oklch(0.85 0 0);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: white;
+  transition: background 0.15s;
+}
+
+.print-action-btn:hover {
+  background: oklch(0.95 0 0);
+}
+
+.print-btn-primary {
+  background: oklch(0.13 0 0);
+  color: white;
+  border-color: oklch(0.13 0 0);
+}
+
+.print-btn-primary:hover {
+  background: oklch(0.25 0 0);
+}
+
+.print-container {
+  width: 210mm;
+  min-height: 297mm;
+  background: white;
+  padding: 15mm 20mm;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.1);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: oklch(0.13 0 0);
+  font-size: 10pt;
+  line-height: 1.5;
+}
+
+/* Invoice Layout */
+.gst-invoice-print .invoice-header {
+  margin-bottom: 1rem;
+}
+
+.gst-invoice-print .header-top {
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.gst-invoice-print .shop-name {
+  font-size: 18pt;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: oklch(0.13 0 0);
+}
+
+.gst-invoice-print .shop-address {
+  font-size: 9pt;
+  color: oklch(0.45 0 0);
+  margin: 0.2rem 0;
+}
+
+.gst-invoice-print .shop-contact {
+  font-size: 8.5pt;
+  color: oklch(0.5 0 0);
+  margin: 0;
+}
+
+.gst-invoice-print .invoice-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 0.5rem;
+}
+
+.gst-invoice-print .invoice-title {
+  font-size: 14pt;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin: 0;
+  border-bottom: 2px solid oklch(0.13 0 0);
+  padding-bottom: 0.2rem;
+}
+
+.gst-invoice-print .invoice-meta {
+  text-align: right;
+  font-size: 9pt;
+  line-height: 1.6;
+}
+
+.gst-invoice-print .invoice-meta p {
+  margin: 0;
+}
+
+/* Dividers */
+.gst-invoice-print .invoice-divider {
+  border-top: 1px solid oklch(0.88 0 0);
+  margin: 0.6rem 0;
+}
+
+/* Customer Section */
+.gst-invoice-print .customer-section {
+  margin-bottom: 0.5rem;
+}
+
+.gst-invoice-print .section-label {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: oklch(0.5 0 0);
+  margin: 0 0 0.2rem 0;
+}
+
+.gst-invoice-print .customer-name {
+  font-size: 10pt;
+  font-weight: 600;
+  margin: 0;
+}
+
+.gst-invoice-print .customer-detail {
+  font-size: 9pt;
+  color: oklch(0.45 0 0);
+  margin: 0;
+}
+
+/* Items Table */
+.gst-invoice-print .items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin-bottom: 0.5rem;
+}
+
+.gst-invoice-print .items-table th {
+  background: oklch(0.96 0 0);
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid oklch(0.88 0 0);
+}
+
+.gst-invoice-print .items-table td {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid oklch(0.9 0 0);
+}
+
+.gst-invoice-print .col-sno {
+  width: 2.5rem;
+  text-align: center;
+}
+
+.gst-invoice-print .col-desc {
+  min-width: 8rem;
+}
+
+.gst-invoice-print .col-hsn {
+  width: 5rem;
+  text-align: center;
+}
+
+.gst-invoice-print .col-qty {
+  width: 4rem;
+  text-align: center;
+}
+
+.gst-invoice-print .col-rate {
+  width: 4.5rem;
+  text-align: right;
+}
+
+.gst-invoice-print .col-gst {
+  width: 3rem;
+  text-align: center;
+}
+
+.gst-invoice-print .col-amount {
+  width: 5rem;
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Tax Table */
+.gst-invoice-print .tax-section {
+  margin-bottom: 0.5rem;
+}
+
+.gst-invoice-print .tax-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+
+.gst-invoice-print .tax-table th {
+  background: oklch(0.96 0 0);
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid oklch(0.88 0 0);
+}
+
+.gst-invoice-print .tax-table td {
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+  border: 1px solid oklch(0.9 0 0);
+}
+
+.gst-invoice-print .tax-table tfoot td {
+  background: oklch(0.97 0 0);
+  font-weight: 600;
+}
+
+/* Totals */
+.gst-invoice-print .totals-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.gst-invoice-print .totals-left {
+  flex: 1;
+}
+
+.gst-invoice-print .amount-in-words {
+  font-size: 9pt;
+  font-style: italic;
+  color: oklch(0.4 0 0);
+  margin: 0;
+}
+
+.gst-invoice-print .totals-right {
+  min-width: 12rem;
+}
+
+.gst-invoice-print .total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0;
+  font-size: 9pt;
+}
+
+.gst-invoice-print .total-row.discount {
+  color: oklch(0.5 0 0);
+}
+
+.gst-invoice-print .total-row.grand-total {
+  font-size: 11pt;
+  font-weight: 700;
+  padding-top: 0.4rem;
+  margin-top: 0.3rem;
+  border-top: 2px solid oklch(0.13 0 0);
+}
+
+/* Footer */
+.gst-invoice-print .invoice-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+}
+
+.gst-invoice-print .footer-left {
+  flex: 1;
+  font-size: 8.5pt;
+  color: oklch(0.5 0 0);
+}
+
+.gst-invoice-print .footer-left .notes-section {
+  margin-bottom: 0.5rem;
+}
+
+.gst-invoice-print .footer-left .notes-section p:last-child {
+  color: oklch(0.35 0 0);
+  margin: 0;
+}
+
+.gst-invoice-print .terms {
+  margin: 0.3rem 0;
+  color: oklch(0.5 0 0);
+}
+
+.gst-invoice-print .digital-stamp {
+  margin: 0;
+  font-style: italic;
+}
+
+.gst-invoice-print .footer-right {
+  text-align: center;
+  min-width: 8rem;
+}
+
+.gst-invoice-print .meta-label {
+  font-size: 8pt;
+  color: oklch(0.5 0 0);
+}
+
+.gst-invoice-print .signature-space {
+  height: 3rem;
+  margin: 0.5rem 0;
+  border-bottom: 1px solid oklch(0.8 0 0);
+}
+
+.gst-invoice-print .signature-label {
+  font-size: 8.5pt;
+  color: oklch(0.45 0 0);
+  margin: 0;
+}
+
+/* ===== Print Media Query ===== */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm 15mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-container-overlay,
+  .print-container-overlay * {
+    visibility: visible;
+  }
+
+  .print-container-overlay {
+    position: static;
+    background: white;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .print-toolbar {
+    display: none !important;
+  }
+
+  .print-container {
+    width: auto;
+    min-height: auto;
+    padding: 0;
+    box-shadow: none;
+  }
+}

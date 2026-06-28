@@ -8,6 +8,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  GSTInvoiceTemplate,
+  PrintContainer,
+} from "@/components/GSTInvoiceTemplate";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -28,6 +32,7 @@ export default function InvoicesPage() {
   const removeInvoice = useMutation(api.invoices.remove);
   const [search, setSearch] = useState("");
   const [viewInvoiceId, setViewInvoiceId] = useState<Id<"invoices"> | null>(null);
+  const [printData, setPrintData] = useState<typeof invoiceDetail | null>(null);
   const invoiceDetail = useQuery(
     api.invoices.get,
     viewInvoiceId ? { id: viewInvoiceId } : "skip",
@@ -166,7 +171,14 @@ export default function InvoicesPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between">
                   <span>{invoiceDetail.invoice.invoiceNo}</span>
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setViewInvoiceId(null);
+                      setTimeout(() => setShowPrint(true), 100);
+                    }}
+                  >
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
                     Print
                   </Button>

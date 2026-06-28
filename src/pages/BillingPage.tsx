@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -18,12 +19,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  GSTInvoiceTemplate,
+  PrintContainer,
+} from "@/components/GSTInvoiceTemplate";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   Loader2,
   Plus,
+  Printer,
   Save,
   Search,
   Trash2,
@@ -87,6 +93,34 @@ export default function BillingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMedPicker, setShowMedPicker] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [showPrint, setShowPrint] = useState(false);
+  const [lastInvoice, setLastInvoice] = useState<{
+    invoiceNo: string;
+    date: string;
+    customerName?: string;
+    customerPhone?: string;
+    customerAddress?: string;
+    paymentMode?: string;
+    subtotal: number;
+    totalGst: number;
+    cgst: number;
+    sgst: number;
+    discount?: number;
+    grandTotal: number;
+    notes?: string;
+    items: Array<{
+      medicineName: string;
+      hsnCode?: string;
+      quantity: number;
+      unit: string;
+      rate: number;
+      amount: number;
+      gstRate: number;
+      gstAmount: number;
+      cgst: number;
+      sgst: number;
+    }>;
+  } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filteredMeds = medicines?.filter(
@@ -181,12 +215,14 @@ export default function BillingPage() {
     }
     setSubmitting(true);
     try {
+      const invoiceNo = getNextInvoiceNo || `INV-${Date.now()}`;
+      const date = new Date().toISOString().split("T")[0];
       await createInvoice({
-        invoiceNo: getNextInvoiceNo || `INV-${Date.now()}`,
+        invoiceNo,
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
         customerAddress: customerAddress || undefined,
-        date: new Date().toISOString().split("T")[0],
+        date,
         subtotal: totals.subtotal,
         totalGst: totals.totalGst,
         cgst: totals.cgst,
@@ -201,6 +237,36 @@ export default function BillingPage() {
           medicineId: item.medicineId as any,
         })),
       });
+
+      // Store invoice data for printing
+      setLastInvoice({
+        invoiceNo,
+        date,
+        customerName: customerName || undefined,
+        customerPhone: customerPhone || undefined,
+        customerAddress: customerAddress || undefined,
+        paymentMode: paymentMode || undefined,
+        subtotal: totals.subtotal,
+        totalGst: totals.totalGst,
+        cgst: totals.cgst,
+        sgst: totals.sgst,
+        discount: discount || undefined,
+        grandTotal,
+        notes: notes || undefined,
+        items: items.map((item) => ({
+          medicineName: item.medicineName,
+          hsnCode: item.hsnCode,
+          quantity: item.quantity,
+          unit: item.unit,
+          rate: item.rate,
+          amount: item.amount,
+          gstRate: item.gstRate,
+          gstAmount: item.gstAmount,
+          cgst: item.cgst,
+          sgst: item.sgst,
+        })),
+      });
+
       toast("Invoice created successfully");
       // Reset form
       setItems([
@@ -523,6 +589,42 @@ export default function BillingPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Success banner with print option */}
+      {lastInvoice && !showPrint && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-sm border border-border/60 bg-secondary/30 p-4"
+        >
+          <p className="text-sm font-medium mb-2">
+            ✓ Invoice {lastInvoice.invoiceNo} created successfully
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => setShowPrint(true)}
+            >
+              <Printer className="h-3.5 w-3.5 mr-1.5" />
+              Print Invoice
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLastInvoice(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Print Preview */}
+      {showPrint && lastInvoice && (
+        <PrintContainer onClose={() => setShowPrint(false)}>
+          <GSTInvoiceTemplate invoice={lastInvoice} />
+        </PrintContainer>
+      )}
     </motion.div>
   );
 }
