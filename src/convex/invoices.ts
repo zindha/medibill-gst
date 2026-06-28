@@ -49,9 +49,12 @@ export const getNextInvoiceNo = query({
 export const create = mutation({
   args: {
     invoiceNo: v.string(),
+    customerId: v.optional(v.id("customers")),
     customerName: v.optional(v.string()),
     customerPhone: v.optional(v.string()),
     customerAddress: v.optional(v.string()),
+    doctorId: v.optional(v.id("doctors")),
+    prescriptionId: v.optional(v.id("prescriptions")),
     date: v.string(),
     subtotal: v.number(),
     totalGst: v.number(),
@@ -62,6 +65,8 @@ export const create = mutation({
     grandTotal: v.number(),
     paymentMode: v.optional(v.string()),
     notes: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("paid"), v.literal("unpaid"), v.literal("partial"))),
+    amountPaid: v.optional(v.number()),
     items: v.array(
       v.object({
         medicineId: v.optional(v.id("medicines")),
