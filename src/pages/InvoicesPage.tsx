@@ -175,8 +175,8 @@ export default function InvoicesPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      setPrintData(invoiceDetail);
                       setViewInvoiceId(null);
-                      setTimeout(() => setShowPrint(true), 100);
                     }}
                   >
                     <Printer className="h-3.5 w-3.5 mr-1.5" />
@@ -276,6 +276,42 @@ export default function InvoicesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Print Preview */}
+      {printData && (
+        <PrintContainer onClose={() => setPrintData(null)}>
+          <GSTInvoiceTemplate
+            invoice={{
+              invoiceNo: printData.invoice.invoiceNo,
+              date: printData.invoice.date,
+              customerName: printData.invoice.customerName ?? undefined,
+              customerPhone: printData.invoice.customerPhone ?? undefined,
+              customerAddress: printData.invoice.customerAddress ?? undefined,
+              paymentMode: printData.invoice.paymentMode ?? undefined,
+              subtotal: printData.invoice.subtotal,
+              totalGst: printData.invoice.totalGst,
+              cgst: printData.invoice.cgst,
+              sgst: printData.invoice.sgst,
+              igst: printData.invoice.igst,
+              discount: printData.invoice.discount ?? undefined,
+              grandTotal: printData.invoice.grandTotal,
+              notes: printData.invoice.notes ?? undefined,
+              items: printData.items.map((item) => ({
+                medicineName: item.medicineName,
+                hsnCode: item.hsnCode ?? undefined,
+                quantity: item.quantity,
+                unit: item.unit ?? undefined,
+                rate: item.rate,
+                amount: item.amount,
+                gstRate: item.gstRate,
+                gstAmount: item.gstAmount,
+                cgst: item.cgst,
+                sgst: item.sgst,
+              })),
+            }}
+          />
+        </PrintContainer>
+      )}
     </motion.div>
   );
 }

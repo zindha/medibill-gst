@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -105,6 +105,7 @@ export default function BillingPage() {
     totalGst: number;
     cgst: number;
     sgst: number;
+    igst: number;
     discount?: number;
     grandTotal: number;
     notes?: string;
@@ -250,6 +251,7 @@ export default function BillingPage() {
         totalGst: totals.totalGst,
         cgst: totals.cgst,
         sgst: totals.sgst,
+        igst: 0,
         discount: discount || undefined,
         grandTotal,
         notes: notes || undefined,

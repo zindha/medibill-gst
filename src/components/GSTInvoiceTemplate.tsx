@@ -57,7 +57,7 @@ const numberToWords = (num: number): string => {
   };
 
   if (num === 0) return "Zero";
-  const whole = Math.floor(num);
+  let whole = Math.floor(num);
   const paise = Math.round((num - whole) * 100);
 
   let words = "";
