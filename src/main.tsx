@@ -1,3 +1,4 @@
+import "@vly-ai/integrations";
 import { Toaster } from "@/components/ui/sonner";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { InstrumentationProvider } from "@/instrumentation.tsx";
@@ -13,6 +14,13 @@ import "./types/global.d.ts";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const DashboardLayout = lazy(() => import("./components/DashboardLayout.tsx"));
+const DashboardPage = lazy(() => import("./pages/DashboardPage.tsx"));
+const BillingPage = lazy(() => import("./pages/BillingPage.tsx"));
+const InvoicesPage = lazy(() => import("./pages/InvoicesPage.tsx"));
+const InventoryPage = lazy(() => import("./pages/InventoryPage.tsx"));
+const SuppliersPage = lazy(() => import("./pages/SuppliersPage.tsx"));
+const ScanBillPage = lazy(() => import("./pages/ScanBillPage.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -24,8 +32,6 @@ function RouteLoading() {
 }
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-
 
 function RouteSyncer() {
   const location = useLocation();
@@ -50,7 +56,6 @@ function RouteSyncer() {
   return null;
 }
 
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <VlyToolbar />
@@ -61,7 +66,15 @@ createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route path="/auth" element={<AuthPage redirectAfterAuth="/" />} /> {/* TODO: change redirect after auth to correct page */}
+              <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="billing" element={<BillingPage />} />
+                <Route path="invoices" element={<InvoicesPage />} />
+                <Route path="inventory" element={<InventoryPage />} />
+                <Route path="suppliers" element={<SuppliersPage />} />
+                <Route path="scan" element={<ScanBillPage />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
