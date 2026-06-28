@@ -124,7 +124,7 @@ const schema = defineSchema(
       grandTotal: v.number(),
       paymentMode: v.optional(v.string()),
       notes: v.optional(v.string()),
-      status: v.union(v.literal("paid"), v.literal("unpaid"), v.literal("partial")),
+      status: v.optional(v.union(v.literal("paid"), v.literal("unpaid"), v.literal("partial"))),
       amountPaid: v.optional(v.number()),
       userId: v.id("users"),
     }).index("by_user", ["userId"]).index("by_customer", ["customerId"]),

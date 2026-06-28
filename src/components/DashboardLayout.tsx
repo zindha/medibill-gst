@@ -2,12 +2,16 @@ import { LogoDropdown } from "@/components/LogoDropdown";
 import { cn } from "@/lib/utils";
 import {
   Activity,
+  BarChart3,
   FileText,
   LayoutDashboard,
   Package,
   ScanLine,
   Settings,
+  Stethoscope,
   Truck,
+  UserCheck,
+  Users,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 
@@ -16,8 +20,12 @@ const navItems = [
   { to: "/dashboard/billing", icon: FileText, label: "New Bill" },
   { to: "/dashboard/invoices", icon: Activity, label: "Invoices" },
   { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
+  { to: "/dashboard/customers", icon: Users, label: "Customers" },
+  { to: "/dashboard/doctors", icon: Stethoscope, label: "Doctors" },
   { to: "/dashboard/suppliers", icon: Truck, label: "Suppliers" },
+  { to: "/dashboard/reports", icon: BarChart3, label: "Reports" },
   { to: "/dashboard/scan", icon: ScanLine, label: "Scan Bill" },
+  { to: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
 export default function DashboardLayout() {
@@ -54,15 +62,7 @@ export default function DashboardLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-border">
-          <NavLink
-            to="/settings"
-            className="flex items-center gap-3 px-3 py-2 rounded-sm text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            Settings
-          </NavLink>
-        </div>
+
       </aside>
 
       {/* Mobile Nav */}

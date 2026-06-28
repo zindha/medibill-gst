@@ -19,7 +19,10 @@ const DashboardPage = lazy(() => import("./pages/DashboardPage.tsx"));
 const BillingPage = lazy(() => import("./pages/BillingPage.tsx"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage.tsx"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage.tsx"));
+const CustomersPage = lazy(() => import("./pages/CustomersPage.tsx"));
+const DoctorsPage = lazy(() => import("./pages/DoctorsPage.tsx"));
 const SuppliersPage = lazy(() => import("./pages/SuppliersPage.tsx"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage.tsx"));
 const ScanBillPage = lazy(() => import("./pages/ScanBillPage.tsx"));
 
 // Simple loading fallback for route transitions
@@ -72,8 +75,12 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="invoices" element={<InvoicesPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
+                <Route path="customers" element={<CustomersPage />} />
+                <Route path="doctors" element={<DoctorsPage />} />
                 <Route path="suppliers" element={<SuppliersPage />} />
+                <Route path="reports" element={<ReportsPage />} />
                 <Route path="scan" element={<ScanBillPage />} />
+                <Route path="settings" element={<DashboardPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
