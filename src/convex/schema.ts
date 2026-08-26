@@ -269,6 +269,17 @@ const schema = defineSchema(
       gstAmount: v.optional(v.number()),
       imageStorageId: v.optional(v.id("_storage")),
       ocrText: v.optional(v.string()),
+      lineItems: v.optional(
+        v.array(
+          v.object({
+            name: v.string(),
+            quantity: v.number(),
+            rate: v.number(),
+            gstRate: gstRateValidator,
+            hsnCode: v.optional(v.string()),
+          }),
+        ),
+      ),
       status: v.union(v.literal("pending"), v.literal("processed")),
       userId: v.id("users"),
     }).index("by_user", ["userId"]),

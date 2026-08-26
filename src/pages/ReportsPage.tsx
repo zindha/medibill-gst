@@ -22,6 +22,7 @@ import {
   FileText,
   Loader2,
   PackageCheck,
+  PackagePlus,
   ShoppingCart,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -554,6 +555,70 @@ export default function ReportsPage() {
                     Edit Details
                   </Button>
                 </>
+              )}
+
+              {viewedBill.lineItems && viewedBill.lineItems.length > 0 && (
+                <div className="border-t border-border pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Imported Line Items
+                    </p>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-sm border border-green-600/30 text-green-700 bg-green-600/5">
+                      In inventory
+                    </span>
+                  </div>
+                  <div className="hidden sm:grid grid-cols-12 gap-2 text-[10px] text-muted-foreground px-2 mb-1">
+                    <div className="col-span-5">Item</div>
+                    <div className="col-span-1 text-center">Qty</div>
+                    <div className="col-span-2 text-right">Rate</div>
+                    <div className="col-span-1 text-center">GST</div>
+                    <div className="col-span-2 text-right">Amount</div>
+                    <div className="col-span-1" />
+                  </div>
+                  <div className="space-y-1">
+                    {viewedBill.lineItems.map((item, i) => (
+                      <div
+                        key={i}
+                        className="grid grid-cols-12 gap-2 items-center text-xs py-1.5 px-2 rounded-sm border border-border/40"
+                      >
+                        <div className="col-span-12 sm:col-span-5">
+                          <p className="font-medium truncate">{item.name}</p>
+                          {item.hsnCode && (
+                            <p className="text-[10px] text-muted-foreground">
+                              HSN {item.hsnCode}
+                            </p>
+                          )}
+                        </div>
+                        <div className="col-span-3 sm:col-span-1 text-center text-muted-foreground">
+                          {item.quantity}
+                        </div>
+                        <div className="col-span-3 sm:col-span-2 text-right">
+                          ₹{item.rate.toFixed(2)}
+                        </div>
+                        <div className="col-span-2 sm:col-span-1 text-center">
+                          <span className="inline-block px-1 py-0.5 rounded-sm bg-secondary/60 text-[10px]">
+                            {item.gstRate}%
+                          </span>
+                        </div>
+                        <div className="col-span-2 sm:col-span-2 text-right font-medium">
+                          ₹{(item.quantity * item.rate).toFixed(2)}
+                        </div>
+                        <div className="col-span-2 sm:col-span-1 flex justify-end">
+                          <PackagePlus className="h-3.5 w-3.5 text-green-700" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-border pt-2 mt-2">
+                    <span className="text-muted-foreground">Line total</span>
+                    <span className="font-medium">
+                      ₹
+                      {viewedBill.lineItems
+                        .reduce((s, i) => s + i.quantity * i.rate, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                </div>
               )}
 
               <div>
