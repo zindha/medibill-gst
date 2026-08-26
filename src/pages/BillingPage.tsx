@@ -24,7 +24,11 @@ import {
   PrintContainer,
 } from "@/components/GSTInvoiceTemplate";
 import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
-import type { MedicineCatalogEntry } from "@/data/medicineCatalog";
+import {
+  getPopularCatalog,
+  useMedicineCatalog,
+  type CatalogMedicine,
+} from "@/hooks/useMedicineCatalog";
 import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -102,9 +106,8 @@ export default function BillingPage() {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [notes, setNotes] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const catalogResults = useQuery(api.catalog.search, {
-    query: searchQuery,
-  });
+  const { results: catalogResults, loading: catalogLoading } =
+    useMedicineCatalog(searchQuery);
   const [showMedPicker, setShowMedPicker] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
@@ -228,7 +231,7 @@ export default function BillingPage() {
     setShowMedPicker(false);
   }, []);
 
-  const addCatalogItemToBill = async (entry: MedicineCatalogEntry) => {
+  const addCatalogItemToBill = async (entry: CatalogMedicine) => {
     const idx = pickerIndexRef.current;
     if (idx === null) return;
     try {
@@ -247,7 +250,7 @@ export default function BillingPage() {
         quantity: 0,
         unit: entry.unit,
         purchasePrice: 0,
-        sellingPrice: 0,
+        sellingPrice: entry.price || 0,
         gstRate: entry.gstRate,
         hsnCode: entry.hsnCode,
       });
@@ -258,10 +261,10 @@ export default function BillingPage() {
         hsnCode: entry.hsnCode,
         quantity: 0,
         unit: entry.unit,
-        sellingPrice: 0,
+        sellingPrice: entry.price || 0,
         gstRate: entry.gstRate,
       } as any);
-      toast("Added to inventory — set the selling rate");
+      toast("Added to inventory — check the rate before saving");
     } catch {
       toast("Failed to add medicine");
     }
@@ -849,17 +852,24 @@ export default function BillingPage() {
                 No medicines found in inventory.
               </p>
             )}
-            {filteredMeds?.length === 0 &&
-              catalogResults &&
-              catalogResults.length > 0 && (
-                <div className="mt-3 border-t border-border pt-3">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-                    From Medicine Database
+            {filteredMeds?.length === 0 && (
+              <div className="mt-3 border-t border-border pt-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                  From Medicine Database
+                </p>
+                {catalogLoading && searchQuery.trim() ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading database…
                   </p>
+                ) : (
                   <div className="space-y-1">
-                    {catalogResults.map((m) => (
+                    {(searchQuery.trim()
+                      ? catalogResults
+                      : getPopularCatalog(15)
+                    )?.map((m) => (
                       <div
-                        key={m.name}
+                        key={`${m.name}-${m.company}`}
                         className="flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40"
                       >
                         <div className="min-w-0">
@@ -879,9 +889,15 @@ export default function BillingPage() {
                         </Button>
                       </div>
                     ))}
+                    {searchQuery.trim() && catalogResults?.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No medicines found in the database.
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

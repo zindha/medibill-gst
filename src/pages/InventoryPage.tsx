@@ -23,7 +23,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
-import type { MedicineCatalogEntry } from "@/data/medicineCatalog";
+import {
+  getPopularCatalog,
+  useMedicineCatalog,
+  type CatalogMedicine,
+} from "@/hooks/useMedicineCatalog";
 import {
   Barcode,
   BookOpen,
@@ -61,9 +65,12 @@ export default function InventoryPage() {
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
-  const catalogResults = useQuery(api.catalog.search, {
-    query: catalogSearch,
-  });
+  const {
+    results: catalogResults,
+    loading: catalogLoading,
+    count: catalogCount,
+    error: catalogError,
+  } = useMedicineCatalog(catalogSearch);
 
   const [form, setForm] = useState({
     name: "",
@@ -184,7 +191,7 @@ export default function InventoryPage() {
     }
   };
 
-  const importFromCatalog = (entry: MedicineCatalogEntry) => {
+  const importFromCatalog = (entry: CatalogMedicine) => {
     setForm({
       name: entry.name,
       brand: entry.company,
@@ -197,7 +204,7 @@ export default function InventoryPage() {
       unit: entry.unit,
       barcode: "",
       purchasePrice: 0,
-      sellingPrice: 0,
+      sellingPrice: entry.price || 0,
       gstRate: entry.gstRate,
       hsnCode: entry.hsnCode,
       supplierId: "",
@@ -594,7 +601,7 @@ export default function InventoryPage() {
           <DialogHeader>
             <DialogTitle>Medicine Database</DialogTitle>
             <DialogDescription>
-              Search popular medicines from leading pharma companies — then
+              Search 2.4 lakh+ medicines from leading pharma companies — then
               add them to your inventory with prices and stock
             </DialogDescription>
           </DialogHeader>
@@ -603,43 +610,69 @@ export default function InventoryPage() {
               value={catalogSearch}
               onChange={(e) => setCatalogSearch(e.target.value)}
               placeholder="Search by name, company, or composition..."
-              className="mb-3 pr-9"
+              className="mb-2 pr-9"
               autoFocus
             />
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
+          <p className="text-[11px] text-muted-foreground mb-2">
+            {catalogSearch.trim()
+              ? catalogCount
+                ? `${catalogCount.toLocaleString("en-IN")} medicines · results below`
+                : "Loading the full medicine database…"
+              : "Popular medicines — start typing to search the full database"}
+          </p>
           <div className="max-h-72 overflow-y-auto space-y-1">
-            {catalogResults?.map((entry) => (
-              <div
-                key={entry.name}
-                className="flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{entry.name}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {entry.company} · {entry.composition}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {entry.category} · {entry.packSize} · HSN {entry.hsnCode} ·
-                    {entry.gstRate}% GST
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 ml-3"
-                  onClick={() => importFromCatalog(entry)}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  Add
-                </Button>
-              </div>
-            ))}
-            {catalogResults?.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                No medicines found in the database.
+            {catalogLoading && catalogSearch.trim() && (
+              <p className="text-sm text-muted-foreground text-center py-6 flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading database…
               </p>
             )}
+            {!catalogLoading &&
+              (catalogSearch.trim() ? catalogResults : getPopularCatalog(40))?.map(
+                (entry) => (
+                  <div
+                    key={`${entry.name}-${entry.company}`}
+                    className="flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{entry.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {entry.company} · {entry.composition}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {entry.category} · {entry.packSize} · HSN{" "}
+                        {entry.hsnCode} · {entry.gstRate}% GST
+                        {entry.price ? ` · ₹${entry.price.toFixed(2)}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 ml-3"
+                      onClick={() => importFromCatalog(entry)}
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                ),
+              )}
+            {!catalogLoading && catalogError && catalogSearch.trim() && (
+              <p className="text-sm text-destructive text-center py-6">
+                Failed to load the medicine database. Check your connection and
+                try again.
+              </p>
+            )}
+            {!catalogLoading &&
+              !catalogError &&
+              catalogSearch.trim() &&
+              catalogResults?.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No medicines found in the database.
+                </p>
+              )}
           </div>
         </DialogContent>
       </Dialog>
