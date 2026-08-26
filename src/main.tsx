@@ -18,6 +18,7 @@ const DashboardLayout = lazy(() => import("./components/DashboardLayout.tsx"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage.tsx"));
 const BillingPage = lazy(() => import("./pages/BillingPage.tsx"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage.tsx"));
+const PaymentsPage = lazy(() => import("./pages/PaymentsPage.tsx"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage.tsx"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage.tsx"));
 const DoctorsPage = lazy(() => import("./pages/DoctorsPage.tsx"));
@@ -74,6 +75,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route index element={<DashboardPage />} />
                 <Route path="billing" element={<BillingPage />} />
                 <Route path="invoices" element={<InvoicesPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="customers" element={<CustomersPage />} />
                 <Route path="doctors" element={<DoctorsPage />} />

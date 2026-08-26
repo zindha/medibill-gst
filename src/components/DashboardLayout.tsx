@@ -12,6 +12,7 @@ import {
   Truck,
   UserCheck,
   Users,
+  Wallet,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
   { to: "/dashboard/billing", icon: FileText, label: "New Bill" },
   { to: "/dashboard/invoices", icon: Activity, label: "Invoices" },
+  { to: "/dashboard/payments", icon: Wallet, label: "Payments" },
   { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
   { to: "/dashboard/customers", icon: Users, label: "Customers" },
   { to: "/dashboard/doctors", icon: Stethoscope, label: "Doctors" },

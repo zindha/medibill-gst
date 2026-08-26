@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, MutationCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 
 export const list = query({
@@ -58,6 +59,48 @@ export const getTotals = query({
   },
 });
 
+export const listByInvoice = query({
+  args: { invoiceId: v.id("invoices") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    const payments = await ctx.db
+      .query("payments")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    return payments
+      .filter((p) => p.invoiceId === args.invoiceId)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  },
+});
+
+async function recomputeInvoiceStatus(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  invoiceId: Id<"invoices">,
+  invoiceMode?: string | null,
+) {
+  const invoice = await ctx.db.get(invoiceId);
+  if (!invoice) return;
+  const payments = await ctx.db
+    .query("payments")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const received = payments
+    .filter((p) => p.invoiceId === invoiceId && p.type === "received")
+    .reduce((s, p) => s + p.amount, 0);
+  const amountPaid = Math.min(received, invoice.grandTotal);
+  let status: "paid" | "unpaid" | "partial";
+  if (received <= 0) {
+    status = invoiceMode === "Credit" ? "unpaid" : "paid";
+  } else if (amountPaid >= invoice.grandTotal) {
+    status = "paid";
+  } else {
+    status = "partial";
+  }
+  await ctx.db.patch(invoiceId, { amountPaid, status });
+}
+
 export const create = mutation({
   args: {
     date: v.string(),
@@ -74,6 +117,31 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    return await ctx.db.insert("payments", { ...args, userId: user._id });
+    const paymentId = await ctx.db.insert("payments", {
+      ...args,
+      userId: user._id,
+    });
+    // Keep the linked invoice's status/amountPaid in sync
+    if (args.invoiceId && args.type === "received") {
+      const invoice = await ctx.db.get(args.invoiceId);
+      await recomputeInvoiceStatus(ctx, user._id, args.invoiceId, invoice?.paymentMode);
+    }
+    return paymentId;
+  },
+});
+
+export const remove = mutation({
+  args: { id: v.id("payments") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    const payment = await ctx.db.get(args.id);
+    if (!payment) return;
+    const { invoiceId, type } = payment;
+    await ctx.db.delete(args.id);
+    if (invoiceId && type === "received") {
+      const invoice = await ctx.db.get(invoiceId);
+      await recomputeInvoiceStatus(ctx, user._id, invoiceId, invoice?.paymentMode);
+    }
   },
 });

@@ -24,6 +24,7 @@ import {
   PrintContainer,
 } from "@/components/GSTInvoiceTemplate";
 import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
+import type { MedicineCatalogEntry } from "@/data/medicineCatalog";
 import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -75,6 +76,7 @@ export default function BillingPage() {
   const customers = useQuery(api.customers.list);
   const doctors = useQuery(api.doctors.list);
   const createInvoice = useMutation(api.invoices.create);
+  const createMedicine = useMutation(api.medicines.create);
   const getNextInvoiceNo = useQuery(api.invoices.getNextInvoiceNo);
   const [submitting, setSubmitting] = useState(false);
 
@@ -100,6 +102,9 @@ export default function BillingPage() {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [notes, setNotes] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const catalogResults = useQuery(api.catalog.search, {
+    query: searchQuery,
+  });
   const [showMedPicker, setShowMedPicker] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
@@ -222,6 +227,45 @@ export default function BillingPage() {
     setPickerIndex(null);
     setShowMedPicker(false);
   }, []);
+
+  const addCatalogItemToBill = async (entry: MedicineCatalogEntry) => {
+    const idx = pickerIndexRef.current;
+    if (idx === null) return;
+    try {
+      const existing = medicines?.find(
+        (med) => med.name.toLowerCase() === entry.name.toLowerCase(),
+      );
+      if (existing) {
+        selectMedicine(existing);
+        return;
+      }
+      const medId = await createMedicine({
+        name: entry.name,
+        brand: entry.company,
+        category: entry.category,
+        composition: entry.composition,
+        quantity: 0,
+        unit: entry.unit,
+        purchasePrice: 0,
+        sellingPrice: 0,
+        gstRate: entry.gstRate,
+        hsnCode: entry.hsnCode,
+      });
+      selectMedicine({
+        _id: medId,
+        name: entry.name,
+        brand: entry.company,
+        hsnCode: entry.hsnCode,
+        quantity: 0,
+        unit: entry.unit,
+        sellingPrice: 0,
+        gstRate: entry.gstRate,
+      } as any);
+      toast("Added to inventory — set the selling rate");
+    } catch {
+      toast("Failed to add medicine");
+    }
+  };
 
   const lookupBarcode = useCallback(
     async (code: string) => {
@@ -802,9 +846,42 @@ export default function BillingPage() {
             ))}
             {filteredMeds?.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No medicines found. Add some in Inventory first.
+                No medicines found in inventory.
               </p>
             )}
+            {filteredMeds?.length === 0 &&
+              catalogResults &&
+              catalogResults.length > 0 && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
+                    From Medicine Database
+                  </p>
+                  <div className="space-y-1">
+                    {catalogResults.map((m) => (
+                      <div
+                        key={m.name}
+                        className="flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{m.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {m.company} · {m.composition}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 ml-3"
+                          onClick={() => void addCatalogItemToBill(m)}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
         </DialogContent>
       </Dialog>
