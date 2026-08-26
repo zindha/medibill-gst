@@ -282,6 +282,19 @@ const schema = defineSchema(
       details: v.optional(v.string()),
       timestamp: v.number(),
     }).index("by_user", ["userId"]).index("by_entity", ["entity", "entityId"]),
+
+    // Per-user overrides for medicine catalog entries (region availability
+    // flags and verified GST/HSN values). catalogKey is `${name}::${company}`.
+    catalogOverrides: defineTable({
+      catalogKey: v.string(),
+      medicineName: v.string(),
+      company: v.optional(v.string()),
+      unavailable: v.optional(v.boolean()),
+      gstRate: v.optional(gstRateValidator),
+      hsnCode: v.optional(v.string()),
+      verified: v.optional(v.boolean()),
+      userId: v.id("users"),
+    }).index("by_user", ["userId"]).index("by_key", ["userId", "catalogKey"]),
   },
   {
     schemaValidation: false,

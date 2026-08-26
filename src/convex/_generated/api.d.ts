@@ -11,6 +11,7 @@
 import type * as activityLog from "../activityLog.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
+import type * as catalogOverrides from "../catalogOverrides.js";
 import type * as creditAccounts from "../creditAccounts.js";
 import type * as customers from "../customers.js";
 import type * as doctors from "../doctors.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   activityLog: typeof activityLog;
   auth: typeof auth;
   "auth/emailOtp": typeof auth_emailOtp;
+  catalogOverrides: typeof catalogOverrides;
   creditAccounts: typeof creditAccounts;
   customers: typeof customers;
   doctors: typeof doctors;

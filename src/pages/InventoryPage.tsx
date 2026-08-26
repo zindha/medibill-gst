@@ -13,6 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -31,11 +36,15 @@ import {
 import {
   Barcode,
   BookOpen,
+  CheckCircle2,
+  Eye,
+  EyeOff,
   Loader2,
   PackagePlus,
   Plus,
   ScanBarcode,
   Search,
+  Tag,
   Trash2,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -65,12 +74,22 @@ export default function InventoryPage() {
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const [gstDraft, setGstDraft] = useState<{
+    key: string;
+    gstRate: number;
+    hsnCode: string;
+  } | null>(null);
   const {
     results: catalogResults,
     loading: catalogLoading,
     count: catalogCount,
     error: catalogError,
-  } = useMedicineCatalog(catalogSearch);
+    unavailableCount,
+    saveGst,
+    toggleUnavailable,
+    removeOverride,
+  } = useMedicineCatalog(catalogSearch, 25, showUnavailable);
 
   const [form, setForm] = useState({
     name: "",
@@ -622,6 +641,15 @@ export default function InventoryPage() {
                 : "Loading the full medicine database…"
               : "Popular medicines — start typing to search the full database"}
           </p>
+          {catalogSearch.trim() && unavailableCount > 0 && (
+            <button
+              onClick={() => setShowUnavailable((s) => !s)}
+              className="mb-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showUnavailable ? "Hide" : "Show"} unavailable in region (
+              {unavailableCount})
+            </button>
+          )}
           <div className="max-h-72 overflow-y-auto space-y-1">
             {catalogLoading && catalogSearch.trim() && (
               <p className="text-sm text-muted-foreground text-center py-6 flex items-center justify-center gap-2">
@@ -634,10 +662,19 @@ export default function InventoryPage() {
                 (entry) => (
                   <div
                     key={`${entry.name}-${entry.company}`}
-                    className="flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40"
+                    className={`flex items-center justify-between px-3 py-2 rounded-sm text-sm border border-border/40 ${
+                      entry.unavailable ? "opacity-50" : ""
+                    }`}
                   >
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{entry.name}</p>
+                      <p className="font-medium truncate">
+                        {entry.name}
+                        {entry.unavailable && (
+                          <span className="ml-2 text-[10px] text-red-600 border border-red-600/30 rounded-sm px-1 py-0.5 align-middle">
+                            Unavailable
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {entry.company} · {entry.composition}
                       </p>
@@ -647,15 +684,155 @@ export default function InventoryPage() {
                         {entry.price ? ` · ₹${entry.price.toFixed(2)}` : ""}
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0 ml-3"
-                      onClick={() => importFromCatalog(entry)}
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-3">
+                      {catalogSearch.trim() && (
+                        <>
+                          {/* GST / HSN verification */}
+                          <Popover
+                            open={gstDraft?.key === entry.catalogKey}
+                            onOpenChange={(open) =>
+                              !open && setGstDraft(null)
+                            }
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs shrink-0"
+                                onClick={() =>
+                                  setGstDraft({
+                                    key: entry.catalogKey,
+                                    gstRate: entry.gstRate,
+                                    hsnCode: entry.hsnCode,
+                                  })
+                                }
+                              >
+                                {entry.verified ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-600 mr-1" />
+                                ) : (
+                                  <Tag className="h-3 w-3 text-muted-foreground mr-1" />
+                                )}
+                                {entry.gstRate}%
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-60 p-3" align="end">
+                              <p className="text-xs font-medium mb-2">
+                                Verify GST / HSN
+                              </p>
+                              <div className="space-y-2">
+                                <div>
+                                  <Label className="text-xs">GST Rate</Label>
+                                  <Select
+                                    value={String(
+                                      gstDraft?.gstRate ?? entry.gstRate,
+                                    )}
+                                    onValueChange={(v) =>
+                                      setGstDraft((d) =>
+                                        d ? { ...d, gstRate: Number(v) } : d,
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className="mt-1 h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {GST_RATES.map((r) => (
+                                        <SelectItem key={r} value={String(r)}>
+                                          {r}%
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-xs">HSN Code</Label>
+                                  <Input
+                                    value={gstDraft?.hsnCode ?? entry.hsnCode}
+                                    onChange={(e) =>
+                                      setGstDraft((d) =>
+                                        d
+                                          ? { ...d, hsnCode: e.target.value }
+                                          : d,
+                                      )
+                                    }
+                                    className="mt-1 h-8 text-xs"
+                                  />
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <Button
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => {
+                                      if (gstDraft) {
+                                        saveGst(
+                                          entry,
+                                          gstDraft.gstRate,
+                                          gstDraft.hsnCode,
+                                        );
+                                        toast("GST rate saved");
+                                      }
+                                      setGstDraft(null);
+                                    }}
+                                  >
+                                    Save
+                                  </Button>
+                                  {(entry.verified || entry.unavailable) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        removeOverride(entry.catalogKey);
+                                        setGstDraft(null);
+                                        toast("Reset to database defaults");
+                                      }}
+                                    >
+                                      Reset
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          {/* Region availability flag */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                            title={
+                              entry.unavailable
+                                ? "Mark available in my region"
+                                : "Mark unavailable in my region"
+                            }
+                            onClick={() => {
+                              toggleUnavailable(
+                                entry,
+                                !entry.unavailable,
+                              );
+                              toast(
+                                entry.unavailable
+                                  ? "Marked available in your region"
+                                  : "Marked unavailable in your region",
+                              );
+                            }}
+                          >
+                            {entry.unavailable ? (
+                              <EyeOff className="h-3.5 w-3.5" />
+                            ) : (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => importFromCatalog(entry)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add
+                      </Button>
+                    </div>
                   </div>
                 ),
               )}
