@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
+import { EmptyState } from "@/components/EmptyState";
 import {
   getPopularCatalog,
   useMedicineCatalog,
@@ -915,9 +916,30 @@ export default function InventoryPage() {
           </motion.div>
         ))}
         {filtered?.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No medicines found.
-          </p>
+          <EmptyState
+            icon={PackagePlus}
+            title={
+              search ? "No medicines match your search" : "No medicines in stock yet"
+            }
+            description={
+              search
+                ? "Try a different name, brand, or barcode — or browse the 2.4 lakh+ medicine database."
+                : "Add your first medicine manually, scan a barcode, or pull it straight from the medicine database in seconds."
+            }
+            actions={[
+              ...(search
+                ? []
+                : [{ label: "Add Medicine", onClick: () => setDialogOpen(true) }]),
+              {
+                label: "Browse Medicine DB",
+                onClick: () => {
+                  setCatalogSearch("");
+                  setCatalogOpen(true);
+                },
+                variant: "outline" as const,
+              },
+            ]}
+          />
         )}
       </div>
     </motion.div>

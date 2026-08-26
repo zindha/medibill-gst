@@ -90,6 +90,22 @@ export const dashboard = query({
       monthlyRevenue.push({ month, revenue });
     }
 
+    // Daily activity for the last 7 days (billing rhythm strip)
+    const dailyInvoices: { date: string; label: string; count: number; revenue: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const date = d.toISOString().split("T")[0];
+      const label = i === 0 ? "Today" : d.toLocaleString("en-US", { weekday: "short" });
+      const dayInvoices = invoices.filter((inv) => inv.date === date);
+      dailyInvoices.push({
+        date,
+        label,
+        count: dayInvoices.length,
+        revenue: dayInvoices.reduce((sum, inv) => sum + inv.grandTotal, 0),
+      });
+    }
+
     return {
       totalMedicines: medicines.length,
       totalStock: totalMedicines,
@@ -107,6 +123,7 @@ export const dashboard = query({
       dueReminders: dueReminders.length,
       pendingPurchaseBills: pendingPurchaseBills.length,
       monthlyRevenue,
+      dailyInvoices,
       totalPaymentsReceived: payments.filter((p) => p.type === "received").reduce((s, p) => s + p.amount, 0),
       totalPaymentsMade: payments.filter((p) => p.type === "paid").reduce((s, p) => s + p.amount, 0),
     };

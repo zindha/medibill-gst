@@ -29,6 +29,7 @@ import {
   useMedicineCatalog,
   type CatalogMedicine,
 } from "@/hooks/useMedicineCatalog";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -440,11 +441,31 @@ export default function BillingPage() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">New Bill</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight">New Bill</h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 px-2 py-0.5 text-[10px] text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              {new Date().toLocaleDateString("en-IN", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {getNextInvoiceNo && `Invoice #${getNextInvoiceNo}`}
+            {getNextInvoiceNo ? (
+              <>
+                Invoice{" "}
+                <span className="font-mono font-medium text-foreground">
+                  {getNextInvoiceNo}
+                </span>{" "}
+                · GST-ready
+              </>
+            ) : (
+              "GST-ready billing"
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -715,9 +736,17 @@ export default function BillingPage() {
                 className="h-7 w-24 text-sm text-right"
               />
             </div>
-            <div className="flex justify-between text-base font-semibold pt-2 border-t border-border">
-              <span>Grand Total</span>
-              <span>₹{grandTotal.toFixed(2)}</span>
+            <div className="flex items-end justify-between pt-3 border-t border-border mt-1">
+              <span className="text-sm text-muted-foreground uppercase tracking-wider">
+                Grand Total
+              </span>
+              <span className="text-2xl font-semibold tracking-tight text-primary tabular-nums leading-none">
+                ₹
+                <AnimatedNumber
+                  value={grandTotal}
+                  format={(n) => n.toFixed(2)}
+                />
+              </span>
             </div>
             {paymentMode === "Credit" && (
               <p className="text-xs text-muted-foreground">

@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -165,7 +166,29 @@ export default function CustomersPage() {
             </div>
           </motion.div>
         ))}
-        {filtered?.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No customers found.</p>}
+        {filtered?.length === 0 && (
+          <EmptyState
+            icon={UserPlus}
+            title={
+              search ? "No customers match your search" : "No customers yet"
+            }
+            description={
+              search
+                ? "Try a different name or phone number."
+                : "Save regular customers for one-tap billing — their purchase history and credit balances are tracked automatically."
+            }
+            actions={
+              search
+                ? []
+                : [
+                    {
+                      label: "Add Customer",
+                      onClick: () => setDialogOpen(true),
+                    },
+                  ]
+            }
+          />
+        )}
       </div>
     </motion.div>
   );

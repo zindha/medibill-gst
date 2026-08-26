@@ -21,6 +21,7 @@ import {
   GSTInvoiceTemplate,
   PrintContainer,
 } from "@/components/GSTInvoiceTemplate";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -28,6 +29,7 @@ import {
   Banknote,
   Eye,
   Printer,
+  Receipt,
   Search,
   Trash2,
 } from "lucide-react";
@@ -250,9 +252,25 @@ export default function InvoicesPage() {
           </motion.div>
         ))}
         {filtered?.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No invoices found.
-          </p>
+          <EmptyState
+            icon={Receipt}
+            title={search ? "No invoices match your search" : "No invoices yet"}
+            description={
+              search
+                ? "Try a different invoice number or customer name."
+                : "Create your first GST invoice from billing — scan barcodes, add items, and print a GST-compliant bill in seconds."
+            }
+            actions={
+              search
+                ? []
+                : [
+                    {
+                      label: "Create Invoice",
+                      onClick: () => navigate("/dashboard/billing"),
+                    },
+                  ]
+            }
+          />
         )}
       </div>
 

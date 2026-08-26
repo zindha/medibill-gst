@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -64,6 +65,7 @@ export default function PaymentsPage() {
   const removePayment = useMutation(api.payments.remove);
   const [filter, setFilter] = useState<PayType | "all">("all");
   const [saving, setSaving] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const [form, setForm] = useState({
     type: "received" as PayType,
@@ -209,7 +211,9 @@ export default function PaymentsPage() {
           </p>
         </div>
         <Dialog
+          open={addOpen}
           onOpenChange={(open) => {
+            setAddOpen(open);
             if (!open) resetForm();
           }}
         >
@@ -432,9 +436,18 @@ export default function PaymentsPage() {
           </motion.div>
         ))}
         {filtered?.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No payments found.
-          </p>
+          <EmptyState
+            icon={Wallet}
+            title={
+              filter === "all" ? "No payments recorded" : `No ${TYPE_META[filter].label.toLowerCase()} payments`
+            }
+            description={
+              filter === "all"
+                ? "Record money received, paid out, or expenses. Bill on credit and every collection is tracked here automatically."
+                : `Nothing under ${TYPE_META[filter].label.toLowerCase()} yet — switch to All or record a new payment.`
+            }
+            actions={[{ label: "Add Payment", onClick: () => setAddOpen(true) }]}
+          />
         )}
       </div>
     </motion.div>
