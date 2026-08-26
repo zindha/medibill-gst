@@ -1,11 +1,12 @@
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   CalendarRange,
@@ -17,11 +18,14 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 export default function ReportsPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const stats = useQuery(api.stats.dashboard);
+  const updatePurchaseBill = useMutation(api.purchaseBills.update);
+  const [markingId, setMarkingId] = useState<Id<"purchaseBills"> | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">("gst");
@@ -49,6 +53,19 @@ export default function ReportsPage() {
     { id: "stock" as const, label: "Stock Report" },
     { id: "customer" as const, label: "Customer Analytics" },
   ];
+
+  const toggleBillStatus = async (b: NonNullable<typeof purchaseData>["entries"][number]) => {
+    const next = b.status === "processed" ? "pending" : "processed";
+    setMarkingId(b._id);
+    try {
+      await updatePurchaseBill({ id: b._id, status: next });
+      toast(next === "processed" ? "Bill marked as processed" : "Bill marked as pending");
+    } catch {
+      toast("Failed to update bill");
+    } finally {
+      setMarkingId(null);
+    }
+  };
 
   const quickRange = (days: number) => {
     const to = new Date();
@@ -184,9 +201,30 @@ export default function ReportsPage() {
                     <span className="w-20 shrink-0 text-muted-foreground">{b.billNo || "—"}</span>
                     <span className="w-24 shrink-0 text-muted-foreground">{b.billDate || "—"}</span>
                     <span className="flex-1 truncate px-2">
-                      <span className={`px-1.5 py-0.5 rounded-sm border text-[10px] ${b.status === "processed" ? "border-green-600/30 text-green-700 bg-green-600/5" : "border-amber-600/30 text-amber-700 bg-amber-600/5"}`}>
-                        {b.status === "processed" ? "Processed" : "Pending"}
-                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={markingId === b._id}
+                        onClick={() => void toggleBillStatus(b)}
+                        title={
+                          b.status === "processed"
+                            ? "Mark as pending"
+                            : "Mark as processed"
+                        }
+                        className={`h-6 px-2 text-[10px] border rounded-sm ${
+                          b.status === "processed"
+                            ? "border-green-600/30 text-green-700 bg-green-600/5 hover:bg-green-600/10"
+                            : "border-amber-600/30 text-amber-700 bg-amber-600/5 hover:bg-amber-600/10"
+                        }`}
+                      >
+                        {markingId === b._id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <>
+                            {b.status === "processed" ? "✓ Processed" : "Mark Done"}
+                          </>
+                        )}
+                      </Button>
                     </span>
                     <span className="w-20 text-right">₹{b.amount.toFixed(2)}</span>
                     <span className="w-16 text-right">₹{(b.gstAmount || 0).toFixed(2)}</span>
