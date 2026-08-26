@@ -62,7 +62,7 @@ export default function ScanBillPage() {
         await createPurchaseBill({
           supplierName: extracted.supplierName || "Unknown Supplier",
           billNo: extracted.billNo || undefined,
-          billDate: undefined,
+          billDate: new Date().toISOString().split("T")[0],
           amount: extracted.amount || 0,
           gstAmount: extracted.gstAmount || undefined,
           ocrText: text,

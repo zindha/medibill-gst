@@ -452,9 +452,42 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {stats.dueReminders > 0 &&
                     `${stats.dueReminders} refill reminders due · `}
-                  {stats.pendingPurchaseBills > 0 &&
-                    `${stats.pendingPurchaseBills} bills pending`}
+                  Track collections in Payments.
                 </p>
+              </Card>
+            )}
+
+            {stats.pendingPurchaseBills > 0 && (
+              <Card className="p-4 border-l-2 border-l-teal-500">
+                <h3 className="text-xs font-medium flex items-center gap-1.5 mb-2">
+                  <Truck className="h-3.5 w-3.5 text-teal-600" />
+                  Purchase Bills Pending
+                </h3>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-semibold text-teal-600">
+                    <AnimatedNumber value={stats.pendingPurchaseBills} />
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {stats.pendingPurchaseBills === 1 ? "bill" : "bills"}{" "}
+                    to process
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {stats.pendingPurchaseBillsAmount > 0 &&
+                    `₹${Math.round(stats.pendingPurchaseBillsAmount).toLocaleString("en-IN")} in scanned purchases · `}
+                  Review and mark them done in the register.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 w-full"
+                  onClick={() =>
+                    navigate("/dashboard/reports?tab=purchase&range=30")
+                  }
+                >
+                  Review Bills
+                  <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
               </Card>
             )}
           </div>

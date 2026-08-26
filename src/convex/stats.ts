@@ -75,6 +75,10 @@ export const dashboard = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .filter((b) => b.eq(b.field("status"), "pending"))
       .collect();
+    const pendingPurchaseBillsAmount = pendingPurchaseBills.reduce(
+      (sum, b) => sum + b.amount,
+      0,
+    );
 
     // Monthly revenue for chart (last 6 months)
     const monthlyRevenue: { month: string; revenue: number }[] = [];
@@ -122,6 +126,7 @@ export const dashboard = query({
       recentInvoices,
       dueReminders: dueReminders.length,
       pendingPurchaseBills: pendingPurchaseBills.length,
+      pendingPurchaseBillsAmount,
       monthlyRevenue,
       dailyInvoices,
       totalPaymentsReceived: payments.filter((p) => p.type === "received").reduce((s, p) => s + p.amount, 0),
@@ -176,8 +181,9 @@ export const purchaseRegister = query({
       .query("purchaseBills")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
-    if (args.fromDate) bills = bills.filter((b) => b.billDate && b.billDate >= args.fromDate!);
-    if (args.toDate) bills = bills.filter((b) => b.billDate && b.billDate <= args.toDate!);
+    // Bills without a date (e.g. freshly scanned) stay visible in any range
+    if (args.fromDate) bills = bills.filter((b) => !b.billDate || b.billDate >= args.fromDate!);
+    if (args.toDate) bills = bills.filter((b) => !b.billDate || b.billDate <= args.toDate!);
     bills.sort((a, b) => (a.billDate || "").localeCompare(b.billDate || ""));
     return {
       entries: bills,

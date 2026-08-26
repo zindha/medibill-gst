@@ -25,12 +25,26 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 export default function ReportsPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryTab = searchParams.get("tab");
+  const queryRange = Number(searchParams.get("range") || 0);
+  const initialDates = (() => {
+    if (queryRange <= 0) return null;
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - queryRange + 1);
+    return {
+      from: from.toISOString().split("T")[0],
+      to: to.toISOString().split("T")[0],
+    };
+  })();
+
   const stats = useQuery(api.stats.dashboard);
   const updatePurchaseBill = useMutation(api.purchaseBills.update);
   const [markingId, setMarkingId] = useState<Id<"purchaseBills"> | null>(null);
@@ -43,9 +57,13 @@ export default function ReportsPage() {
     amount: string;
     gstAmount: string;
   } | null>(null);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">("gst");
+  const [fromDate, setFromDate] = useState(initialDates?.from || "");
+  const [toDate, setToDate] = useState(initialDates?.to || "");
+  const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">(
+    queryTab === "purchase" || queryTab === "stock" || queryTab === "customer"
+      ? queryTab
+      : "gst",
+  );
 
   const gstData = useQuery(api.stats.gstRegister, fromDate || toDate ? { fromDate: fromDate || undefined, toDate: toDate || undefined } : "skip");
   const purchaseData = useQuery(api.stats.purchaseRegister, fromDate || toDate ? { fromDate: fromDate || undefined, toDate: toDate || undefined } : "skip");
