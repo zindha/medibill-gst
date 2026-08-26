@@ -2,6 +2,13 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/EmptyState";
@@ -11,6 +18,7 @@ import { motion } from "framer-motion";
 import {
   CalendarRange,
   Download,
+  Eye,
   FileText,
   Loader2,
   PackageCheck,
@@ -26,6 +34,7 @@ export default function ReportsPage() {
   const stats = useQuery(api.stats.dashboard);
   const updatePurchaseBill = useMutation(api.purchaseBills.update);
   const [markingId, setMarkingId] = useState<Id<"purchaseBills"> | null>(null);
+  const [viewBillId, setViewBillId] = useState<Id<"purchaseBills"> | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">("gst");
@@ -53,6 +62,8 @@ export default function ReportsPage() {
     { id: "stock" as const, label: "Stock Report" },
     { id: "customer" as const, label: "Customer Analytics" },
   ];
+
+  const viewedBill = purchaseData?.entries.find((b) => b._id === viewBillId) ?? null;
 
   const toggleBillStatus = async (b: NonNullable<typeof purchaseData>["entries"][number]) => {
     const next = b.status === "processed" ? "pending" : "processed";
@@ -200,7 +211,16 @@ export default function ReportsPage() {
                     <span className="w-36 shrink-0 font-medium truncate">{b.supplierName || "Unknown Supplier"}</span>
                     <span className="w-20 shrink-0 text-muted-foreground">{b.billNo || "—"}</span>
                     <span className="w-24 shrink-0 text-muted-foreground">{b.billDate || "—"}</span>
-                    <span className="flex-1 truncate px-2">
+                    <span className="flex-1 flex items-center gap-1.5 px-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() => setViewBillId(b._id)}
+                        title="View bill details"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -211,7 +231,7 @@ export default function ReportsPage() {
                             ? "Mark as pending"
                             : "Mark as processed"
                         }
-                        className={`h-6 px-2 text-[10px] border rounded-sm ${
+                        className={`h-6 px-2 text-[10px] border rounded-sm shrink-0 ${
                           b.status === "processed"
                             ? "border-green-600/30 text-green-700 bg-green-600/5 hover:bg-green-600/10"
                             : "border-amber-600/30 text-amber-700 bg-amber-600/5 hover:bg-amber-600/10"
@@ -285,6 +305,109 @@ export default function ReportsPage() {
           )}
         </Card>
       )}
+
+      {/* Purchase Bill Detail Dialog */}
+      <Dialog
+        open={!!viewBillId}
+        onOpenChange={(open) => !open && setViewBillId(null)}
+      >
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          {viewedBill && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between gap-3">
+                  <span className="truncate">
+                    {viewedBill.supplierName || "Purchase Bill"}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded-sm border text-[10px] shrink-0 ${
+                      viewedBill.status === "processed"
+                        ? "border-green-600/30 text-green-700 bg-green-600/5"
+                        : "border-amber-600/30 text-amber-700 bg-amber-600/5"
+                    }`}
+                  >
+                    {viewedBill.status === "processed"
+                      ? "Processed"
+                      : "Pending"}
+                  </span>
+                </DialogTitle>
+                <DialogDescription>
+                  Details extracted from the scanned purchase bill
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-secondary/50 p-2.5 rounded-sm">
+                  <p className="text-[11px] text-muted-foreground">Bill No.</p>
+                  <p className="text-sm font-medium mt-0.5">
+                    {viewedBill.billNo || "—"}
+                  </p>
+                </div>
+                <div className="bg-secondary/50 p-2.5 rounded-sm">
+                  <p className="text-[11px] text-muted-foreground">Bill Date</p>
+                  <p className="text-sm font-medium mt-0.5">
+                    {viewedBill.billDate || "—"}
+                  </p>
+                </div>
+                <div className="bg-secondary/50 p-2.5 rounded-sm">
+                  <p className="text-[11px] text-muted-foreground">Amount</p>
+                  <p className="text-sm font-semibold mt-0.5 text-primary">
+                    ₹{viewedBill.amount.toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-secondary/50 p-2.5 rounded-sm">
+                  <p className="text-[11px] text-muted-foreground">GST Amount</p>
+                  <p className="text-sm font-medium mt-0.5">
+                    ₹{(viewedBill.gstAmount || 0).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {viewedBill.gstAmount !== undefined &&
+                viewedBill.gstAmount > 0 &&
+                viewedBill.gstAmount <= viewedBill.amount && (
+                  <div className="flex justify-between text-sm border-t border-border pt-3">
+                    <span className="text-muted-foreground">
+                      Taxable Value (approx.)
+                    </span>
+                    <span className="font-medium">
+                      ₹{(viewedBill.amount - viewedBill.gstAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Raw OCR Text
+                </p>
+                <pre className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap bg-secondary/40 border border-border/40 rounded-sm p-3 max-h-56 overflow-y-auto">
+                  {viewedBill.ocrText ||
+                    "No OCR text available for this bill."}
+                </pre>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={markingId === viewedBill._id}
+                  onClick={() => void toggleBillStatus(viewedBill)}
+                >
+                  {markingId === viewedBill._id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <>
+                      {viewedBill.status === "processed"
+                        ? "Mark as Pending"
+                        : "Mark as Processed"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Customer Analytics */}
       {tab === "customer" && (
