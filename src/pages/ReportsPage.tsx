@@ -35,6 +35,14 @@ export default function ReportsPage() {
   const updatePurchaseBill = useMutation(api.purchaseBills.update);
   const [markingId, setMarkingId] = useState<Id<"purchaseBills"> | null>(null);
   const [viewBillId, setViewBillId] = useState<Id<"purchaseBills"> | null>(null);
+  const [savingBill, setSavingBill] = useState(false);
+  const [billDraft, setBillDraft] = useState<{
+    supplierName: string;
+    billNo: string;
+    billDate: string;
+    amount: string;
+    gstAmount: string;
+  } | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">("gst");
@@ -64,6 +72,62 @@ export default function ReportsPage() {
   ];
 
   const viewedBill = purchaseData?.entries.find((b) => b._id === viewBillId) ?? null;
+
+  const openBillDetail = (b: NonNullable<typeof purchaseData>["entries"][number]) => {
+    setViewBillId(b._id);
+    setBillDraft(null);
+  };
+
+  const startEditBill = () => {
+    if (!viewedBill) return;
+    setBillDraft({
+      supplierName: viewedBill.supplierName || "",
+      billNo: viewedBill.billNo || "",
+      billDate: viewedBill.billDate || "",
+      amount: String(viewedBill.amount),
+      gstAmount:
+        viewedBill.gstAmount !== undefined
+          ? String(viewedBill.gstAmount)
+          : "",
+    });
+  };
+
+  const saveBillDraft = async () => {
+    if (!viewedBill || !billDraft) return;
+    const amount = Number(billDraft.amount);
+    const gstAmount = billDraft.gstAmount.trim()
+      ? Number(billDraft.gstAmount)
+      : undefined;
+    if (!billDraft.supplierName.trim()) {
+      toast("Supplier name is required");
+      return;
+    }
+    if (Number.isNaN(amount) || amount < 0) {
+      toast("Enter a valid amount");
+      return;
+    }
+    if (gstAmount !== undefined && (Number.isNaN(gstAmount) || gstAmount < 0)) {
+      toast("Enter a valid GST amount");
+      return;
+    }
+    setSavingBill(true);
+    try {
+      await updatePurchaseBill({
+        id: viewedBill._id,
+        supplierName: billDraft.supplierName.trim() || undefined,
+        billNo: billDraft.billNo.trim() || undefined,
+        billDate: billDraft.billDate || undefined,
+        amount,
+        gstAmount,
+      });
+      toast("Bill updated");
+      setBillDraft(null);
+    } catch {
+      toast("Failed to update bill");
+    } finally {
+      setSavingBill(false);
+    }
+  };
 
   const toggleBillStatus = async (b: NonNullable<typeof purchaseData>["entries"][number]) => {
     const next = b.status === "processed" ? "pending" : "processed";
@@ -216,7 +280,7 @@ export default function ReportsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
-                        onClick={() => setViewBillId(b._id)}
+                        onClick={() => openBillDetail(b)}
                         title="View bill details"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -336,45 +400,143 @@ export default function ReportsPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-secondary/50 p-2.5 rounded-sm">
-                  <p className="text-[11px] text-muted-foreground">Bill No.</p>
-                  <p className="text-sm font-medium mt-0.5">
-                    {viewedBill.billNo || "—"}
-                  </p>
-                </div>
-                <div className="bg-secondary/50 p-2.5 rounded-sm">
-                  <p className="text-[11px] text-muted-foreground">Bill Date</p>
-                  <p className="text-sm font-medium mt-0.5">
-                    {viewedBill.billDate || "—"}
-                  </p>
-                </div>
-                <div className="bg-secondary/50 p-2.5 rounded-sm">
-                  <p className="text-[11px] text-muted-foreground">Amount</p>
-                  <p className="text-sm font-semibold mt-0.5 text-primary">
-                    ₹{viewedBill.amount.toFixed(2)}
-                  </p>
-                </div>
-                <div className="bg-secondary/50 p-2.5 rounded-sm">
-                  <p className="text-[11px] text-muted-foreground">GST Amount</p>
-                  <p className="text-sm font-medium mt-0.5">
-                    ₹{(viewedBill.gstAmount || 0).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-
-              {viewedBill.gstAmount !== undefined &&
-                viewedBill.gstAmount > 0 &&
-                viewedBill.gstAmount <= viewedBill.amount && (
-                  <div className="flex justify-between text-sm border-t border-border pt-3">
-                    <span className="text-muted-foreground">
-                      Taxable Value (approx.)
-                    </span>
-                    <span className="font-medium">
-                      ₹{(viewedBill.amount - viewedBill.gstAmount).toFixed(2)}
-                    </span>
+              {billDraft ? (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Supplier Name *</Label>
+                    <Input
+                      value={billDraft.supplierName}
+                      onChange={(e) =>
+                        setBillDraft({ ...billDraft, supplierName: e.target.value })
+                      }
+                      placeholder="Supplier name"
+                      className="mt-1 h-9"
+                    />
                   </div>
-                )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Bill No.</Label>
+                      <Input
+                        value={billDraft.billNo}
+                        onChange={(e) =>
+                          setBillDraft({ ...billDraft, billNo: e.target.value })
+                        }
+                        placeholder="Bill number"
+                        className="mt-1 h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Bill Date</Label>
+                      <Input
+                        type="date"
+                        value={billDraft.billDate}
+                        onChange={(e) =>
+                          setBillDraft({ ...billDraft, billDate: e.target.value })
+                        }
+                        className="mt-1 h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Amount (₹) *</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={billDraft.amount}
+                        onChange={(e) =>
+                          setBillDraft({ ...billDraft, amount: e.target.value })
+                        }
+                        className="mt-1 h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">GST Amount (₹)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={billDraft.gstAmount}
+                        onChange={(e) =>
+                          setBillDraft({ ...billDraft, gstAmount: e.target.value })
+                        }
+                        placeholder="Optional"
+                        className="mt-1 h-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      className="flex-1"
+                      disabled={savingBill}
+                      onClick={() => void saveBillDraft()}
+                    >
+                      {savingBill ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={savingBill}
+                      onClick={() => setBillDraft(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-secondary/50 p-2.5 rounded-sm">
+                      <p className="text-[11px] text-muted-foreground">Bill No.</p>
+                      <p className="text-sm font-medium mt-0.5">
+                        {viewedBill.billNo || "—"}
+                      </p>
+                    </div>
+                    <div className="bg-secondary/50 p-2.5 rounded-sm">
+                      <p className="text-[11px] text-muted-foreground">Bill Date</p>
+                      <p className="text-sm font-medium mt-0.5">
+                        {viewedBill.billDate || "—"}
+                      </p>
+                    </div>
+                    <div className="bg-secondary/50 p-2.5 rounded-sm">
+                      <p className="text-[11px] text-muted-foreground">Amount</p>
+                      <p className="text-sm font-semibold mt-0.5 text-primary">
+                        ₹{viewedBill.amount.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="bg-secondary/50 p-2.5 rounded-sm">
+                      <p className="text-[11px] text-muted-foreground">GST Amount</p>
+                      <p className="text-sm font-medium mt-0.5">
+                        ₹{(viewedBill.gstAmount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {viewedBill.gstAmount !== undefined &&
+                    viewedBill.gstAmount > 0 &&
+                    viewedBill.gstAmount <= viewedBill.amount && (
+                      <div className="flex justify-between text-sm border-t border-border pt-3">
+                        <span className="text-muted-foreground">
+                          Taxable Value (approx.)
+                        </span>
+                        <span className="font-medium">
+                          ₹{(viewedBill.amount - viewedBill.gstAmount).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={startEditBill}
+                  >
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Edit Details
+                  </Button>
+                </>
+              )}
 
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
