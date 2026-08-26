@@ -52,10 +52,13 @@ export default function InventoryPage() {
     name: "",
     brand: "",
     category: "",
+    composition: "",
     batchNo: "",
     expiryDate: "",
     quantity: 0,
+    minQuantity: 0,
     unit: "Nos",
+    barcode: "",
     purchasePrice: 0,
     sellingPrice: 0,
     gstRate: 18,
@@ -75,10 +78,13 @@ export default function InventoryPage() {
       name: "",
       brand: "",
       category: "",
+      composition: "",
       batchNo: "",
       expiryDate: "",
       quantity: 0,
+      minQuantity: 0,
       unit: "Nos",
+      barcode: "",
       purchasePrice: 0,
       sellingPrice: 0,
       gstRate: 18,
@@ -93,10 +99,13 @@ export default function InventoryPage() {
       name: med.name,
       brand: med.brand || "",
       category: med.category || "",
+      composition: med.composition || "",
       batchNo: med.batchNo || "",
       expiryDate: med.expiryDate || "",
       quantity: med.quantity,
+      minQuantity: med.minQuantity || 0,
       unit: med.unit || "Nos",
+      barcode: med.barcode || "",
       purchasePrice: med.purchasePrice,
       sellingPrice: med.sellingPrice,
       gstRate: med.gstRate,
@@ -118,10 +127,13 @@ export default function InventoryPage() {
         name: form.name,
         brand: form.brand || undefined,
         category: form.category || undefined,
+        composition: form.composition || undefined,
         batchNo: form.batchNo || undefined,
         expiryDate: form.expiryDate || undefined,
         quantity: form.quantity,
+        minQuantity: form.minQuantity || undefined,
         unit: form.unit || undefined,
+        barcode: form.barcode || undefined,
         purchasePrice: form.purchasePrice,
         sellingPrice: form.sellingPrice,
         gstRate: form.gstRate as 0 | 5 | 12 | 18 | 28,
@@ -245,6 +257,28 @@ export default function InventoryPage() {
                     className="mt-1 h-9"
                   />
                 </div>
+                <div className="col-span-2">
+                  <Label className="text-xs">Composition</Label>
+                  <Input
+                    value={form.composition}
+                    onChange={(e) =>
+                      setForm({ ...form, composition: e.target.value })
+                    }
+                    placeholder="e.g. Paracetamol 500mg + Caffeine 65mg"
+                    className="mt-1 h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Barcode</Label>
+                  <Input
+                    value={form.barcode}
+                    onChange={(e) =>
+                      setForm({ ...form, barcode: e.target.value })
+                    }
+                    placeholder="Scan or type barcode (EAN/UPI/MRP)"
+                    className="mt-1 h-9"
+                  />
+                </div>
                 <div>
                   <Label className="text-xs">Batch No.</Label>
                   <Input
@@ -276,6 +310,19 @@ export default function InventoryPage() {
                     onChange={(e) =>
                       setForm({ ...form, quantity: Number(e.target.value) })
                     }
+                    className="mt-1 h-9"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Min. Stock Alert</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.minQuantity}
+                    onChange={(e) =>
+                      setForm({ ...form, minQuantity: Number(e.target.value) })
+                    }
+                    placeholder="0 = default (10)"
                     className="mt-1 h-9"
                   />
                 </div>
@@ -407,13 +454,23 @@ export default function InventoryPage() {
                 )}
               </div>
               <Badge
-                variant={med.quantity <= 10 ? "destructive" : "secondary"}
+                variant={
+                  (med.minQuantity
+                    ? med.quantity <= med.minQuantity
+                    : med.quantity <= 10)
+                    ? "destructive"
+                    : "secondary"
+                }
                 className="text-[10px] shrink-0"
               >
                 {med.quantity} {med.unit}
+                {med.minQuantity && med.quantity <= med.minQuantity
+                  ? " · Low"
+                  : ""}
               </Badge>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {med.hsnCode && `HSN: ${med.hsnCode}`}
+              <span className="text-xs text-muted-foreground shrink-0 hidden md:inline">
+                {med.barcode && `BAR: ${med.barcode}`}
+                {med.hsnCode && ` · HSN: ${med.hsnCode}`}
               </span>
             </div>
             <div className="flex items-center gap-3 shrink-0">

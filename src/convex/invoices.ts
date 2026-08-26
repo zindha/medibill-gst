@@ -108,6 +108,16 @@ export const create = mutation({
         }
       }
     }
+    // Update customer purchase stats
+    if (invoiceData.customerId) {
+      const customer = await ctx.db.get(invoiceData.customerId);
+      if (customer) {
+        await ctx.db.patch(invoiceData.customerId, {
+          totalPurchases: (customer.totalPurchases || 0) + 1,
+          lastPurchaseDate: invoiceData.date,
+        });
+      }
+    }
     return invoiceId;
   },
 });

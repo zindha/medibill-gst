@@ -24,17 +24,21 @@ import {
   PrintContainer,
 } from "@/components/GSTInvoiceTemplate";
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
+import { Html5Qrcode } from "html5-qrcode";
 import {
+  Barcode,
   Loader2,
   Plus,
   Printer,
   Save,
   Search,
   Trash2,
+  UserRound,
+  X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -66,7 +70,10 @@ function calcGST(amount: number, rate: number) {
 export default function BillingPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const convex = useConvex();
   const medicines = useQuery(api.medicines.list);
+  const customers = useQuery(api.customers.list);
+  const doctors = useQuery(api.doctors.list);
   const createInvoice = useMutation(api.invoices.create);
   const getNextInvoiceNo = useQuery(api.invoices.getNextInvoiceNo);
   const [submitting, setSubmitting] = useState(false);
@@ -84,15 +91,23 @@ export default function BillingPage() {
       sgst: 0,
     },
   ]);
+  const [customerId, setCustomerId] = useState<string | undefined>(undefined);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
+  const [doctorId, setDoctorId] = useState<string | undefined>(undefined);
   const [discount, setDiscount] = useState(0);
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [notes, setNotes] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showMedPicker, setShowMedPicker] = useState(false);
   const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [barcodeError, setBarcodeError] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
   const [lastInvoice, setLastInvoice] = useState<{
     invoiceNo: string;
@@ -122,12 +137,19 @@ export default function BillingPage() {
       sgst: number;
     }>;
   } | null>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
+
+  const pickerIndexRef = useRef<number | null>(null);
 
   const filteredMeds = medicines?.filter(
     (m) =>
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.brand && m.brand.toLowerCase().includes(searchQuery.toLowerCase())),
+  );
+
+  const filteredCustomers = customers?.filter(
+    (c) =>
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      (c.phone && c.phone.includes(customerSearch)),
   );
 
   const addItem = () => {
@@ -172,29 +194,109 @@ export default function BillingPage() {
     setItems(newItems);
   };
 
-  const selectMedicine = (med: NonNullable<typeof medicines>[number]) => {
-    if (pickerIndex === null) return;
+  const selectMedicine = useCallback((med: NonNullable<typeof medicines>[number]) => {
+    const idx = pickerIndexRef.current;
+    if (idx === null) return;
     const qty = 1;
     const rate = med.sellingPrice;
     const amount = qty * rate;
     const { gstAmount, cgst, sgst } = calcGST(amount, med.gstRate);
-    const newItems = [...items];
-    newItems[pickerIndex] = {
-      medicineId: med._id,
-      medicineName: `${med.name}${med.brand ? ` (${med.brand})` : ""}`,
-      hsnCode: med.hsnCode,
-      quantity: qty,
-      unit: med.unit || "Nos",
-      rate,
-      amount,
-      gstRate: med.gstRate,
-      gstAmount,
-      cgst,
-      sgst,
-    };
-    setItems(newItems);
-    setShowMedPicker(false);
+    setItems((prev) => {
+      const next = [...prev];
+      next[idx] = {
+        medicineId: med._id,
+        medicineName: `${med.name}${med.brand ? ` (${med.brand})` : ""}`,
+        hsnCode: med.hsnCode,
+        quantity: qty,
+        unit: med.unit || "Nos",
+        rate,
+        amount,
+        gstRate: med.gstRate,
+        gstAmount,
+        cgst,
+        sgst,
+      };
+      return next;
+    });
+    pickerIndexRef.current = null;
     setPickerIndex(null);
+    setShowMedPicker(false);
+  }, []);
+
+  const lookupBarcode = useCallback(
+    async (code: string) => {
+      const trimmed = code.trim();
+      if (!trimmed) return;
+      setBarcodeLoading(true);
+      setBarcodeError("");
+      try {
+        const med = await convex.query(api.medicines.searchByBarcode, {
+          barcode: trimmed,
+        });
+        if (med) {
+          setBarcode("");
+          selectMedicine(med);
+        } else {
+          setBarcodeError(`No medicine found with barcode "${trimmed}"`);
+        }
+      } catch {
+        setBarcodeError("Failed to look up barcode");
+      } finally {
+        setBarcodeLoading(false);
+      }
+    },
+    [convex, selectMedicine],
+  );
+
+  // Live camera barcode scanning (html5-qrcode)
+  useEffect(() => {
+    if (!showScanner) return;
+    let cancelled = false;
+    const scanner = new Html5Qrcode("barcode-reader");
+    scanner
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 240, height: 160 } },
+        (decodedText) => {
+          scanner
+            .stop()
+            .then(() => scanner.clear())
+            .catch(() => {});
+          if (cancelled) return;
+          setShowScanner(false);
+          void lookupBarcode(decodedText);
+        },
+        () => {},
+      )
+      .catch(() => {
+        if (cancelled) return;
+        setShowScanner(false);
+        setBarcodeError("Camera access denied or not available on this device");
+      });
+    return () => {
+      cancelled = true;
+      try {
+        void scanner.stop().catch(() => {});
+      } catch {
+        // ignore
+      }
+    };
+  }, [showScanner, lookupBarcode]);
+
+  const selectCustomer = (c: NonNullable<typeof customers>[number]) => {
+    setCustomerId(c._id);
+    setCustomerName(c.name);
+    setCustomerPhone(c.phone || "");
+    setCustomerAddress(c.address || "");
+    setShowCustomerPicker(false);
+    setCustomerSearch("");
+  };
+
+  const clearCustomer = () => {
+    setCustomerId(undefined);
+    setCustomerName("");
+    setCustomerPhone("");
+    setCustomerAddress("");
   };
 
   const totals = items.reduce(
@@ -218,11 +320,14 @@ export default function BillingPage() {
     try {
       const invoiceNo = getNextInvoiceNo || `INV-${Date.now()}`;
       const date = new Date().toISOString().split("T")[0];
+      const isCredit = paymentMode === "Credit";
       await createInvoice({
         invoiceNo,
+        customerId: customerId as any,
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
         customerAddress: customerAddress || undefined,
+        doctorId: doctorId as any,
         date,
         subtotal: totals.subtotal,
         totalGst: totals.totalGst,
@@ -232,6 +337,8 @@ export default function BillingPage() {
         discount: discount || undefined,
         grandTotal,
         paymentMode: paymentMode || undefined,
+        status: isCredit ? "unpaid" : "paid",
+        amountPaid: isCredit ? 0 : grandTotal,
         notes: notes || undefined,
         items: items.map((item) => ({
           ...item,
@@ -284,9 +391,11 @@ export default function BillingPage() {
           sgst: 0,
         },
       ]);
+      setCustomerId(undefined);
       setCustomerName("");
       setCustomerPhone("");
       setCustomerAddress("");
+      setDoctorId(undefined);
       setDiscount(0);
       setPaymentMode("Cash");
       setNotes("");
@@ -344,9 +453,19 @@ export default function BillingPage() {
 
       {/* Customer Section */}
       <Card className="p-5 border-border/60">
-        <h3 className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-          Customer Details
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs text-muted-foreground uppercase tracking-wider">
+            Customer Details
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCustomerPicker(true)}
+          >
+            <UserRound className="h-3.5 w-3.5 mr-1.5" />
+            {customerId ? "Change Customer" : "Choose Customer"}
+          </Button>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <Label className="text-xs">Customer Name</Label>
@@ -376,11 +495,66 @@ export default function BillingPage() {
                 <SelectItem value="Cash">Cash</SelectItem>
                 <SelectItem value="Card">Card</SelectItem>
                 <SelectItem value="UPI">UPI</SelectItem>
-                <SelectItem value="Credit">Credit</SelectItem>
+                <SelectItem value="Credit">Credit (Udhar)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs">Address</Label>
+            <Input
+              value={customerAddress}
+              onChange={(e) => setCustomerAddress(e.target.value)}
+              placeholder="Address"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Doctor (optional)</Label>
+            <Select
+              value={doctorId ?? "none"}
+              onValueChange={(v) => setDoctorId(v === "none" ? undefined : v)}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {doctors?.map((d) => (
+                  <SelectItem key={d._id} value={d._id}>
+                    {d.name}
+                    {d.clinicName ? ` — ${d.clinicName}` : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </div>
+        {customerId && (
+          <div className="mt-3 flex items-center justify-between rounded-sm border border-border/40 bg-secondary/30 px-3 py-2">
+            <div className="text-sm min-w-0">
+              <span className="font-medium">{customerName}</span>
+              {customerPhone && (
+                <span className="text-muted-foreground ml-2 text-xs">
+                  {customerPhone}
+                </span>
+              )}
+              {customerAddress && (
+                <span className="text-muted-foreground ml-2 text-xs truncate">
+                  {customerAddress}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={clearCustomer}
+              title="Clear customer"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Line Items */}
@@ -421,10 +595,15 @@ export default function BillingPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 shrink-0"
+                    title="Search or scan barcode"
                     onClick={() => {
+                      pickerIndexRef.current = i;
                       setPickerIndex(i);
                       setShowMedPicker(true);
                       setSearchQuery("");
+                      setBarcode("");
+                      setBarcodeError("");
+                      setShowScanner(false);
                     }}
                   >
                     <Search className="h-3.5 w-3.5" />
@@ -528,6 +707,13 @@ export default function BillingPage() {
               <span>Grand Total</span>
               <span>₹{grandTotal.toFixed(2)}</span>
             </div>
+            {paymentMode === "Credit" && (
+              <p className="text-xs text-muted-foreground">
+                Credit sale — invoice will be marked as{" "}
+                <span className="text-foreground font-medium">unpaid</span> and
+                tracked in payment outstanding.
+              </p>
+            )}
           </div>
         </div>
       </Card>
@@ -547,22 +733,85 @@ export default function BillingPage() {
       </Card>
 
       {/* Medicine Picker Dialog */}
-      <Dialog open={showMedPicker} onOpenChange={setShowMedPicker}>
+      <Dialog
+        open={showMedPicker}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowScanner(false);
+            setPickerIndex(null);
+            pickerIndexRef.current = null;
+          }
+          setShowMedPicker(open);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Select Medicine</DialogTitle>
             <DialogDescription>
-              Search and select a medicine from your inventory
+              Scan a barcode or search your inventory
             </DialogDescription>
           </DialogHeader>
-          <Input
-            ref={searchRef}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search medicines..."
-            className="mb-2"
-            autoFocus
-          />
+
+          {/* Barcode section */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void lookupBarcode(barcode);
+                }}
+                placeholder="Type or scan barcode code"
+                className="h-9 text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void lookupBarcode(barcode)}
+                disabled={barcodeLoading || !barcode.trim()}
+              >
+                {barcodeLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Barcode className="h-3.5 w-3.5" />
+                )}
+                Find
+              </Button>
+              <Button
+                size="sm"
+                className="shrink-0"
+                variant={showScanner ? "secondary" : "default"}
+                onClick={() => {
+                  setBarcodeError("");
+                  setShowScanner((s) => !s);
+                }}
+                disabled={barcodeLoading}
+              >
+                {showScanner ? "Stop" : "Scan"}
+              </Button>
+            </div>
+            {barcodeError && (
+              <p className="text-xs text-destructive">{barcodeError}</p>
+            )}
+            {showScanner && (
+              <div
+                id="barcode-reader"
+                className="w-full overflow-hidden rounded-sm border border-border/60 bg-black [&_video]:w-full"
+              />
+            )}
+          </div>
+
+          <div className="relative">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search medicines by name or brand..."
+              className="mb-2 pr-9"
+              autoFocus
+            />
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
             {filteredMeds?.map((med) => (
               <button
@@ -586,6 +835,57 @@ export default function BillingPage() {
             {filteredMeds?.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
                 No medicines found. Add some in Inventory first.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Picker Dialog */}
+      <Dialog
+        open={showCustomerPicker}
+        onOpenChange={setShowCustomerPicker}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Customer</DialogTitle>
+            <DialogDescription>
+              Choose a customer to auto-fill their details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative">
+            <Input
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              placeholder="Search by name or phone..."
+              className="mb-2 pr-9"
+              autoFocus
+            />
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            {filteredCustomers?.map((c) => (
+              <button
+                key={c._id}
+                onClick={() => selectCustomer(c)}
+                className="w-full text-left px-3 py-2 rounded-sm text-sm hover:bg-secondary transition-colors flex items-center justify-between"
+              >
+                <div>
+                  <span className="font-medium">{c.name}</span>
+                  {c.phone && (
+                    <span className="text-muted-foreground ml-1">
+                      {c.phone}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {c.totalPurchases || 0} purchases
+                </div>
+              </button>
+            ))}
+            {filteredCustomers?.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No customers found. Add them in Customers first.
               </p>
             )}
           </div>
