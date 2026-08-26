@@ -1,0 +1,1 @@
+import{u as i,c as m,d as u,a as c,j as p,m as d}from"./framer-motion-BE0yDnp4.js";function x({value:n,format:t,className:e}){const s=i(0),o=m(s,{stiffness:90,damping:22,mass:1}),r=u(o,a=>t?t(a):Math.round(a).toLocaleString("en-IN"));return c.useEffect(()=>{s.set(n)},[n,s]),p.jsx(d.span,{className:e,children:r})}export{x as A};
