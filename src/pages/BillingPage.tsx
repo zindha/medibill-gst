@@ -23,10 +23,10 @@ import {
   GSTInvoiceTemplate,
   PrintContainer,
 } from "@/components/GSTInvoiceTemplate";
+import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
 import { useAuth } from "@/hooks/use-auth";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { Html5Qrcode } from "html5-qrcode";
 import {
   Barcode,
   Loader2,
@@ -38,7 +38,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -247,41 +247,6 @@ export default function BillingPage() {
     },
     [convex, selectMedicine],
   );
-
-  // Live camera barcode scanning (html5-qrcode)
-  useEffect(() => {
-    if (!showScanner) return;
-    let cancelled = false;
-    const scanner = new Html5Qrcode("barcode-reader");
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 240, height: 160 } },
-        (decodedText) => {
-          scanner
-            .stop()
-            .then(() => scanner.clear())
-            .catch(() => {});
-          if (cancelled) return;
-          setShowScanner(false);
-          void lookupBarcode(decodedText);
-        },
-        () => {},
-      )
-      .catch(() => {
-        if (cancelled) return;
-        setShowScanner(false);
-        setBarcodeError("Camera access denied or not available on this device");
-      });
-    return () => {
-      cancelled = true;
-      try {
-        void scanner.stop().catch(() => {});
-      } catch {
-        // ignore
-      }
-    };
-  }, [showScanner, lookupBarcode]);
 
   const selectCustomer = (c: NonNullable<typeof customers>[number]) => {
     setCustomerId(c._id);
@@ -794,12 +759,15 @@ export default function BillingPage() {
             {barcodeError && (
               <p className="text-xs text-destructive">{barcodeError}</p>
             )}
-            {showScanner && (
-              <div
-                id="barcode-reader"
-                className="w-full overflow-hidden rounded-sm border border-border/60 bg-black [&_video]:w-full"
-              />
-            )}
+            <BarcodeCameraScanner
+              active={showScanner}
+              onScan={(code) => {
+                setShowScanner(false);
+                void lookupBarcode(code);
+              }}
+              onError={(msg) => setBarcodeError(msg)}
+              className="w-full overflow-hidden rounded-sm border border-border/60 bg-black [&_video]:w-full"
+            />
           </div>
 
           <div className="relative">

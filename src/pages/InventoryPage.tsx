@@ -20,16 +20,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
+import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
 import {
+  Barcode,
   Loader2,
   PackagePlus,
   Plus,
+  ScanBarcode,
   Search,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -47,6 +50,13 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const convex = useConvex();
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanBarcode, setScanBarcode] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const [highlightId, setHighlightId] = useState<Id<"medicines"> | null>(null);
+  const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -70,7 +80,8 @@ export default function InventoryPage() {
     (m) =>
       m.name.toLowerCase().includes(search.toLowerCase()) ||
       (m.brand && m.brand.toLowerCase().includes(search.toLowerCase())) ||
-      (m.hsnCode && m.hsnCode.toLowerCase().includes(search.toLowerCase())),
+      (m.hsnCode && m.hsnCode.toLowerCase().includes(search.toLowerCase())) ||
+      (m.barcode && m.barcode.toLowerCase().includes(search.toLowerCase())),
   );
 
   const resetForm = () => {
@@ -166,6 +177,41 @@ export default function InventoryPage() {
     }
   };
 
+  const handleScannedBarcode = useCallback(
+    async (code: string) => {
+      const trimmed = code.trim();
+      if (!trimmed) return;
+      setScanLoading(true);
+      setScanError("");
+      try {
+        const med = await convex.query(api.medicines.searchByBarcode, {
+          barcode: trimmed,
+        });
+        if (med) {
+          if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+          setSearch(trimmed);
+          setHighlightId(med._id);
+          highlightTimeout.current = setTimeout(
+            () => setHighlightId(null),
+            3000,
+          );
+          setScanOpen(false);
+          setScanBarcode("");
+          toast(
+            `Found: ${med.name} — ${med.quantity} ${med.unit || "units"} in stock`,
+          );
+        } else {
+          setScanError(`No medicine found with barcode "${trimmed}"`);
+        }
+      } catch {
+        setScanError("Failed to look up barcode");
+      } finally {
+        setScanLoading(false);
+      }
+    },
+    [convex],
+  );
+
   if (!isAuthenticated && !isLoading) {
     navigate("/auth");
     return null;
@@ -205,6 +251,18 @@ export default function InventoryPage() {
               className="pl-9 h-9 text-sm"
             />
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setScanBarcode("");
+              setScanError("");
+              setScanOpen(true);
+            }}
+          >
+            <ScanBarcode className="h-3.5 w-3.5 mr-1.5" />
+            Scan
+          </Button>
           <Dialog
             open={dialogOpen}
             onOpenChange={(open) => {
@@ -436,6 +494,59 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      {/* Barcode Scan Dialog */}
+      <Dialog open={scanOpen} onOpenChange={setScanOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan Barcode</DialogTitle>
+            <DialogDescription>
+              Point your camera at the medicine barcode, or type/paste the code
+              for instant stock lookup
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={scanBarcode}
+                onChange={(e) => setScanBarcode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleScannedBarcode(scanBarcode);
+                }}
+                placeholder="Type or scan barcode code"
+                className="h-9 text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => void handleScannedBarcode(scanBarcode)}
+                disabled={scanLoading || !scanBarcode.trim()}
+              >
+                {scanLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Barcode className="h-3.5 w-3.5" />
+                )}
+                Find
+              </Button>
+            </div>
+            {scanError && <p className="text-xs text-destructive">{scanError}</p>}
+            <BarcodeCameraScanner
+              active={scanOpen}
+              onScan={(code) => {
+                void handleScannedBarcode(code);
+              }}
+              onError={(msg) => setScanError(msg)}
+              className="w-full overflow-hidden rounded-sm border border-border/60 bg-black [&_video]:w-full"
+            />
+            <p className="text-xs text-muted-foreground">
+              Tip: USB barcode scanners can type the code directly into the
+              input above.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="space-y-1">
         {filtered?.map((med, i) => (
           <motion.div
@@ -443,7 +554,11 @@ export default function InventoryPage() {
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.02 }}
-            className="flex items-center justify-between px-4 py-3 border border-border/60 rounded-sm hover:bg-secondary/30 transition-colors cursor-pointer"
+            className={`flex items-center justify-between px-4 py-3 border rounded-sm transition-colors cursor-pointer ${
+              highlightId === med._id
+                ? "border-foreground/50 bg-secondary ring-1 ring-foreground/20"
+                : "border-border/60 hover:bg-secondary/30"
+            }`}
             onClick={() => openEdit(med)}
           >
             <div className="flex items-center gap-4 flex-1 min-w-0">
