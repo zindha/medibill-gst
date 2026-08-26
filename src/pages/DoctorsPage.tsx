@@ -6,6 +6,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -99,7 +100,24 @@ export default function DoctorsPage() {
             </Button>
           </motion.div>
         ))}
-        {filtered?.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No doctors found.</p>}
+        {filtered?.length === 0 && (
+          <EmptyState
+            icon={Stethoscope}
+            title={
+              search ? "No doctors match your search" : "No doctors added yet"
+            }
+            description={
+              search
+                ? "Try a different name or clinic."
+                : "Link prescriptions to doctors and clinics — their details are one tap away during billing."
+            }
+            actions={
+              search
+                ? []
+                : [{ label: "Add Doctor", onClick: () => setDialogOpen(true) }]
+            }
+          />
+        )}
       </div>
     </motion.div>
   );

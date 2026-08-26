@@ -3,11 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { Download, FileText, Loader2 } from "lucide-react";
-import { useState } from "react";
+import {
+  CalendarRange,
+  Download,
+  FileText,
+  Loader2,
+  PackageCheck,
+  ShoppingCart,
+} from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 
 export default function ReportsPage() {
@@ -19,6 +27,7 @@ export default function ReportsPage() {
   const [tab, setTab] = useState<"gst" | "purchase" | "stock" | "customer">("gst");
 
   const gstData = useQuery(api.stats.gstRegister, fromDate || toDate ? { fromDate: fromDate || undefined, toDate: toDate || undefined } : "skip");
+  const purchaseData = useQuery(api.stats.purchaseRegister, fromDate || toDate ? { fromDate: fromDate || undefined, toDate: toDate || undefined } : "skip");
 
   if (!isAuthenticated && !isLoading) { navigate("/auth"); return null; }
   if (isLoading || !stats) return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-pulse text-muted-foreground text-sm">Loading...</div></div>;
@@ -40,6 +49,37 @@ export default function ReportsPage() {
     { id: "stock" as const, label: "Stock Report" },
     { id: "customer" as const, label: "Customer Analytics" },
   ];
+
+  const quickRange = (days: number) => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days + 1);
+    setFromDate(from.toISOString().split("T")[0]);
+    setToDate(to.toISOString().split("T")[0]);
+  };
+
+  const tile = (
+    icon: ReactNode,
+    label: string,
+    value: string,
+    note?: string,
+    tone = "",
+    i = 0,
+  ) => (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 + i * 0.05 }}
+      className="bg-secondary/50 p-3 rounded-sm"
+    >
+      <div className="flex items-center gap-2 mb-1">
+        {icon}
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </div>
+      <p className={`text-xl font-semibold ${tone}`}>{value}</p>
+      {note && <p className="text-xs text-muted-foreground mt-0.5">{note}</p>}
+    </motion.div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -82,15 +122,16 @@ export default function ReportsPage() {
           {fromDate && toDate && gstData ? (
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
-                <div className="bg-secondary/50 p-2 rounded-sm"><p className="text-muted-foreground">Taxable</p><p className="font-semibold">₹{gstData.totalTaxable.toFixed(2)}</p></div>
-                <div className="bg-secondary/50 p-2 rounded-sm"><p className="text-muted-foreground">CGST</p><p className="font-semibold">₹{gstData.totalCGST.toFixed(2)}</p></div>
-                <div className="bg-secondary/50 p-2 rounded-sm"><p className="text-muted-foreground">SGST</p><p className="font-semibold">₹{gstData.totalSGST.toFixed(2)}</p></div>
-                <div className="bg-secondary/50 p-2 rounded-sm"><p className="text-muted-foreground">Total GST</p><p className="font-semibold">₹{gstData.totalGST.toFixed(2)}</p></div>
-                <div className="bg-secondary/50 p-2 rounded-sm"><p className="text-muted-foreground">Grand Total</p><p className="font-semibold">₹{gstData.totalAmount.toFixed(2)}</p></div>
+                {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "Taxable", `₹${gstData.totalTaxable.toFixed(2)}`, undefined, undefined, 0)}
+                {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "CGST", `₹${gstData.totalCGST.toFixed(2)}`, undefined, undefined, 1)}
+                {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "SGST", `₹${gstData.totalSGST.toFixed(2)}`, undefined, undefined, 2)}
+                {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "Total GST", `₹${gstData.totalGST.toFixed(2)}`, undefined, "text-primary", 3)}
+                {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "Grand Total", `₹${gstData.totalAmount.toFixed(2)}`, undefined, undefined, 4)}
               </div>
               <div className="max-h-96 overflow-y-auto space-y-1">
                 {gstData.entries.map((e, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs py-1.5 px-2 border border-border/40 rounded-sm">
+                  <motion.div key={i} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                    className="flex items-center justify-between text-xs py-1.5 px-2 border border-border/40 rounded-sm">
                     <span className="w-28 shrink-0 font-medium">{e.invoiceNo}</span>
                     <span className="w-20 shrink-0 text-muted-foreground">{e.date}</span>
                     <span className="flex-1 truncate px-2">{e.customerName}</span>
@@ -98,12 +139,73 @@ export default function ReportsPage() {
                     <span className="w-16 text-right">₹{e.cgst.toFixed(2)}</span>
                     <span className="w-16 text-right">₹{e.sgst.toFixed(2)}</span>
                     <span className="w-20 text-right font-medium">₹{e.grandTotal.toFixed(2)}</span>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">Select a date range to view the GST register.</p>
+            <EmptyState
+              icon={CalendarRange}
+              title="Pick a date range"
+              description="Select From and To dates above to see your GST sales register with taxable values, CGST/SGST, and totals."
+              actions={[
+                { label: "Last 30 days", onClick: () => quickRange(30) },
+                { label: "This month", onClick: () => quickRange(new Date().getDate()), variant: "outline" },
+              ]}
+            />
+          )}
+        </Card>
+      )}
+
+      {/* Purchase Register */}
+      {tab === "purchase" && (
+        <Card className="p-5 border-border/60">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium">Purchase Register</h3>
+            {purchaseData && purchaseData.entries.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => exportToCSV(purchaseData.entries, "purchase-register")}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                Export CSV
+              </Button>
+            )}
+          </div>
+          {fromDate && toDate && purchaseData ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                {tile(<ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />, "Bills", String(purchaseData.entries.length), undefined, undefined, 0)}
+                {tile(<ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />, "Total Purchases", `₹${purchaseData.totalAmount.toFixed(2)}`, undefined, undefined, 1)}
+                {tile(<ShoppingCart className="h-3.5 w-3.5 text-muted-foreground" />, "Input GST", `₹${purchaseData.totalGst.toFixed(2)}`, undefined, "text-primary", 2)}
+              </div>
+              <div className="max-h-96 overflow-y-auto space-y-1">
+                {purchaseData.entries.map((b, i) => (
+                  <motion.div key={i} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+                    className="flex items-center justify-between text-xs py-1.5 px-2 border border-border/40 rounded-sm">
+                    <span className="w-36 shrink-0 font-medium truncate">{b.supplierName || "Unknown Supplier"}</span>
+                    <span className="w-20 shrink-0 text-muted-foreground">{b.billNo || "—"}</span>
+                    <span className="w-24 shrink-0 text-muted-foreground">{b.billDate || "—"}</span>
+                    <span className="flex-1 truncate px-2">
+                      <span className={`px-1.5 py-0.5 rounded-sm border text-[10px] ${b.status === "processed" ? "border-green-600/30 text-green-700 bg-green-600/5" : "border-amber-600/30 text-amber-700 bg-amber-600/5"}`}>
+                        {b.status === "processed" ? "Processed" : "Pending"}
+                      </span>
+                    </span>
+                    <span className="w-20 text-right">₹{b.amount.toFixed(2)}</span>
+                    <span className="w-16 text-right">₹{(b.gstAmount || 0).toFixed(2)}</span>
+                  </motion.div>
+                ))}
+                {purchaseData.entries.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    No purchase bills in this range.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={ShoppingCart}
+              title="Pick a date range"
+              description="Select From and To dates above to see your purchase register — bills scanned via OCR appear here automatically."
+              actions={[{ label: "Last 30 days", onClick: () => quickRange(30) }]}
+            />
           )}
         </Card>
       )}
@@ -112,22 +214,10 @@ export default function ReportsPage() {
       {tab === "stock" && (
         <Card className="p-5 border-border/60">
           <h3 className="text-sm font-medium mb-4">Inventory Stock Report</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-secondary/50 p-3 rounded-sm">
-              <p className="text-xs text-muted-foreground">Total Medicines</p>
-              <p className="text-xl font-semibold">{stats.totalMedicines}</p>
-              <p className="text-xs text-muted-foreground">{stats.totalStock} units</p>
-            </div>
-            <div className="bg-secondary/50 p-3 rounded-sm">
-              <p className="text-xs text-muted-foreground">Low Stock Items</p>
-              <p className={`text-xl font-semibold ${stats.lowStockCount > 0 ? "text-destructive" : ""}`}>{stats.lowStockCount}</p>
-              <p className="text-xs text-muted-foreground">Needs reordering</p>
-            </div>
-            <div className="bg-secondary/50 p-3 rounded-sm">
-              <p className="text-xs text-muted-foreground">Expiring Soon</p>
-              <p className={`text-xl font-semibold ${stats.expiringSoonCount > 0 ? "text-amber-600" : ""}`}>{stats.expiringSoonCount}</p>
-              <p className="text-xs text-muted-foreground">Within 30 days</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {tile(<PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />, "Total Medicines", String(stats.totalMedicines), `${stats.totalStock} units`, undefined, 0)}
+            {tile(<PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />, "Low Stock Items", String(stats.lowStockCount), "Needs reordering", stats.lowStockCount > 0 ? "text-destructive" : "", 1)}
+            {tile(<PackageCheck className="h-3.5 w-3.5 text-muted-foreground" />, "Expiring Soon", String(stats.expiringSoonCount), "Within 30 days", stats.expiringSoonCount > 0 ? "text-amber-600" : "", 2)}
           </div>
           {stats.lowStock.length > 0 && (
             <div className="mt-4">
@@ -162,15 +252,9 @@ export default function ReportsPage() {
       {tab === "customer" && (
         <Card className="p-5 border-border/60">
           <h3 className="text-sm font-medium mb-4">Customer Analytics</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-secondary/50 p-3 rounded-sm">
-              <p className="text-xs text-muted-foreground">Total Customers</p>
-              <p className="text-xl font-semibold">{stats.totalCustomers}</p>
-            </div>
-            <div className="bg-secondary/50 p-3 rounded-sm">
-              <p className="text-xs text-muted-foreground">Total Pending Payments</p>
-              <p className="text-xl font-semibold">₹{stats.totalPending.toFixed(2)}</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "Total Customers", String(stats.totalCustomers), "Registered customers", undefined, 0)}
+            {tile(<FileText className="h-3.5 w-3.5 text-muted-foreground" />, "Total Pending (Udhar)", `₹${stats.totalPending.toFixed(2)}`, "Unpaid + partial balances", stats.totalPending > 0 ? "text-amber-600" : "", 1)}
           </div>
         </Card>
       )}

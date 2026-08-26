@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -290,9 +291,27 @@ export default function SuppliersPage() {
           </motion.div>
         ))}
         {filtered?.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            No suppliers found.
-          </p>
+          <EmptyState
+            icon={Truck}
+            title={
+              search ? "No suppliers match your search" : "No suppliers yet"
+            }
+            description={
+              search
+                ? "Try a different name, phone, or GSTIN."
+                : "Add your distributors to track purchase bills, GSTINs, and supplier payments."
+            }
+            actions={
+              search
+                ? []
+                : [
+                    {
+                      label: "Add Supplier",
+                      onClick: () => setDialogOpen(true),
+                    },
+                  ]
+            }
+          />
         )}
       </div>
     </motion.div>

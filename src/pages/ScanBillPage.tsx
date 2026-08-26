@@ -196,7 +196,12 @@ export default function ScanBillPage() {
         </p>
       </div>
 
-      <Card className="p-6 border-border/60">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05, duration: 0.3 }}
+      >
+        <Card className="p-6 border-border/60">
         <div className="flex flex-col items-center gap-4">
           {imagePreview ? (
             <div className="relative w-full max-w-md">
@@ -217,18 +222,34 @@ export default function ScanBillPage() {
               )}
             </div>
           ) : (
-            <div className="w-full max-w-md border-2 border-dashed border-border rounded-sm p-12 text-center">
-              <ScanLine className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <motion.div
+              initial={{ scale: 0.98, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+              className="w-full max-w-md border-2 border-dashed border-border rounded-sm p-12 text-center transition-colors hover:border-foreground/40"
+            >
+              <motion.div
+                animate={{ y: [0, -4, 0] }}
+                transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
+                className="inline-block"
+              >
+                <ScanLine className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              </motion.div>
               <p className="text-sm text-muted-foreground mb-1">
                 Upload a bill image or use your camera
               </p>
               <p className="text-xs text-muted-foreground/60">
                 Supports JPG, PNG — Max 10MB
               </p>
-            </div>
+            </motion.div>
           )}
 
-          <div className="flex items-center gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18, duration: 0.3 }}
+            className="flex items-center gap-3"
+          >
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
@@ -241,7 +262,7 @@ export default function ScanBillPage() {
               <Camera className="h-4 w-4 mr-2" />
               Use Camera
             </Button>
-          </div>
+          </motion.div>
           <input
             ref={fileInputRef}
             type="file"
@@ -251,7 +272,52 @@ export default function ScanBillPage() {
             onChange={handleFileUpload}
           />
         </div>
-      </Card>
+        </Card>
+      </motion.div>
+
+      {/* How it works */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25, duration: 0.3 }}
+        className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+      >
+        {[
+          {
+            n: "1",
+            title: "Capture",
+            desc: "Snap the supplier bill with your camera or upload a photo.",
+          },
+          {
+            n: "2",
+            title: "Extract",
+            desc: "OCR pulls supplier, bill number, amount, and GST automatically.",
+          },
+          {
+            n: "3",
+            title: "Record",
+            desc: "Saved as a pending purchase bill — review it in Reports anytime.",
+          },
+        ].map((s, i) => (
+          <motion.div
+            key={s.n}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28 + i * 0.07, duration: 0.3 }}
+            className="flex items-start gap-3 border border-border/60 rounded-sm p-4"
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+              {s.n}
+            </span>
+            <div>
+              <p className="text-sm font-medium">{s.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                {s.desc}
+              </p>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
 
       {/* OCR Results */}
       {ocrResult && (
