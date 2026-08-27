@@ -25,7 +25,10 @@ export const create = mutation({
     gstAmount: v.optional(v.number()),
     imageStorageId: v.optional(v.id("_storage")),
     ocrText: v.optional(v.string()),
-    status: v.union(v.literal("pending"), v.literal("processed")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processed"),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -46,7 +49,12 @@ export const update = mutation({
     billDate: v.optional(v.string()),
     amount: v.optional(v.number()),
     gstAmount: v.optional(v.number()),
-    status: v.optional(v.union(v.literal("pending"), v.literal("processed"))),
+    status: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processed"),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -92,20 +100,22 @@ export const importLineItems = mutation({
     }
 
     const sanitizeGst = (rate: number): 0 | 5 | 12 | 18 | 28 =>
-      (GST_RATES.includes(rate as (typeof GST_RATES)[number])
+      GST_RATES.includes(rate as (typeof GST_RATES)[number])
         ? (rate as 0 | 5 | 12 | 18 | 28)
-        : 5);
+        : 5;
 
-    // Merge duplicate names (case-insensitive) within the bill, then apply
-    const merged = new Map<string, {
-      name: string;
-      quantity: number;
-      rate: number;
-      gstRate: number;
-      hsnCode?: string;
-      unit?: string;
-      category?: string;
-    }>();
+    const merged = new Map<
+      string,
+      {
+        name: string;
+        quantity: number;
+        rate: number;
+        gstRate: number;
+        hsnCode?: string;
+        unit?: string;
+        category?: string;
+      }
+    >();
     for (const item of args.items) {
       const name = item.name.trim();
       if (!name || item.quantity <= 0) continue;
@@ -122,7 +132,9 @@ export const importLineItems = mutation({
       .query("medicines")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
-    const byName = new Map(medicines.map((m) => [m.name.toLowerCase(), m]));
+    const byName = new Map(
+      medicines.map((m) => [m.name.toLowerCase(), m]),
+    );
 
     let created = 0;
     let updated = 0;
@@ -135,7 +147,9 @@ export const importLineItems = mutation({
           purchasePrice: item.rate,
           gstRate: sanitizeGst(item.gstRate),
           ...(item.hsnCode ? { hsnCode: item.hsnCode } : {}),
-          ...(existing.sellingPrice === 0 ? { sellingPrice: item.rate } : {}),
+          ...(existing.sellingPrice === 0
+            ? { sellingPrice: item.rate }
+            : {}),
         });
         updated++;
       } else {

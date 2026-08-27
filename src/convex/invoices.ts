@@ -4,15 +4,29 @@ import { getCurrentUser } from "./users";
 import { gstRateValidator } from "./schema";
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    return await ctx.db
+
+    let items = await ctx.db
       .query("invoices")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect();
+
+    if (args.search) {
+      const s = args.search.toLowerCase();
+      items = items.filter(
+        (inv) =>
+          inv.invoiceNo.toLowerCase().includes(s) ||
+          (inv.customerName &&
+            inv.customerName.toLowerCase().includes(s)),
+      );
+    }
+    return items;
   },
 });
 
@@ -65,7 +79,13 @@ export const create = mutation({
     grandTotal: v.number(),
     paymentMode: v.optional(v.string()),
     notes: v.optional(v.string()),
-    status: v.optional(v.union(v.literal("paid"), v.literal("unpaid"), v.literal("partial"))),
+    status: v.optional(
+      v.union(
+        v.literal("paid"),
+        v.literal("unpaid"),
+        v.literal("partial"),
+      ),
+    ),
     amountPaid: v.optional(v.number()),
     items: v.array(
       v.object({

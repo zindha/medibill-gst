@@ -3,15 +3,28 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    return await ctx.db
+
+    let items = await ctx.db
       .query("customers")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .collect();
+
+    if (args.search) {
+      const s = args.search.toLowerCase();
+      items = items.filter(
+        (c) =>
+          c.name.toLowerCase().includes(s) ||
+          (c.phone && c.phone.includes(s)),
+      );
+    }
+    return items;
   },
 });
 
@@ -46,7 +59,9 @@ export const getPurchaseHistory = query({
   handler: async (ctx, args) => {
     const invoices = await ctx.db
       .query("invoices")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+      .withIndex("by_customer", (q) =>
+        q.eq("customerId", args.customerId),
+      )
       .order("desc")
       .collect();
     return invoices;

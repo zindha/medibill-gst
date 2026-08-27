@@ -5,16 +5,28 @@ import { getCurrentUser } from "./users";
 
 export const list = query({
   args: {
-    type: v.optional(v.union(v.literal("received"), v.literal("paid"), v.literal("expense"))),
+    type: v.optional(
+      v.union(
+        v.literal("received"),
+        v.literal("paid"),
+        v.literal("expense"),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    let q = ctx.db.query("payments").withIndex("by_user", (q) => q.eq("userId", user._id));
+
+    let q = ctx.db
+      .query("payments")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc");
+
     if (args.type) {
       q = q.filter((p) => p.eq(p.field("type"), args.type!));
     }
-    return await q.order("desc").collect();
+
+    return await q.collect();
   },
 });
 
@@ -29,33 +41,48 @@ export const getPendingAmount = query({
       .collect();
     let totalPending = 0;
     for (const inv of invoices) {
-      if (inv.status === "unpaid") totalPending += inv.grandTotal;
-      else if (inv.status === "partial") totalPending += (inv.grandTotal - (inv.amountPaid || 0));
+      if (inv.status === "unpaid")
+        totalPending += inv.grandTotal;
+      else if (inv.status === "partial")
+        totalPending += inv.grandTotal - (inv.amountPaid || 0);
     }
     return totalPending;
   },
 });
 
 export const getTotals = query({
-  args: { fromDate: v.optional(v.string()), toDate: v.optional(v.string()) },
+  args: {
+    fromDate: v.optional(v.string()),
+    toDate: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    const payments = await ctx.db
+    let q = ctx.db
       .query("payments")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    let filtered = payments;
+      .withIndex("by_user", (q) => q.eq("userId", user._id));
     if (args.fromDate) {
-      filtered = filtered.filter((p) => p.date >= args.fromDate!);
+      q = q.filter((p) => p.gte(p.field("date"), args.fromDate!));
     }
     if (args.toDate) {
-      filtered = filtered.filter((p) => p.date <= args.toDate!);
+      q = q.filter((p) => p.lte(p.field("date"), args.toDate!));
     }
-    const received = filtered.filter((p) => p.type === "received").reduce((s, p) => s + p.amount, 0);
-    const paid = filtered.filter((p) => p.type === "paid").reduce((s, p) => s + p.amount, 0);
-    const expenses = filtered.filter((p) => p.type === "expense").reduce((s, p) => s + p.amount, 0);
-    return { received, paid, expenses, net: received - paid - expenses };
+    const payments = await q.collect();
+    const received = payments
+      .filter((p) => p.type === "received")
+      .reduce((s, p) => s + p.amount, 0);
+    const paid = payments
+      .filter((p) => p.type === "paid")
+      .reduce((s, p) => s + p.amount, 0);
+    const expenses = payments
+      .filter((p) => p.type === "expense")
+      .reduce((s, p) => s + p.amount, 0);
+    return {
+      received,
+      paid,
+      expenses,
+      net: received - paid - expenses,
+    };
   },
 });
 
@@ -64,13 +91,13 @@ export const listByInvoice = query({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    const payments = await ctx.db
+    return await ctx.db
       .query("payments")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_invoice", (q) =>
+        q.eq("invoiceId", args.invoiceId),
+      )
+      .order("desc")
       .collect();
-    return payments
-      .filter((p) => p.invoiceId === args.invoiceId)
-      .sort((a, b) => b.date.localeCompare(a.date));
   },
 });
 
@@ -84,10 +111,12 @@ async function recomputeInvoiceStatus(
   if (!invoice) return;
   const payments = await ctx.db
     .query("payments")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .withIndex("by_invoice", (q) =>
+      q.eq("invoiceId", invoiceId),
+    )
     .collect();
   const received = payments
-    .filter((p) => p.invoiceId === invoiceId && p.type === "received")
+    .filter((p) => p.type === "received")
     .reduce((s, p) => s + p.amount, 0);
   const amountPaid = Math.min(received, invoice.grandTotal);
   let status: "paid" | "unpaid" | "partial";
@@ -104,7 +133,11 @@ async function recomputeInvoiceStatus(
 export const create = mutation({
   args: {
     date: v.string(),
-    type: v.union(v.literal("received"), v.literal("paid"), v.literal("expense")),
+    type: v.union(
+      v.literal("received"),
+      v.literal("paid"),
+      v.literal("expense"),
+    ),
     category: v.optional(v.string()),
     amount: v.number(),
     reference: v.optional(v.string()),
@@ -121,10 +154,14 @@ export const create = mutation({
       ...args,
       userId: user._id,
     });
-    // Keep the linked invoice's status/amountPaid in sync
     if (args.invoiceId && args.type === "received") {
       const invoice = await ctx.db.get(args.invoiceId);
-      await recomputeInvoiceStatus(ctx, user._id, args.invoiceId, invoice?.paymentMode);
+      await recomputeInvoiceStatus(
+        ctx,
+        user._id,
+        args.invoiceId,
+        invoice?.paymentMode,
+      );
     }
     return paymentId;
   },
@@ -141,7 +178,12 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
     if (invoiceId && type === "received") {
       const invoice = await ctx.db.get(invoiceId);
-      await recomputeInvoiceStatus(ctx, user._id, invoiceId, invoice?.paymentMode);
+      await recomputeInvoiceStatus(
+        ctx,
+        user._id,
+        invoiceId,
+        invoice?.paymentMode,
+      );
     }
   },
 });

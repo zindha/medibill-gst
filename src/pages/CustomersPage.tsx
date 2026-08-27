@@ -24,7 +24,7 @@ import { toast } from "sonner";
 export default function CustomersPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const customers = useQuery(api.customers.list);
+  const customers = useQuery(api.customers.list, {});
   const createCustomer = useMutation(api.customers.create);
   const updateCustomer = useMutation(api.customers.update);
   const removeCustomer = useMutation(api.customers.remove);

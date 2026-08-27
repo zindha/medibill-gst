@@ -60,7 +60,7 @@ export default function PaymentsPage() {
   const payments = useQuery(api.payments.list, {});
   const totals = useQuery(api.payments.getTotals, {});
   const pending = useQuery(api.payments.getPendingAmount);
-  const invoices = useQuery(api.invoices.list);
+  const invoices = useQuery(api.invoices.list, {});
   const createPayment = useMutation(api.payments.create);
   const removePayment = useMutation(api.payments.remove);
   const [filter, setFilter] = useState<PayType | "all">("all");

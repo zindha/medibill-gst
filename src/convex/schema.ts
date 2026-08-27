@@ -103,7 +103,7 @@ const schema = defineSchema(
       substituteIds: v.optional(v.array(v.id("medicines"))),
       supplierId: v.optional(v.id("suppliers")),
       userId: v.id("users"),
-    }).index("by_user", ["userId"]),
+    }).index("by_user", ["userId"]).index("by_barcode", ["barcode"]).index("by_name", ["name"]),
 
     // Invoices (Sales Bills)
     invoices: defineTable({
@@ -127,7 +127,7 @@ const schema = defineSchema(
       status: v.optional(v.union(v.literal("paid"), v.literal("unpaid"), v.literal("partial"))),
       amountPaid: v.optional(v.number()),
       userId: v.id("users"),
-    }).index("by_user", ["userId"]).index("by_customer", ["customerId"]),
+    }).index("by_user", ["userId"]).index("by_customer", ["customerId"]).index("by_date", ["date"]),
 
     // Invoice Line Items
     invoiceItems: defineTable({
@@ -230,7 +230,7 @@ const schema = defineSchema(
       description: v.optional(v.string()),
       paymentMode: v.optional(v.string()),
       userId: v.id("users"),
-    }).index("by_user", ["userId"]).index("by_type", ["type"]),
+    }).index("by_user", ["userId"]).index("by_type", ["type"]).index("by_invoice", ["invoiceId"]).index("by_date", ["date"]),
 
     // Credit Accounts (Udhar/Khata)
     creditAccounts: defineTable({
@@ -282,7 +282,7 @@ const schema = defineSchema(
       ),
       status: v.union(v.literal("pending"), v.literal("processed")),
       userId: v.id("users"),
-    }).index("by_user", ["userId"]),
+    }).index("by_user", ["userId"]).index("by_status", ["status"]),
 
     // Activity Log / Audit Trail
     activityLog: defineTable({

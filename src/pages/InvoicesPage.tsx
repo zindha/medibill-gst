@@ -40,7 +40,7 @@ import { toast } from "sonner";
 export default function InvoicesPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const invoices = useQuery(api.invoices.list);
+  const invoices = useQuery(api.invoices.list, {});
   const removeInvoice = useMutation(api.invoices.remove);
   const [search, setSearch] = useState("");
   const [viewInvoiceId, setViewInvoiceId] = useState<Id<"invoices"> | null>(null);

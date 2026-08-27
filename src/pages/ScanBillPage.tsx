@@ -39,7 +39,7 @@ export default function ScanBillPage() {
   const navigate = useNavigate();
   const createPurchaseBill = useMutation(api.purchaseBills.create);
   const importLineItems = useMutation(api.purchaseBills.importLineItems);
-  const medicines = useQuery(api.medicines.list);
+  const medicines = useQuery(api.medicines.list, {});
   const [scanning, setScanning] = useState(false);
   const [ocrResult, setOcrResult] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string>("");

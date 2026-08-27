@@ -57,7 +57,7 @@ const GST_RATES = [0, 5, 12, 18, 28];
 export default function InventoryPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const medicines = useQuery(api.medicines.list);
+  const medicines = useQuery(api.medicines.list, {});
   const suppliers = useQuery(api.suppliers.list);
   const createMedicine = useMutation(api.medicines.create);
   const updateMedicine = useMutation(api.medicines.update);

@@ -77,8 +77,8 @@ export default function BillingPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const convex = useConvex();
-  const medicines = useQuery(api.medicines.list);
-  const customers = useQuery(api.customers.list);
+  const medicines = useQuery(api.medicines.list, {});
+  const customers = useQuery(api.customers.list, {});
   const doctors = useQuery(api.doctors.list);
   const createInvoice = useMutation(api.invoices.create);
   const createMedicine = useMutation(api.medicines.create);
@@ -150,13 +150,13 @@ export default function BillingPage() {
   const pickerIndexRef = useRef<number | null>(null);
 
   const filteredMeds = medicines?.filter(
-    (m) =>
+    (m: any) =>
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.brand && m.brand.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   const filteredCustomers = customers?.filter(
-    (c) =>
+    (c: any) =>
       c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
       (c.phone && c.phone.includes(customerSearch)),
   );
@@ -203,7 +203,7 @@ export default function BillingPage() {
     setItems(newItems);
   };
 
-  const selectMedicine = useCallback((med: NonNullable<typeof medicines>[number]) => {
+  const selectMedicine = useCallback((med: any) => {
     const idx = pickerIndexRef.current;
     if (idx === null) return;
     const qty = 1;
@@ -237,7 +237,7 @@ export default function BillingPage() {
     if (idx === null) return;
     try {
       const existing = medicines?.find(
-        (med) => med.name.toLowerCase() === entry.name.toLowerCase(),
+        (med: any) => med.name.toLowerCase() === entry.name.toLowerCase(),
       );
       if (existing) {
         selectMedicine(existing);
@@ -264,7 +264,7 @@ export default function BillingPage() {
         unit: entry.unit,
         sellingPrice: entry.price || 0,
         gstRate: entry.gstRate,
-      } as any);
+      });
       toast("Added to inventory — check the rate before saving");
     } catch {
       toast("Failed to add medicine");
@@ -296,7 +296,7 @@ export default function BillingPage() {
     [convex, selectMedicine],
   );
 
-  const selectCustomer = (c: NonNullable<typeof customers>[number]) => {
+  const selectCustomer = (c: any) => {
     setCustomerId(c._id);
     setCustomerName(c.name);
     setCustomerPhone(c.phone || "");
@@ -359,7 +359,6 @@ export default function BillingPage() {
         })),
       });
 
-      // Store invoice data for printing
       setLastInvoice({
         invoiceNo,
         date,
@@ -390,7 +389,6 @@ export default function BillingPage() {
       });
 
       toast("Invoice created successfully");
-      // Reset form
       setItems([
         {
           medicineName: "",
@@ -552,7 +550,7 @@ export default function BillingPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
-                {doctors?.map((d) => (
+                {doctors?.map((d: any) => (
                   <SelectItem key={d._id} value={d._id}>
                     {d.name}
                     {d.clinicName ? ` — ${d.clinicName}` : ""}
@@ -596,7 +594,6 @@ export default function BillingPage() {
           Items
         </h3>
         <div className="space-y-2">
-          {/* Header */}
           <div className="hidden sm:grid grid-cols-12 gap-2 text-xs text-muted-foreground px-2">
             <div className="col-span-4">Item</div>
             <div className="col-span-1 text-center">Qty</div>
@@ -857,7 +854,7 @@ export default function BillingPage() {
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filteredMeds?.map((med) => (
+            {filteredMeds?.map((med: any) => (
               <button
                 key={med._id}
                 onClick={() => selectMedicine(med)}
@@ -954,7 +951,7 @@ export default function BillingPage() {
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filteredCustomers?.map((c) => (
+            {filteredCustomers?.map((c: any) => (
               <button
                 key={c._id}
                 onClick={() => selectCustomer(c)}

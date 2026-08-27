@@ -4,14 +4,29 @@ import { getCurrentUser } from "./users";
 import { gstRateValidator } from "./schema";
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    search: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    return await ctx.db
+
+    let items = await ctx.db
       .query("medicines")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
+
+    if (args.search) {
+      const s = args.search.toLowerCase();
+      items = items.filter(
+        (m) =>
+          m.name.toLowerCase().includes(s) ||
+          (m.brand && m.brand.toLowerCase().includes(s)) ||
+          (m.hsnCode && m.hsnCode.toLowerCase().includes(s)) ||
+          (m.barcode && m.barcode.toLowerCase().includes(s)),
+      );
+    }
+    return items;
   },
 });
 
@@ -27,11 +42,12 @@ export const search = query({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
+    const q = args.query.toLowerCase();
+    if (!q) return [];
     const medicines = await ctx.db
       .query("medicines")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
-    const q = args.query.toLowerCase();
     return medicines.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
@@ -48,11 +64,14 @@ export const searchByBarcode = query({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
-    const medicines = await ctx.db
+    const trimmed = args.barcode.trim();
+    if (!trimmed) return null;
+    const med = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    return medicines.find((m) => m.barcode === args.barcode) || null;
+      .withIndex("by_barcode", (q) => q.eq("barcode", trimmed))
+      .first();
+    if (med && med.userId === user._id) return med;
+    return null;
   },
 });
 
@@ -65,7 +84,9 @@ export const getLowStock = query({
       .query("medicines")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
-    return medicines.filter((m) => m.minQuantity ? m.quantity <= m.minQuantity : m.quantity <= 10);
+    return medicines.filter((m) =>
+      m.minQuantity ? m.quantity <= m.minQuantity : m.quantity <= 10,
+    );
   },
 });
 
@@ -78,12 +99,16 @@ export const getExpiringSoon = query({
     const threshold = new Date();
     threshold.setDate(threshold.getDate() + days);
     const thresholdStr = threshold.toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
     const medicines = await ctx.db
       .query("medicines")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
     return medicines.filter(
-      (m) => m.expiryDate && m.expiryDate <= thresholdStr && m.expiryDate >= new Date().toISOString().split("T")[0],
+      (m) =>
+        m.expiryDate &&
+        m.expiryDate <= thresholdStr &&
+        m.expiryDate >= today,
     );
   },
 });

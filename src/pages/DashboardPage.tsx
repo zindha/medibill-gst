@@ -27,14 +27,18 @@ import { useNavigate } from "react-router";
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const stats = useQuery(api.stats.dashboard);
+
+  // Split queries — each loads only what it needs, faster than the monolithic dashboard
+  const summary = useQuery(api.stats.summary);
+  const activity = useQuery(api.stats.activity);
+  const paymentsSummary = useQuery(api.stats.paymentsSummary);
 
   if (!isAuthenticated && !isLoading) {
     navigate("/auth");
     return null;
   }
 
-  if (isLoading || !stats) {
+  if (isLoading || !summary || !activity || !paymentsSummary) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-pulse text-muted-foreground text-sm">
@@ -68,75 +72,75 @@ export default function DashboardPage() {
     year: "numeric",
   });
 
-  const today = stats.dailyInvoices[stats.dailyInvoices.length - 1];
-  const activeDays = stats.dailyInvoices.filter((d) => d.count > 0).length;
+  const today = activity.dailyInvoices[activity.dailyInvoices.length - 1];
+  const activeDays = activity.dailyInvoices.filter((d) => d.count > 0).length;
 
   const cards = [
     {
       label: "Total Revenue",
-      value: stats.totalRevenue,
+      value: summary.totalRevenue,
       format: (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`,
       icon: IndianRupee,
       tint: "bg-primary/10 text-primary",
     },
     {
       label: "Total GST",
-      value: stats.totalGst,
+      value: summary.totalGst,
       format: (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`,
       icon: TrendingUp,
       tint: "bg-muted text-muted-foreground",
     },
     {
       label: "Medicines",
-      value: stats.totalMedicines,
-      sub: `${stats.totalStock} units in stock`,
+      value: summary.totalMedicines,
+      sub: `${summary.totalStock} units in stock`,
       icon: Package,
       tint: "bg-sky-500/10 text-sky-600",
     },
     {
       label: "Invoices",
-      value: stats.totalInvoices,
-      sub: `${stats.recentInvoices.length} recent`,
+      value: summary.totalInvoices,
+      sub: `${activity.recentInvoices.length} recent`,
       icon: Activity,
       tint: "bg-violet-500/10 text-violet-600",
     },
     {
       label: "Customers",
-      value: stats.totalCustomers,
+      value: summary.totalCustomers,
       icon: Users,
       tint: "bg-amber-500/10 text-amber-600",
     },
     {
       label: "Suppliers",
-      value: stats.totalSuppliers,
+      value: summary.totalSuppliers,
       icon: Truck,
       tint: "bg-teal-500/10 text-teal-600",
     },
     {
       label: "Low Stock",
-      value: stats.lowStockCount,
+      value: summary.lowStockCount,
       icon: PackageX,
       tint: "bg-red-500/10 text-red-600",
-      alert: stats.lowStockCount > 0,
+      alert: summary.lowStockCount > 0,
     },
     {
       label: "Expiring Soon",
-      value: stats.expiringSoonCount,
+      value: summary.expiringSoonCount,
       icon: Clock,
       tint: "bg-amber-500/10 text-amber-600",
-      alert: stats.expiringSoonCount > 0,
+      alert: summary.expiringSoonCount > 0,
     },
     {
       label: "Pending",
-      value: stats.totalPending,
+      value: summary.totalPending,
       format: (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`,
       icon: Wallet,
       tint: "bg-red-500/10 text-red-600",
-      alert: stats.totalPending > 0,
+      alert: summary.totalPending > 0,
     },
   ];
 
-  const maxRevenue = Math.max(...stats.monthlyRevenue.map((m) => m.revenue), 1);
+  const maxRevenue = Math.max(...activity.monthlyRevenue.map((m) => m.revenue), 1);
 
   const statusPill = (status?: string) => {
     const s = status || "paid";
@@ -271,8 +275,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {stats.totalInvoices === 0 ? (
-        /* First-run onboarding */
+      {summary.totalInvoices === 0 ? (
         <EmptyState
           icon={FileText}
           title="Ready for your first bill?"
@@ -302,8 +305,8 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="flex items-end gap-2 h-32">
-              {stats.monthlyRevenue.map((m, i) => {
-                const isLatest = i === stats.monthlyRevenue.length - 1;
+              {activity.monthlyRevenue.map((m, i) => {
+                const isLatest = i === activity.monthlyRevenue.length - 1;
                 return (
                   <div
                     key={m.month}
@@ -351,7 +354,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div className="flex items-end justify-between gap-2">
-                {stats.dailyInvoices.map((d) => (
+                {activity.dailyInvoices.map((d) => (
                   <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
                     <span className="text-[9px] text-muted-foreground">
                       {d.count > 0 ? `${d.count}` : ""}
@@ -368,7 +371,7 @@ export default function DashboardPage() {
                         animate={{
                           height: `${Math.min(d.count * 20, 100)}%`,
                         }}
-                        transition={{ delay: 0.6 + stats.dailyInvoices.indexOf(d) * 0.05, duration: 0.4 }}
+                        transition={{ delay: 0.6 + activity.dailyInvoices.indexOf(d) * 0.05, duration: 0.4 }}
                         className={`w-full ${
                           d.label === "Today" && d.count > 0
                             ? "bg-primary"
@@ -393,18 +396,15 @@ export default function DashboardPage() {
 
           {/* Alerts Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {stats.lowStockCount > 0 && (
+            {summary.lowStockCount > 0 && (
               <Card className="p-4 border-l-2 border-l-red-500">
                 <h3 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                   <PackageX className="h-3.5 w-3.5 text-red-600" />
                   Low Stock Alert
                 </h3>
                 <div className="space-y-1">
-                  {stats.lowStock.slice(0, 5).map((med) => (
-                    <div
-                      key={med._id}
-                      className="flex items-center justify-between text-xs py-1"
-                    >
+                  {summary.lowStock.slice(0, 5).map((med) => (
+                    <div key={med._id} className="flex items-center justify-between text-xs py-1">
                       <span className="truncate">{med.name}</span>
                       <Badge className="text-[9px] ml-2 shrink-0 bg-red-500/10 text-red-700 border-red-500/25">
                         {med.quantity}
@@ -415,29 +415,24 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {stats.expiringSoonCount > 0 && (
+            {summary.expiringSoonCount > 0 && (
               <Card className="p-4 border-l-2 border-l-amber-500">
                 <h3 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                   <Clock className="h-3.5 w-3.5 text-amber-600" />
                   Expiring Soon
                 </h3>
                 <div className="space-y-1">
-                  {stats.expiringSoon.slice(0, 5).map((med) => (
-                    <div
-                      key={med._id}
-                      className="flex items-center justify-between text-xs py-1"
-                    >
+                  {summary.expiringSoon.slice(0, 5).map((med) => (
+                    <div key={med._id} className="flex items-center justify-between text-xs py-1">
                       <span className="truncate">{med.name}</span>
-                      <span className="text-amber-600 shrink-0 ml-2">
-                        {med.expiryDate}
-                      </span>
+                      <span className="text-amber-600 shrink-0 ml-2">{med.expiryDate}</span>
                     </div>
                   ))}
                 </div>
               </Card>
             )}
 
-            {stats.totalPending > 0 && (
+            {summary.totalPending > 0 && (
               <Card className="p-4 border-l-2 border-l-red-500">
                 <h3 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                   <Wallet className="h-3.5 w-3.5 text-red-600" />
@@ -445,19 +440,18 @@ export default function DashboardPage() {
                 </h3>
                 <p className="text-2xl font-semibold text-red-600">
                   <AnimatedNumber
-                    value={stats.totalPending}
+                    value={summary.totalPending}
                     format={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`}
                   />
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {stats.dueReminders > 0 &&
-                    `${stats.dueReminders} refill reminders due · `}
+                  {activity.dueReminders > 0 && `${activity.dueReminders} refill reminders due · `}
                   Track collections in Payments.
                 </p>
               </Card>
             )}
 
-            {stats.pendingPurchaseBills > 0 && (
+            {activity.pendingPurchaseBills > 0 && (
               <Card className="p-4 border-l-2 border-l-teal-500">
                 <h3 className="text-xs font-medium flex items-center gap-1.5 mb-2">
                   <Truck className="h-3.5 w-3.5 text-teal-600" />
@@ -465,25 +459,22 @@ export default function DashboardPage() {
                 </h3>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-2xl font-semibold text-teal-600">
-                    <AnimatedNumber value={stats.pendingPurchaseBills} />
+                    <AnimatedNumber value={activity.pendingPurchaseBills} />
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {stats.pendingPurchaseBills === 1 ? "bill" : "bills"}{" "}
-                    to process
+                    {activity.pendingPurchaseBills === 1 ? "bill" : "bills"} to process
                   </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {stats.pendingPurchaseBillsAmount > 0 &&
-                    `₹${Math.round(stats.pendingPurchaseBillsAmount).toLocaleString("en-IN")} in scanned purchases · `}
+                  {activity.pendingPurchaseBillsAmount > 0 &&
+                    `₹${Math.round(activity.pendingPurchaseBillsAmount).toLocaleString("en-IN")} in scanned purchases · `}
                   Review and mark them done in the register.
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   className="mt-3 w-full"
-                  onClick={() =>
-                    navigate("/dashboard/reports?tab=purchase&range=30")
-                  }
+                  onClick={() => navigate("/dashboard/reports?tab=purchase&range=30")}
                 >
                   Review Bills
                   <ArrowRight className="h-3 w-3 ml-1" />
@@ -493,7 +484,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent Invoices */}
-          {stats.recentInvoices.length > 0 && (
+          {activity.recentInvoices.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -508,7 +499,7 @@ export default function DashboardPage() {
                 </button>
               </div>
               <div className="space-y-1">
-                {stats.recentInvoices.map((inv, i) => (
+                {activity.recentInvoices.map((inv, i) => (
                   <motion.div
                     key={inv._id}
                     initial={{ opacity: 0, y: 5 }}
@@ -525,14 +516,8 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusPill(inv.status)}`}
-                      >
-                        {inv.status === "unpaid"
-                          ? "Unpaid"
-                          : inv.status === "partial"
-                            ? "Partial"
-                            : "Paid"}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusPill(inv.status)}`}>
+                        {inv.status === "unpaid" ? "Unpaid" : inv.status === "partial" ? "Partial" : "Paid"}
                       </span>
                       <span className="font-semibold">
                         ₹{inv.grandTotal.toLocaleString("en-IN")}
