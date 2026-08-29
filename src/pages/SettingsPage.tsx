@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Building2, Loader2, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { Building2, Check, Copy, KeyRound, Loader2, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const addMember = useMutation(api.stores.addMember);
   const removeMember = useMutation(api.stores.removeMember);
   const setMemberRole = useMutation(api.stores.setMemberRole);
+  const regenerateJoinCode = useMutation(api.stores.regenerateJoinCode);
 
   const [form, setForm] = useState({
     name: "",
@@ -48,6 +49,8 @@ export default function SettingsPage() {
   const [identifier, setIdentifier] = useState("");
   const [role, setRole] = useState<"admin" | "user" | "member">("user");
   const [removingId, setRemovingId] = useState<Id<"storeMembers"> | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [resettingCode, setResettingCode] = useState(false);
 
   // Sync the edit form whenever the active store loads/changes.
   useEffect(() => {
@@ -90,6 +93,30 @@ export default function SettingsPage() {
       toast.error(e instanceof Error ? e.message : "Could not save store details");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!activeStore.joinCode) return;
+    try {
+      await navigator.clipboard.writeText(activeStore.joinCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard not available */
+    }
+  };
+
+  const handleResetCode = async () => {
+    setResettingCode(true);
+    try {
+      toast.info("Regenerating join code…");
+      await regenerateJoinCode();
+      toast.success("New join code generated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reset join code");
+    } finally {
+      setResettingCode(false);
     }
   };
 
@@ -212,6 +239,65 @@ export default function SettingsPage() {
               Save details
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Invite by join code */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            Invite others by code
+          </CardTitle>
+          <CardDescription>
+            Share a code so a colleague can set up their own account and join
+            this store instantly — no need to add them manually.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isAdmin && activeStore.joinCode ? (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2.5">
+                <span className="font-mono text-xl tracking-[0.2em] font-semibold">
+                  {activeStore.joinCode}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyCode}
+                >
+                  {copied ? (
+                    <Check className="mr-2 h-4 w-4 text-primary" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetCode}
+                  disabled={resettingCode}
+                >
+                  {resettingCode ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    "Reset"
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : isAdmin ? (
+            <p className="text-sm text-muted-foreground">
+              No join code yet — save your store details first.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Only admins can view or reset this store's join code.
+            </p>
+          )}
         </CardContent>
       </Card>
 

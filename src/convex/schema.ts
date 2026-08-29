@@ -56,7 +56,11 @@ const schema = defineSchema(
       email: v.optional(v.string()),
       gstin: v.optional(v.string()),
       drugLicenseNo: v.optional(v.string()),
-    }).index("by_owner", ["ownerId"]),
+      // Short, shareable code admins give out so others can join this store.
+      joinCode: v.optional(v.string()),
+    })
+      .index("by_owner", ["ownerId"])
+      .index("by_joinCode", ["joinCode"]),
 
     // Membership: links a user to a store they can access, with a role.
     // The owner row is implicit (stores.ownerId acts as admin); additional

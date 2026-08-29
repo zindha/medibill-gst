@@ -4,6 +4,17 @@ import type { Doc } from "./_generated/dataModel";
 import { getActiveStore, getCurrentUser } from "./users";
 import { roleValidator } from "./schema";
 
+/** Generate a short, human-friendly join code for a store. */
+function generateJoinCode(): string {
+  // Unambiguous, readable alphabet.
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
+}
+
 /** All stores the signed-in user can access (as owner or member). */
 export const myStores = query({
   args: {},
@@ -54,6 +65,7 @@ export const activeStore = query({
       email: store.email,
       gstin: store.gstin,
       drugLicenseNo: store.drugLicenseNo,
+      joinCode: store.joinCode,
       role: active.role,
       isOwner: active.isOwner,
     };
@@ -103,6 +115,7 @@ export const ensureStore = mutation({
       storeId = await ctx.db.insert("stores", {
         name: args.name?.trim() || `${user.name || "My"} Store`,
         ownerId: user._id,
+        joinCode: generateJoinCode(),
       });
     }
     await ctx.db.patch(user._id, { activeStoreId: storeId });
@@ -131,6 +144,7 @@ export const createStore = mutation({
       email: args.email,
       gstin: args.gstin,
       drugLicenseNo: args.drugLicenseNo,
+      joinCode: generateJoinCode(),
     });
     await ctx.db.patch(user._id, { activeStoreId: storeId });
     return storeId;
@@ -230,7 +244,8 @@ export const addMember = mutation({
     const active = await getActiveStore(ctx);
     if (!active) throw new Error("Not authenticated");
     if (active.role !== "admin")
-      throw new Error("Only admins can add members");    const id = args.identifier.trim().toLowerCase();
+      throw new Error("Only admins can add members");
+    const id = args.identifier.trim().toLowerCase();
     // Look up by email first, then normalized phone.
     let target: Doc<"users"> | null = null;
     if (id.includes("@")) {
@@ -321,5 +336,58 @@ export const setMemberRole = mutation({
     if (!member || member.storeId !== active.storeId)
       throw new Error("Member not found");
     await ctx.db.patch(args.memberId, { role: args.role });
+  },
+});
+
+/** Generate a fresh join code for the active store (owner/admin only). */
+export const regenerateJoinCode = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    if (active.role !== "admin")
+      throw new Error("Only admins can reset the join code");
+    const code = generateJoinCode();
+    await ctx.db.patch(active.storeId, { joinCode: code });
+    return code;
+  },
+});
+
+/**
+ * Join an existing store by its join code. The signed-in user becomes a member
+ * (role "member") of the store and it is made their active store.
+ */
+export const joinStoreByCode = mutation({
+  args: { code: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    const code = args.code.trim().toUpperCase();
+    if (!code) throw new Error("Please enter a join code");
+
+    const store = await ctx.db
+      .query("stores")
+      .withIndex("by_joinCode", (q) => q.eq("joinCode", code))
+      .first();
+    if (!store) throw new Error("No store found with that join code");
+
+    // Owner doesn't need a membership row.
+    if (store.ownerId !== user._id) {
+      const existing = await ctx.db
+        .query("storeMembers")
+        .withIndex("by_store", (q) => q.eq("storeId", store._id))
+        .filter((m) => m.eq(m.field("userId"), user._id))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("storeMembers", {
+          storeId: store._id,
+          userId: user._id,
+          role: "member",
+        });
+      }
+    }
+
+    await ctx.db.patch(user._id, { activeStoreId: store._id });
+    return { storeId: store._id, name: store.name };
   },
 });
