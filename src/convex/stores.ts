@@ -293,6 +293,7 @@ export const addMember = mutation({
       storeId: active.storeId,
       userId: target._id,
       role,
+      status: "active",
     });
     // Give the new member a working active store if they have none.
     const targetUser = await ctx.db.get(target._id);
@@ -432,5 +433,72 @@ export const pendingJoins = query({
       });
     }
     return rows;
+  },
+});
+
+/** Pending join requests for the active store (owner/admin only). */
+export const pendingRequests = query({
+  args: {},
+  handler: async (ctx) => {
+    const active = await getActiveStore(ctx);
+    if (!active) return [];
+    if (active.role !== "admin") return [];
+
+    const pending = await ctx.db
+      .query("storeMembers")
+      .withIndex("by_store_status", (q) =>
+        q.eq("storeId", active.storeId).eq("status", "pending"),
+      )
+      .collect();
+    const rows = [];
+    for (const m of pending) {
+      const memberUser = await ctx.db.get(m.userId);
+      rows.push({
+        _id: m._id,
+        userId: m.userId,
+        name: memberUser?.name ?? "Unknown",
+        email: memberUser?.email ?? null,
+        phone: memberUser?.phone ?? null,
+        requestedAt: m._creationTime,
+      });
+    }
+    rows.sort((a, b) => a.requestedAt - b.requestedAt);
+    return rows;
+  },
+});
+
+/** Approve a member's join request (owner/admin only). */
+export const approveJoin = mutation({
+  args: { membershipId: v.id("storeMembers") },
+  handler: async (ctx, args) => {
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    if (active.role !== "admin")
+      throw new Error("Only admins can approve requests");
+    const member = await ctx.db.get(args.membershipId);
+    if (!member || member.storeId !== active.storeId)
+      throw new Error("Request not found");
+    await ctx.db.patch(args.membershipId, { status: "active" });
+    // If the member has no active store yet, point them at this one so their
+    // next login lands inside it.
+    const memberUser = await ctx.db.get(member.userId);
+    if (memberUser && !memberUser.activeStoreId) {
+      await ctx.db.patch(member.userId, { activeStoreId: active.storeId });
+    }
+  },
+});
+
+/** Reject/remove a member's join request (owner/admin only). */
+export const rejectJoin = mutation({
+  args: { membershipId: v.id("storeMembers") },
+  handler: async (ctx, args) => {
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    if (active.role !== "admin")
+      throw new Error("Only admins can reject requests");
+    const member = await ctx.db.get(args.membershipId);
+    if (!member || member.storeId !== active.storeId)
+      throw new Error("Request not found");
+    await ctx.db.delete(args.membershipId);
   },
 });

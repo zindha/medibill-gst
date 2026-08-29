@@ -21,7 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Building2, Check, Copy, KeyRound, Loader2, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { Building2, Check, Clock, Copy, KeyRound, Loader2, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -33,6 +33,10 @@ export default function SettingsPage() {
   const removeMember = useMutation(api.stores.removeMember);
   const setMemberRole = useMutation(api.stores.setMemberRole);
   const regenerateJoinCode = useMutation(api.stores.regenerateJoinCode);
+  const pendingRequests = useQuery(api.stores.pendingRequests);
+  const approveJoin = useMutation(api.stores.approveJoin);
+  const rejectJoin = useMutation(api.stores.rejectJoin);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -149,6 +153,30 @@ export default function SettingsPage() {
 
   const roleLabel = (r: string) =>
     r === "admin" ? "Admin" : r === "user" ? "User" : "Member";
+
+  const handleApprove = async (membershipId: Id<"storeMembers">) => {
+    setPendingAction(membershipId);
+    try {
+      await approveJoin({ membershipId });
+      toast.success("Request approved — member now has access");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not approve request");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleReject = async (membershipId: Id<"storeMembers">) => {
+    setPendingAction(membershipId);
+    try {
+      await rejectJoin({ membershipId });
+      toast.success("Request declined");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not decline request");
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
