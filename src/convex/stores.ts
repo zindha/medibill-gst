@@ -20,7 +20,9 @@ export const myStores = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    // Subscribed by useAuth on every page (even signed-out Landing), so return
+    // an empty list instead of throwing when there's no logged-in user.
+    if (!user) return [];
 
     // Stores they own
     const owned = await ctx.db

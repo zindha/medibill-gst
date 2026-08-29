@@ -36,7 +36,7 @@ export default function SettingsPage() {
   const pendingRequests = useQuery(api.stores.pendingRequests);
   const approveJoin = useMutation(api.stores.approveJoin);
   const rejectJoin = useMutation(api.stores.rejectJoin);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<Id<"storeMembers"> | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -328,6 +328,66 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pending join requests */}
+      {isAdmin && pendingRequests && pendingRequests.length > 0 && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              Pending join requests ({pendingRequests.length})
+            </CardTitle>
+            <CardDescription>
+              People who joined with your share code and are waiting for your
+              approval. Approve to give them access to this store.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border">
+              {pendingRequests.map((r) => (
+                <div
+                  key={r._id}
+                  className="flex items-center gap-3 py-3"
+                >
+                  <div className="h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    {r.name.charAt(0)?.toUpperCase() || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-sm truncate block">
+                      {r.name}
+                    </span>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {r.email || r.phone || "No contact"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleApprove(r._id)}
+                      disabled={pendingAction !== null}
+                    >
+                      {pendingAction === r._id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 h-4 w-4" />
+                      )}
+                      Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleReject(r._id)}
+                      disabled={pendingAction !== null}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Team */}
       <Card>
