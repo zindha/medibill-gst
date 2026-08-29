@@ -65,13 +65,21 @@ const schema = defineSchema(
     // Membership: links a user to a store they can access, with a role.
     // The owner row is implicit (stores.ownerId acts as admin); additional
     // members are recorded here so the same email/mobile can join many stores.
+    // status: "active" = can use the store; "pending" = requested join, awaiting
+    // admin approval (e.g. joined via a shareable join code).
     storeMembers: defineTable({
       storeId: v.id("stores"),
       userId: v.id("users"),
       role: roleValidator,
+      status: v.union(
+        v.literal("pending"),
+        v.literal("active"),
+      ),
     })
       .index("by_store", ["storeId"])
-      .index("by_user", ["userId"]),
+      .index("by_store_status", ["storeId", "status"])
+      .index("by_user", ["userId"])
+      .index("by_user_status", ["userId", "status"]),
 
 
     // Suppliers / Distributors

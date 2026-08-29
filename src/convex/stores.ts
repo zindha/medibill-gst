@@ -27,14 +27,17 @@ export const myStores = query({
       .query("stores")
       .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
       .collect();
-    // Stores they're a member of
+    // Stores they're an active member of (pending joins excluded)
     const memberships = await ctx.db
       .query("storeMembers")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
+    const activeMemberships = memberships.filter(
+      (m) => m.status === "active",
+    );
     const memberStores = (
       await Promise.all(
-        memberships.map((m) => ctx.db.get(m.storeId)),
+        activeMemberships.map((m) => ctx.db.get(m.storeId)),
       )
     ).filter((s) => s !== null);
 
@@ -354,8 +357,10 @@ export const regenerateJoinCode = mutation({
 });
 
 /**
- * Join an existing store by its join code. The signed-in user becomes a member
- * (role "member") of the store and it is made their active store.
+ * Join an existing store by its join code. Creates a PENDING membership that
+ * the store admin must approve before the user gets access. Returns status so
+ * the client can tell the user their request is awaiting approval. Members who
+ * are already active (e.g. added by an admin) keep working immediately.
  */
 export const joinStoreByCode = mutation({
   args: { code: v.string() },
@@ -371,23 +376,61 @@ export const joinStoreByCode = mutation({
       .first();
     if (!store) throw new Error("No store found with that join code");
 
-    // Owner doesn't need a membership row.
-    if (store.ownerId !== user._id) {
-      const existing = await ctx.db
-        .query("storeMembers")
-        .withIndex("by_store", (q) => q.eq("storeId", store._id))
-        .filter((m) => m.eq(m.field("userId"), user._id))
-        .first();
-      if (!existing) {
-        await ctx.db.insert("storeMembers", {
-          storeId: store._id,
-          userId: user._id,
-          role: "member",
-        });
-      }
+    // Owner already controls the store.
+    if (store.ownerId === user._id) {
+      await ctx.db.patch(user._id, { activeStoreId: store._id });
+      return { storeId: store._id, name: store.name, status: "active" };
     }
 
-    await ctx.db.patch(user._id, { activeStoreId: store._id });
-    return { storeId: store._id, name: store.name };
+    const existing = await ctx.db
+      .query("storeMembers")
+      .withIndex("by_store", (q) => q.eq("storeId", store._id))
+      .filter((m) => m.eq(m.field("userId"), user._id))
+      .first();
+
+    if (existing && existing.status === "active") {
+      await ctx.db.patch(user._id, { activeStoreId: store._id });
+      return { storeId: store._id, name: store.name, status: "active" };
+    }
+
+    if (existing && existing.status === "pending") {
+      // Already requested — don't duplicate.
+      return { storeId: store._id, name: store.name, status: "pending" };
+    }
+
+    // New request — pending approval. Keep the user's current active store
+    // (if any) intact until the request is approved.
+    await ctx.db.insert("storeMembers", {
+      storeId: store._id,
+      userId: user._id,
+      role: "member",
+      status: "pending",
+    });
+    return { storeId: store._id, name: store.name, status: "pending" };
+  },
+});
+
+/** Any store membership requests awaiting admin approval for this user. */
+export const pendingJoins = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    const pending = await ctx.db
+      .query("storeMembers")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", user._id).eq("status", "pending"),
+      )
+      .collect();
+    const rows = [];
+    for (const m of pending) {
+      const store = await ctx.db.get(m.storeId);
+      rows.push({
+        storeId: m.storeId,
+        storeName: store?.name ?? "Unknown store",
+        requestedAt: m._creationTime,
+      });
+    }
+    return rows;
   },
 });

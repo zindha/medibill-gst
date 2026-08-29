@@ -107,7 +107,9 @@ export async function getRoleInStore(
     .withIndex("by_store", (q) => q.eq("storeId", storeId))
     .filter((m) => m.eq(m.field("userId"), userId))
     .first();
-  return member?.role ?? null;
+  // Pending members haven't been approved yet — no access until active.
+  if (!member || member.status === "pending") return null;
+  return member.role;
 }
 
 /** Get the current user document, or null if signed out. */
