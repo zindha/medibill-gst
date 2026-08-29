@@ -17,7 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect } from "react";
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useNavigate } from "react-router";
 
 interface NavItem {
   to: string;
@@ -93,14 +93,16 @@ function NavItemLink({ item }: { item: NavItem }) {
 }
 
 export default function DashboardLayout() {
-  const { isAuthenticated, activeStore, ensureStore } = useAuth();
+  const { isAuthenticated, myStores } = useAuth();
+  const navigate = useNavigate();
 
-  // Ensure every authenticated user has a store they can work in.
+  // First login: direct the user to the guided onboarding screen to set up
+  // their store before they can use the dashboard.
   useEffect(() => {
-    if (isAuthenticated && !activeStore) {
-      ensureStore({});
+    if (isAuthenticated && myStores && myStores.length === 0) {
+      navigate("/onboarding", { replace: true });
     }
-  }, [isAuthenticated, activeStore, ensureStore]);
+  }, [isAuthenticated, myStores, navigate]);
 
   return (
     <div className="min-h-screen flex bg-background">

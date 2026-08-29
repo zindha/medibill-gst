@@ -26,6 +26,7 @@ const SuppliersPage = lazy(() => import("./pages/SuppliersPage.tsx"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage.tsx"));
 const ScanBillPage = lazy(() => import("./pages/ScanBillPage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
+const OnboardingPage = lazy(() => import("./pages/OnboardingPage.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -72,6 +73,7 @@ createRoot(document.getElementById("root")!).render(
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<AuthPage redirectAfterAuth="/dashboard" />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="billing" element={<BillingPage />} />
