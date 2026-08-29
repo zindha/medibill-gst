@@ -1,15 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     return await ctx.db
       .query("prescriptions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .order("desc")
       .collect();
   },
@@ -27,15 +27,17 @@ export const create = mutation({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
-    return await ctx.db.insert("prescriptions", { ...args, userId: user._id });
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    return await ctx.db.insert("prescriptions", { ...args, userId: active.ownerId });
   },
 });
 
 export const remove = mutation({
   args: { id: v.id("prescriptions") },
   handler: async (ctx, args) => {
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     await ctx.db.delete(args.id);
   },
 });

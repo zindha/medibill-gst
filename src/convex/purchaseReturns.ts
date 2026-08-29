@@ -1,16 +1,16 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 import { gstRateValidator } from "./schema";
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     return await ctx.db
       .query("purchaseReturns")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .order("desc")
       .collect();
   },
@@ -62,18 +62,18 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const returns = await ctx.db
       .query("purchaseReturns")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
-    const returnNo = generateReturnNo(user._id, returns.length);
+    const returnNo = generateReturnNo(active.ownerId, returns.length);
     const { items, ...data } = args;
     const returnId = await ctx.db.insert("purchaseReturns", {
       ...data,
       returnNo,
-      userId: user._id,
+      userId: active.ownerId,
     });
     for (const item of items) {
       await ctx.db.insert("purchaseReturnItems", { ...item, returnId });

@@ -1,32 +1,32 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 
 /** Summary counts and key numbers — fast, no heavy array scans */
 export const summary = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     const medicines = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     const invoices = await ctx.db
       .query("invoices")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     const suppliers = await ctx.db
       .query("suppliers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     const customers = await ctx.db
       .query("customers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     const totalRevenue = invoices.reduce(
@@ -92,12 +92,12 @@ export const summary = query({
 export const activity = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     const invoices = await ctx.db
       .query("invoices")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     // Recent invoices (top 5)
@@ -162,7 +162,7 @@ export const activity = query({
     const reminders = await ctx.db
       .query("refillReminders")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .filter((r) =>
         r.eq(r.field("status"), "pending"),
@@ -177,7 +177,7 @@ export const activity = query({
     const pendingPurchaseBills = await ctx.db
       .query("purchaseBills")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .filter((b) =>
         b.eq(b.field("status"), "pending"),
@@ -204,13 +204,13 @@ export const activity = query({
 export const paymentsSummary = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     const payments = await ctx.db
       .query("payments")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
 
@@ -225,7 +225,7 @@ export const paymentsSummary = query({
     const invoices = await ctx.db
       .query("invoices")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     let totalPending = 0;
@@ -251,12 +251,12 @@ export const gstRegister = query({
     toDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     let invoices = await ctx.db
       .query("invoices")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     if (args.fromDate)
@@ -319,12 +319,12 @@ export const purchaseRegister = query({
     toDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     let bills = await ctx.db
       .query("purchaseBills")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     // Bills without a date stay visible in any range
@@ -359,37 +359,37 @@ export const purchaseRegister = query({
 export const dashboard = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     const medicines = await ctx.db
       .query("medicines")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     const invoices = await ctx.db
       .query("invoices")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     const suppliers = await ctx.db
       .query("suppliers")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     const customers = await ctx.db
       .query("customers")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
     const payments = await ctx.db
       .query("payments")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .collect();
 
@@ -451,7 +451,7 @@ export const dashboard = query({
     const reminders = await ctx.db
       .query("refillReminders")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .filter((r) =>
         r.eq(r.field("status"), "pending"),
@@ -464,7 +464,7 @@ export const dashboard = query({
     const pendingPurchaseBills = await ctx.db
       .query("purchaseBills")
       .withIndex("by_user", (q) =>
-        q.eq("userId", user._id),
+        q.eq("userId", active.ownerId),
       )
       .filter((b) =>
         b.eq(b.field("status"), "pending"),

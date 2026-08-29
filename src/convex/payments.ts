@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 
 export const list = query({
   args: {
@@ -14,12 +14,12 @@ export const list = query({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     let q = ctx.db
       .query("payments")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .order("desc");
 
     if (args.type) {
@@ -33,11 +33,11 @@ export const list = query({
 export const getPendingAmount = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const invoices = await ctx.db
       .query("invoices")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     let totalPending = 0;
     for (const inv of invoices) {
@@ -56,11 +56,11 @@ export const getTotals = query({
     toDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     let q = ctx.db
       .query("payments")
-      .withIndex("by_user", (q) => q.eq("userId", user._id));
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId));
     if (args.fromDate) {
       q = q.filter((p) => p.gte(p.field("date"), args.fromDate!));
     }
@@ -89,8 +89,8 @@ export const getTotals = query({
 export const listByInvoice = query({
   args: { invoiceId: v.id("invoices") },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     return await ctx.db
       .query("payments")
       .withIndex("by_invoice", (q) =>
@@ -148,17 +148,17 @@ export const create = mutation({
     paymentMode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const paymentId = await ctx.db.insert("payments", {
       ...args,
-      userId: user._id,
+      userId: active.ownerId,
     });
     if (args.invoiceId && args.type === "received") {
       const invoice = await ctx.db.get(args.invoiceId);
       await recomputeInvoiceStatus(
         ctx,
-        user._id,
+        active.ownerId,
         args.invoiceId,
         invoice?.paymentMode,
       );
@@ -170,8 +170,8 @@ export const create = mutation({
 export const remove = mutation({
   args: { id: v.id("payments") },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const payment = await ctx.db.get(args.id);
     if (!payment) return;
     const { invoiceId, type } = payment;
@@ -180,7 +180,7 @@ export const remove = mutation({
       const invoice = await ctx.db.get(invoiceId);
       await recomputeInvoiceStatus(
         ctx,
-        user._id,
+        active.ownerId,
         invoiceId,
         invoice?.paymentMode,
       );

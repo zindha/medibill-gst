@@ -40,7 +40,35 @@ const schema = defineSchema(
       isAnonymous: v.optional(v.boolean()),
       role: v.optional(roleValidator),
       phone: v.optional(v.string()),
-    }).index("email", ["email"]),
+      // currently selected pharmacy/store for this user; a user may belong to
+      // multiple stores and switch between them (activeStoreId -> stores._id)
+      activeStoreId: v.optional(v.id("stores")),
+    }).index("email", ["email"]).index("phone", ["phone"]),
+
+    // Pharmacies / Medical stores. A store's owner is the user who created it;
+    // all business data (medicines, invoices, etc.) is keyed by the owner's
+    // userId. Members (see storeMembers) work in that store's data.
+    stores: defineTable({
+      name: v.string(),
+      ownerId: v.id("users"),
+      address: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+      gstin: v.optional(v.string()),
+      drugLicenseNo: v.optional(v.string()),
+    }).index("by_owner", ["ownerId"]),
+
+    // Membership: links a user to a store they can access, with a role.
+    // The owner row is implicit (stores.ownerId acts as admin); additional
+    // members are recorded here so the same email/mobile can join many stores.
+    storeMembers: defineTable({
+      storeId: v.id("stores"),
+      userId: v.id("users"),
+      role: roleValidator,
+    })
+      .index("by_store", ["storeId"])
+      .index("by_user", ["userId"]),
+
 
     // Suppliers / Distributors
     suppliers: defineTable({

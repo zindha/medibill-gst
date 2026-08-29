@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 import { gstRateValidator } from "./schema";
 
 export const list = query({
@@ -8,12 +8,12 @@ export const list = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     let items = await ctx.db
       .query("invoices")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .order("desc")
       .collect();
 
@@ -46,11 +46,11 @@ export const get = query({
 export const getNextInvoiceNo = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const invoices = await ctx.db
       .query("invoices")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     const count = invoices.length + 1;
     const date = new Date();
@@ -104,12 +104,12 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const { items, ...invoiceData } = args;
     const invoiceId = await ctx.db.insert("invoices", {
       ...invoiceData,
-      userId: user._id,
+      userId: active.ownerId,
     });
     for (const item of items) {
       await ctx.db.insert("invoiceItems", {
@@ -145,8 +145,8 @@ export const create = mutation({
 export const remove = mutation({
   args: { id: v.id("invoices") },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const items = await ctx.db
       .query("invoiceItems")
       .withIndex("by_invoice", (q) => q.eq("invoiceId", args.id))

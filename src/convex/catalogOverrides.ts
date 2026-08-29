@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 import { gstRateValidator } from "./schema";
 
 async function getOverride(
@@ -17,15 +17,15 @@ async function getOverride(
     .first();
 }
 
-/** All of the current user's catalog overrides. */
+/** All of the active store's catalog overrides. */
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     return await ctx.db
       .query("catalogOverrides")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
   },
 });
@@ -39,9 +39,9 @@ export const setUnavailable = mutation({
     unavailable: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
-    const existing = await getOverride(ctx, user._id, args.catalogKey);
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    const existing = await getOverride(ctx, active.ownerId, args.catalogKey);
     if (existing) {
       if (
         !args.unavailable &&
@@ -59,7 +59,7 @@ export const setUnavailable = mutation({
         medicineName: args.medicineName,
         company: args.company,
         unavailable: true,
-        userId: user._id,
+        userId: active.ownerId,
       });
     }
   },
@@ -75,9 +75,9 @@ export const saveGst = mutation({
     hsnCode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
-    const existing = await getOverride(ctx, user._id, args.catalogKey);
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    const existing = await getOverride(ctx, active.ownerId, args.catalogKey);
     if (existing) {
       await ctx.db.patch(existing._id, {
         gstRate: args.gstRate,
@@ -92,7 +92,7 @@ export const saveGst = mutation({
         gstRate: args.gstRate,
         hsnCode: args.hsnCode || undefined,
         verified: true,
-        userId: user._id,
+        userId: active.ownerId,
       });
     }
   },
@@ -102,9 +102,9 @@ export const saveGst = mutation({
 export const remove = mutation({
   args: { catalogKey: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
-    const existing = await getOverride(ctx, user._id, args.catalogKey);
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
+    const existing = await getOverride(ctx, active.ownerId, args.catalogKey);
     if (existing) {
       await ctx.db.delete(existing._id);
     }

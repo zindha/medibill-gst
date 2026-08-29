@@ -1,4 +1,5 @@
-import { LogoDropdown } from "@/components/LogoDropdown";
+import { StoreSwitcher } from "@/components/StoreSwitcher";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import {
   Activity,
@@ -15,6 +16,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router";
 
 interface NavItem {
@@ -91,22 +93,34 @@ function NavItemLink({ item }: { item: NavItem }) {
 }
 
 export default function DashboardLayout() {
+  const { isAuthenticated, activeStore, ensureStore } = useAuth();
+
+  // Ensure every authenticated user has a store they can work in.
+  useEffect(() => {
+    if (isAuthenticated && !activeStore) {
+      ensureStore({});
+    }
+  }, [isAuthenticated, activeStore, ensureStore]);
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
       <aside className="w-60 border-r border-border bg-sidebar hidden md:flex flex-col">
-        <div className="px-5 py-5 border-b border-border flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
-            <Cross className="h-4 w-4" strokeWidth={2.5} />
+        <div className="px-4 py-4 border-b border-border space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+              <Cross className="h-4 w-4" strokeWidth={2.5} />
+            </div>
+            <div className="leading-tight">
+              <span className="font-display text-base font-semibold tracking-tight text-foreground block">
+                MediBill
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                GST Billing System
+              </span>
+            </div>
           </div>
-          <div className="leading-tight">
-            <span className="font-display text-base font-semibold tracking-tight text-foreground block">
-              MediBill
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              GST Billing System
-            </span>
-          </div>
+          <StoreSwitcher />
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-5">

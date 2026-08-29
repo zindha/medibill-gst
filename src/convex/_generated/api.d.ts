@@ -25,6 +25,7 @@ import type * as purchaseReturns from "../purchaseReturns.js";
 import type * as refillReminders from "../refillReminders.js";
 import type * as salesReturns from "../salesReturns.js";
 import type * as stats from "../stats.js";
+import type * as stores from "../stores.js";
 import type * as suppliers from "../suppliers.js";
 import type * as users from "../users.js";
 
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   refillReminders: typeof refillReminders;
   salesReturns: typeof salesReturns;
   stats: typeof stats;
+  stores: typeof stores;
   suppliers: typeof suppliers;
   users: typeof users;
 }>;

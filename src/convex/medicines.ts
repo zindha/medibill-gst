@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 import { gstRateValidator } from "./schema";
 
 export const list = query({
@@ -8,12 +8,12 @@ export const list = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     let items = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
 
     if (args.search) {
@@ -40,13 +40,13 @@ export const get = query({
 export const search = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const q = args.query.toLowerCase();
     if (!q) return [];
     const medicines = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     return medicines.filter(
       (m) =>
@@ -62,15 +62,15 @@ export const search = query({
 export const searchByBarcode = query({
   args: { barcode: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const trimmed = args.barcode.trim();
     if (!trimmed) return null;
     const med = await ctx.db
       .query("medicines")
       .withIndex("by_barcode", (q) => q.eq("barcode", trimmed))
       .first();
-    if (med && med.userId === user._id) return med;
+    if (med && med.userId === active.ownerId) return med;
     return null;
   },
 });
@@ -78,11 +78,11 @@ export const searchByBarcode = query({
 export const getLowStock = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const medicines = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     return medicines.filter((m) =>
       m.minQuantity ? m.quantity <= m.minQuantity : m.quantity <= 10,
@@ -93,8 +93,8 @@ export const getLowStock = query({
 export const getExpiringSoon = query({
   args: { days: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const days = args.days || 30;
     const threshold = new Date();
     threshold.setDate(threshold.getDate() + days);
@@ -102,7 +102,7 @@ export const getExpiringSoon = query({
     const today = new Date().toISOString().split("T")[0];
     const medicines = await ctx.db
       .query("medicines")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     return medicines.filter(
       (m) =>
@@ -144,11 +144,11 @@ export const create = mutation({
     supplierId: v.optional(v.id("suppliers")),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     return await ctx.db.insert("medicines", {
       ...args,
-      userId: user._id,
+      userId: active.ownerId,
     });
   },
 });
@@ -173,8 +173,8 @@ export const update = mutation({
     supplierId: v.optional(v.id("suppliers")),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const { id, ...patch } = args;
     await ctx.db.patch(id, patch);
   },
@@ -183,8 +183,8 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("medicines") },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     await ctx.db.delete(args.id);
   },
 });

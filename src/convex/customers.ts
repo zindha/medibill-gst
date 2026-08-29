@@ -1,18 +1,18 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getCurrentUser } from "./users";
+import { getActiveStore } from "./users";
 
 export const list = query({
   args: {
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
 
     let items = await ctx.db
       .query("customers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .order("desc")
       .collect();
 
@@ -38,11 +38,11 @@ export const get = query({
 export const search = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const customers = await ctx.db
       .query("customers")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .withIndex("by_user", (q) => q.eq("userId", active.ownerId))
       .collect();
     const q = args.query.toLowerCase();
     return customers.filter(
@@ -80,12 +80,12 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const id = await ctx.db.insert("customers", {
       ...args,
       totalPurchases: 0,
-      userId: user._id,
+      userId: active.ownerId,
     });
     // Create credit account if opening balance
     if (args.openingBalance && args.openingBalance !== 0) {
@@ -94,7 +94,7 @@ export const create = mutation({
         customerName: args.name,
         type: "customer",
         balance: args.openingBalance,
-        userId: user._id,
+        userId: active.ownerId,
       });
     }
     return id;
@@ -114,8 +114,8 @@ export const update = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     const { id, ...patch } = args;
     await ctx.db.patch(id, patch);
   },
@@ -124,8 +124,8 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("customers") },
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    const active = await getActiveStore(ctx);
+    if (!active) throw new Error("Not authenticated");
     await ctx.db.delete(args.id);
   },
 });
