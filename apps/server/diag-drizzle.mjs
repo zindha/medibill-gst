@@ -1,0 +1,16 @@
+import { db } from "./src/db/index.ts";
+import { sessions } from "./src/db/schema/index.ts";
+import { eq } from "drizzle-orm";
+import Database from "better-sqlite3";
+import { join } from "path";
+const DATA_DIR = process.env.DATA_DIR ?? join(process.env.PROGRAM_DATA ?? "C:\\ProgramData\\MediBill", "data");
+const raw = new Database(join(DATA_DIR, "medibill.db"));
+console.log("Before insert raw sessions sample:");
+console.log(raw.prepare("SELECT id, expires_at, created_at FROM sessions ORDER BY created_at DESC LIMIT 3").all());
+const now = new Date();
+const future = new Date(now.getTime() + 7*24*3600*1000);
+console.log("Inserting via drizzle with expires", future.toISOString(), future.getTime());
+const [s] = await db.insert(sessions).values({ userId: "h-iq6qxC_tvgVeeN", token: "diag-token-"+Date.now(), expiresAt: future, createdAt: now }).returning();
+console.log("Inserted session", s);
+console.log("Raw after:", raw.prepare("SELECT id, expires_at, created_at FROM sessions WHERE token=?").get(s.token));
+console.log("Raw type expires_at:", typeof raw.prepare("SELECT expires_at FROM sessions WHERE token=?").get(s.token).expires_at);
