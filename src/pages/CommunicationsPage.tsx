@@ -13,10 +13,12 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   CheckCircle2,
+  FileText,
   Loader2,
   MessageSquare,
   Plus,
   RefreshCw,
+  RotateCcw,
   Send,
   Settings2,
 } from "lucide-react";
@@ -25,6 +27,7 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   messagesApi,
+  settingsApi,
   type CommunicationPreference,
   type MessageChannel,
   type MessageDelivery,
@@ -44,6 +47,39 @@ const TEMPLATE_OPTIONS = [
   { id: "payment_due", label: "Payment due" },
   { id: "custom", label: "Custom message" },
 ];
+
+/**
+ * Override-able templates (server: `MESSAGE_TEMPLATES` in
+ * services/messaging.ts — `custom` is excluded because its body always comes
+ * from the composer). Defaults mirror the server so the editor shows the
+ * effective text before anything is saved.
+ */
+const TEMPLATE_DEFS: Array<{ id: string; label: string; defaultBody: string }> = [
+  {
+    id: "invoice_share",
+    label: "Invoice share",
+    defaultBody:
+      "Hi {customerName}! Invoice {invoiceNo} (₹{amount}) from {storeName}. {invoiceUrl} — thank you!",
+  },
+  {
+    id: "refill_reminder",
+    label: "Refill reminder",
+    defaultBody:
+      "Hi {customerName}, it's time to refill {medicineName}. Reply or visit us for the next pack.",
+  },
+  {
+    id: "payment_due",
+    label: "Payment due",
+    defaultBody: "Hi {customerName}, ₹{amount} is due on your account at {storeName}.",
+  },
+];
+
+/** `{tokens}` documented for one default body (missing tokens render empty). */
+function tokensIn(body: string): string[] {
+  const out: string[] = [];
+  for (const m of body.matchAll(/\{(\w+)\}/g)) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
 
 function statusPill(status: string, error?: string | null) {
   const cls: Record<string, string> = {
@@ -115,6 +151,12 @@ export default function CommunicationsPage() {
   const [prefOptedOut, setPrefOptedOut] = useState(true);
   const [savingPref, setSavingPref] = useState(false);
 
+  // Templates (settings key `message_templates` — per-key merge on save)
+  const [templateOverrides, setTemplateOverrides] = useState<Record<string, string>>({});
+  const [templateDrafts, setTemplateDrafts] = useState<Record<string, string>>({});
+  const [templateSaving, setTemplateSaving] = useState<string | null>(null);
+  const [templatesError, setTemplatesError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -146,7 +188,77 @@ export default function CommunicationsPage() {
     }
   }, []);
 
+  /** Read the stored per-template overrides (defaults show when absent). */
+  const loadTemplates = useCallback(async () => {
+    setTemplatesError(null);
+    try {
+      const res = await settingsApi.get("message_templates");
+      const value = res?.value;
+      const overrides: Record<string, string> = {};
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          if (typeof v === "string") overrides[k] = v;
+        }
+      }
+      setTemplateOverrides(overrides);
+      setTemplateDrafts({});
+    } catch (err: any) {
+      setTemplatesError(err?.message ?? "Could not load template overrides");
+    }
+  }, []);
+
+  /**
+   * Save ONE template — the settings route merges the partial object into the
+   * stored JSON, so the other overrides are never clobbered.
+   */
+  const saveTemplate = async (id: string, body: string) => {
+    setTemplateSaving(id);
+    try {
+      await settingsApi.set("message_templates", { [id]: body });
+      setTemplateOverrides((prev) => ({ ...prev, [id]: body }));
+      setTemplateDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      toast.success("Template saved");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not save the template");
+    } finally {
+      setTemplateSaving(null);
+    }
+  };
+
+  /** Remove the override for ONE template — the built-in default takes over. */
+  const resetTemplate = async (id: string) => {
+    setTemplateSaving(id);
+    try {
+      await settingsApi.set("message_templates", { [id]: null });
+      setTemplateOverrides((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setTemplateDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      toast.success("Reset to the default template");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not reset the template");
+    } finally {
+      setTemplateSaving(null);
+    }
+  };
+
   useEffect(() => { if (isAuthenticated) { void load(); void loadPrefs(); } }, [isAuthenticated, load, loadPrefs]);
+  // Deferred (setTimeout) so the effect body never sets state synchronously.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const t = setTimeout(() => void loadTemplates(), 0);
+    return () => clearTimeout(t);
+  }, [isAuthenticated, loadTemplates]);
   useEffect(() => { if (!authLoading && !isAuthenticated) navigate("/auth", { replace: true }); }, [authLoading, isAuthenticated, navigate]);
 
   const filtered = useMemo(
@@ -246,10 +358,6 @@ export default function CommunicationsPage() {
     );
   }
 
-  const unconfigured = providers
-    ? (Object.entries(providers) as Array<[MessageChannel, boolean]>).filter(([, ok]) => !ok)
-    : [];
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
@@ -291,6 +399,7 @@ export default function CommunicationsPage() {
         <TabsList className="shrink-0">
           <TabsTrigger value="history" className="text-xs gap-1"><MessageSquare className="h-3.5 w-3.5" />History</TabsTrigger>
           <TabsTrigger value="compose" className="text-xs gap-1"><Send className="h-3.5 w-3.5" />Compose</TabsTrigger>
+          <TabsTrigger value="templates" className="text-xs gap-1"><FileText className="h-3.5 w-3.5" />Templates</TabsTrigger>
           <TabsTrigger value="preferences" className="text-xs gap-1"><Settings2 className="h-3.5 w-3.5" />Preferences</TabsTrigger>
         </TabsList>
 
@@ -475,6 +584,89 @@ export default function CommunicationsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ---------------- Templates ---------------- */}
+        <TabsContent value="templates" className="mt-3 min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Overrides live in settings key{" "}
+              <span className="font-mono">message_templates</span> and are merged over the
+              built-in defaults — saving or resetting one template never changes the others.
+              Missing <span className="font-mono">{"{tokens}"}</span> render as empty strings.
+            </p>
+            {templatesError && (
+              <p className="rounded-sm border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive" role="alert">
+                {templatesError}
+              </p>
+            )}
+            {TEMPLATE_DEFS.map((t) => {
+              const effective = templateOverrides[t.id] ?? t.defaultBody;
+              const draft = templateDrafts[t.id] ?? effective;
+              const modified = templateOverrides[t.id] !== undefined;
+              const dirty = draft !== effective;
+              const saving = templateSaving === t.id;
+              const tokens = tokensIn(t.defaultBody);
+              return (
+                <Card key={t.id} className="border-border/60">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                        {t.label}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {modified ? "Overridden" : "Default"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="font-mono text-[11px]">
+                      {tokens.length > 0 ? `Tokens: ${tokens.map((tok) => `{${tok}}`).join(" ")}` : "No tokens"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <Textarea
+                      value={draft}
+                      onChange={(e) =>
+                        setTemplateDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))
+                      }
+                      rows={3}
+                      className="font-mono text-xs"
+                      aria-label={`${t.label} message body`}
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[10px] text-muted-foreground">
+                        {modified ? "Saved override in use." : "Using the built-in default."}
+                      </p>
+                      <div className="flex gap-2">
+                        {modified && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void resetTemplate(t.id)}
+                            disabled={saving}
+                          >
+                            <RotateCcw className="mr-1 h-3 w-3" /> Reset to default
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => void saveTemplate(t.id, draft)}
+                          disabled={saving || !dirty}
+                        >
+                          {saving && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                          {dirty ? "Save" : "Saved"}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <p className="text-[11px] text-muted-foreground">
+              The <span className="font-mono">custom</span> template always uses the body typed in
+              the Compose tab — it has no override here.
+            </p>
+          </div>
         </TabsContent>
 
         {/* ---------------- Preferences ---------------- */}

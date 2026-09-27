@@ -10,11 +10,7 @@ import {
   type ComplianceKind,
   type ComplianceStatus,
 } from "../db/schema/index.js";
-import {
-  GstNotConfiguredError,
-  activeProviderName,
-  getGstProvider,
-} from "../providers/gst.js";
+import { getGstProvider } from "../providers/gst.js";
 import { auditEvents } from "./audit.js";
 import { readSettingString } from "./messaging.js";
 
@@ -31,10 +27,10 @@ import { readSettingString } from "./messaging.js";
  *   No outbox/worker is used for this flow, unlike messaging.
  * - Cancellation window is a hard local 24h constant measured from
  *   `submitted_at`, enforced BEFORE the provider call so an expired cancel
- *   never reaches the network. (The NIC provider may enforce its own window
- *   too — its failure surfaces as 422.)
- * - Secrets are env-only (EINVOICE_* / EWAY_*); nothing here ever reads or
- *   writes credentials into the database or an API response.
+ *   never reaches the network.
+ * - Provider: FAKE-ONLY (see providers/gst.ts). There are no credentials and
+ *   no "not configured" state — the only provider failure mode handled here
+ *   is a rejection (→ 422 with the provider message).
  *
  * Validation is strict B2B: a customer GSTIN is required (B2C e-invoice
  * without buyerDtls.gstin is out of scope for this task and rejected with a
@@ -102,8 +98,6 @@ export class ComplianceError extends Error {
 
 export function toErrorResponse(err: unknown): { statusCode: number; message: string } {
   if (err instanceof ComplianceError) return { statusCode: err.statusCode, message: err.message };
-  if (err instanceof GstNotConfiguredError)
-    return { statusCode: 503, message: "E-invoice provider not configured" };
   return { statusCode: 500, message: err instanceof Error ? err.message : String(err) };
 }
 
@@ -288,7 +282,9 @@ async function upsertPendingRow(input: {
 }): Promise<SubmissionRow> {
   const now = new Date();
   const base = {
-    provider: activeProviderName(),
+    // Fake-only build — the resolved provider's name (always "fake" unless a
+    // test override is installed).
+    provider: getGstProvider().name,
     status: "pending" as ComplianceStatus,
     requestHash: input.requestHash ?? null,
     responseJson: null,
@@ -412,17 +408,7 @@ export async function generate(
   // Persist the row BEFORE any provider interaction so failures are traceable.
   const row = await upsertPendingRow({ userId, invoiceId, kind: "einvoice", requestHash, existing });
 
-  let provider;
-  try {
-    provider = getGstProvider();
-  } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      // Status stays `pending`, the reason is recorded for the compliance center.
-      await patchRow(row.id, { error: err.message });
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
-    throw err;
-  }
+  const provider = getGstProvider();
 
   await patchRow(row.id, { status: "submitted", submittedAt: new Date(), error: null });
 
@@ -447,10 +433,6 @@ export async function generate(
     const submission = (await getSubmission(userId, invoiceId, "einvoice"))!;
     return { created: !existing, submission };
   } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      await patchRow(row.id, { status: "pending", error: err.message });
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
     const message = err instanceof Error ? err.message : String(err);
     await patchRow(row.id, { status: "rejected", error: message });
     throw new ComplianceError(422, message);
@@ -478,22 +460,11 @@ export async function cancelEInvoice(
     throw new ComplianceError(400, "Cancellation window exceeded (24h)");
   }
 
-  let provider;
-  try {
-    provider = getGstProvider();
-  } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
-    throw err;
-  }
+  const provider = getGstProvider();
 
   try {
     await provider.cancelEInvoice(row.irn ?? "", reason);
   } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
     const message = err instanceof Error ? err.message : String(err);
     throw new ComplianceError(422, message);
   }
@@ -564,16 +535,7 @@ export async function generateEWay(
     existing,
   });
 
-  let provider;
-  try {
-    provider = getGstProvider();
-  } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      await patchRow(row.id, { error: err.message });
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
-    throw err;
-  }
+  const provider = getGstProvider();
 
   await patchRow(row.id, { status: "submitted", submittedAt: new Date(), error: null });
 
@@ -597,10 +559,6 @@ export async function generateEWay(
     const submission = (await getSubmission(userId, invoiceId, "ewaybill"))!;
     return { created: !existing, submission };
   } catch (err) {
-    if (err instanceof GstNotConfiguredError) {
-      await patchRow(row.id, { status: "pending", error: err.message });
-      throw new ComplianceError(503, "E-invoice provider not configured");
-    }
     const message = err instanceof Error ? err.message : String(err);
     await patchRow(row.id, { status: "rejected", error: message });
     throw new ComplianceError(422, message);

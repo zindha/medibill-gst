@@ -14,10 +14,12 @@ import {
   getEntry,
   listPeriods,
   post,
+  postOpeningBalances,
   profitLoss,
   balanceSheet,
   reopenPeriod,
   reverse,
+  suggestOpeningLines,
   toErrorResponse,
   trialBalance,
 } from "../services/accounting.js";
@@ -48,6 +50,12 @@ const createAccountSchema = z.object({
 const reverseSchema = z.object({ reason: z.string().optional() });
 
 const closePeriodSchema = z.object({ fromDate: z.string().min(1), toDate: z.string().min(1) });
+
+const openingPostSchema = z.object({
+  date: z.string().min(1),
+  description: z.string().optional(),
+  lines: z.array(lineSchema).min(1),
+});
 
 async function requireJournalRole(request: any, reply: any): Promise<string | null> {
   const role = await getUserRole(request.userId!);
@@ -103,6 +111,37 @@ export default async function accountingRoutes(fastify: FastifyInstance) {
         lines: parsed.data.lines,
       });
       return reply.status(result.alreadyPosted ? 200 : 201).send({ success: true, data: result });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  // Opening balances (admin | pharmacist only). One batch per date: the
+  // sourceId is date-keyed, so a repeat POST for the same date → 400.
+  fastify.post("/opening", { preHandler: [authGuard] }, async (request, reply) => {
+    if (!(await requireJournalRole(request, reply))) return;
+    const parsed = openingPostSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
+    }
+    try {
+      const result = await postOpeningBalances(request.userId!, {
+        date: parsed.data.date,
+        description: parsed.data.description,
+        lines: parsed.data.lines,
+      });
+      return reply.status(result.alreadyPosted ? 200 : 201).send({ success: true, data: result });
+    } catch (err) {
+      return sendError(reply, err);
+    }
+  });
+
+  // Prefill for the Opening tab: INVENTORY/AR/AP from current stock +
+  // ledgers, CASH left at 0 (editable) and CAPITAL as the balancing figure.
+  fastify.get("/opening/suggest", { preHandler: [authGuard] }, async (request, reply) => {
+    try {
+      const lines = await suggestOpeningLines(request.userId!);
+      return reply.send({ success: true, data: { lines } });
     } catch (err) {
       return sendError(reply, err);
     }

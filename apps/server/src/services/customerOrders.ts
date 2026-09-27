@@ -436,27 +436,62 @@ function parseDate(raw?: string): Date | null {
 }
 
 /**
+ * Per-status totals for the current search scope (q/from/to — NOT the status
+ * filter), so the UI pills can show server-computed counts while paging.
+ */
+export interface OrderStatusCounts {
+  all: number;
+  pending: number;
+  accepted: number;
+  packed: number;
+  ready: number;
+  delivered: number;
+  rejected: number;
+  cancelled: number;
+}
+
+const ZERO_COUNTS = (): OrderStatusCounts => ({
+  all: 0,
+  pending: 0,
+  accepted: 0,
+  packed: 0,
+  ready: 0,
+  delivered: 0,
+  rejected: 0,
+  cancelled: 0,
+});
+
+/**
  * List orders — deliberately NOT tenant-filtered: the queue is install-shared
  * for every authenticated staff member (documented in API.md). `actorId` is
  * kept for call-site symmetry/audit only.
+ *
+ * Paging: `page`/`limit` (limit capped at 100) over the filtered set;
+ * `counts` groups the SAME search scope by status (status filter excluded) so
+ * the pills reflect the whole queue, not just the loaded page.
  */
 export async function listOrders(
   _actorId: string,
   opts: ListOrdersOptions = {}
-): Promise<{ rows: CustomerOrderDetail[]; total: number; page: number; limit: number }> {
+): Promise<{
+  rows: CustomerOrderDetail[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: OrderStatusCounts;
+}> {
   const page = Math.max(1, opts.page ?? 1);
   const limit = Math.min(100, Math.max(1, opts.limit ?? 20));
 
-  const conds: any[] = [];
-  if (opts.status) conds.push(eq(customerOrders.status, opts.status as CustomerOrderStatus));
+  const baseConds: any[] = [];
   const from = parseDate(opts.from);
-  if (from) conds.push(gte(customerOrders.createdAt, from));
+  if (from) baseConds.push(gte(customerOrders.createdAt, from));
   const to = parseDate(opts.to);
-  if (to) conds.push(lte(customerOrders.createdAt, to));
+  if (to) baseConds.push(lte(customerOrders.createdAt, to));
   const q = (opts.q ?? "").trim();
   if (q) {
     const pat = searchPattern(q);
-    conds.push(
+    baseConds.push(
       or(
         sql`fold(${customerOrders.customerName}) LIKE ${pat}`,
         sql`${customerOrders.phone} LIKE ${`%${q}%`}`,
@@ -464,6 +499,10 @@ export async function listOrders(
       )
     );
   }
+  const baseWhere = baseConds.length > 0 ? and(...baseConds) : undefined;
+
+  const conds = [...baseConds];
+  if (opts.status) conds.push(eq(customerOrders.status, opts.status as CustomerOrderStatus));
   const where = conds.length > 0 ? and(...conds) : undefined;
 
   const [totalRow] = await db
@@ -471,6 +510,19 @@ export async function listOrders(
     .from(customerOrders)
     .where(where);
   const total = Number(totalRow?.c ?? 0);
+
+  // Server-computed status counts for the search scope (one cheap GROUP BY).
+  const counts = ZERO_COUNTS();
+  const grouped = await db
+    .select({ status: customerOrders.status, c: sql<number>`count(*)` })
+    .from(customerOrders)
+    .where(baseWhere)
+    .groupBy(customerOrders.status);
+  for (const row of grouped) {
+    const n = Number(row.c ?? 0);
+    counts[row.status as keyof OrderStatusCounts] = n;
+    counts.all += n;
+  }
 
   const rows = await db
     .select()
@@ -486,6 +538,7 @@ export async function listOrders(
     total,
     page,
     limit,
+    counts,
   };
 }
 

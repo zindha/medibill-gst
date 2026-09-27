@@ -115,7 +115,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       date?: string; from?: string; to?: string; customerId?: string; status?: string; search?: string; page?: string; limit?: string;
     };
 
-    const conds = [];
+    const conds = [eq(invoices.createdBy, request.userId!)];
     if (date) conds.push(eq(invoices.date, date));
     if (customerId) conds.push(eq(invoices.customerId, customerId));
     if (status) conds.push(eq(invoices.status, status as any));
@@ -185,6 +185,14 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
 
     const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoice.id));
     return reply.send({ success: true, data: { ...invoice, items } });
+  });
+
+  // Preview of the number the NEXT create will use (same generator as POST /,
+  // install-wide sequence). The stored invoice is always authoritative — this
+  // exists so the header preview matches what the server will actually assign
+  // instead of guessing from the tenant's own list.
+  fastify.get("/next-number", { preHandler: [authGuard] }, async (_request, reply) => {
+    return reply.send({ success: true, data: { invoiceNo: await generateInvoiceNumber() } });
   });
 
   // Create invoice (complete sale)
@@ -281,7 +289,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
     }
     const preSelections = new Map<string, { batchId: string; quantity: number; rate: number }[]>();
     for (const [medicineId, quantity] of stockRequirements) {
-      const selections = await selectBatches(medicineId, quantity);
+      const selections = await selectBatches(medicineId, quantity, request.userId!);
       preSelections.set(medicineId, selections);
       const available = selections.reduce((sum, selection) => sum + selection.quantity, 0);
       if (available < quantity) return reply.status(409).send({ success: false, error: `Insufficient stock for ${calculatedItems.find((item) => item.medicineId === medicineId)?.medicineName ?? "medicine"}` });
@@ -297,7 +305,8 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
     const expiryLines: { expiryDate?: string; batchNo?: string }[] = [];
     for (const selections of preSelections.values()) {
       for (const sel of selections) {
-        const [batch] = await db.select().from(batches).where(eq(batches.id, sel.batchId)).limit(1);
+        const [batch] = await db.select().from(batches)
+          .where(and(eq(batches.id, sel.batchId), eq(batches.createdBy, request.userId!))).limit(1);
         if (batch) expiryLines.push({ batchNo: batch.batchNo, expiryDate: batch.expiryDate });
       }
     }
@@ -346,7 +355,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       const medRows = await db
         .select({ id: medicines.id, schedule: medicines.schedule })
         .from(medicines)
-        .where(inArray(medicines.id, medicineIds));
+        .where(and(inArray(medicines.id, medicineIds), eq(medicines.createdBy, request.userId!)));
       for (const m of medRows) scheduleById.set(m.id, m.schedule);
     }
     const scheduledItems = calculatedItems.filter((item) =>
@@ -444,7 +453,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
 
           // Deduct stock in the requested batch order (fefo default)
           if (item.medicineId) {
-            const selections = selectBatches(item.medicineId, item.quantity);
+            const selections = selectBatches(item.medicineId, item.quantity, request.userId!);
             if (selections.reduce((sum, selection) => sum + selection.quantity, 0) < item.quantity) {
               throw new Error(`Insufficient stock for ${item.medicineName}`);
             }
@@ -491,7 +500,12 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
           }
         }
 
-        // Record payment
+        // Record payment. NOTE (Fix 3 — double-post guard): this receipt row
+        // is written directly inside the sale transaction and never passes
+        // through POST /api/payments, so it is deliberately NOT journal-posted
+        // (`sourceType = "payment"` entries only ever come from the payments
+        // route). The sale entry above already carries the cash leg split by
+        // amountPaid — posting this row too would double-count cash.
         if (data.amountPaid > 0) {
           tx.insert(payments).values({
             id: generateId(),
@@ -513,7 +527,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
           const [customer] = tx
             .select()
             .from(customers)
-            .where(eq(customers.id, data.customerId))
+            .where(and(eq(customers.id, data.customerId), eq(customers.createdBy, request.userId!)))
             .limit(1)
             .all();
           if (customer) {
@@ -525,7 +539,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
                 lastPurchaseDate: invoiceDate,
                 updatedAt: now,
               })
-              .where(eq(customers.id, data.customerId))
+              .where(and(eq(customers.id, data.customerId), eq(customers.createdBy, request.userId!)))
               .run();
           }
         }
@@ -557,6 +571,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
               totalGst,
               paymentMode: data.paymentMode,
               customerId: data.customerId,
+              amountPaid,
             }),
           });
         } catch (err) {
@@ -729,6 +744,10 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
 
       // The original received payments stay as history; record a matching
       // paid-out refund row so the cash book explicitly nets to zero.
+      // Fix 3: this refund row is deliberately NOT journal-posted — its cash
+      // effect is already modeled by reversing the sale entry (cash leg) and
+      // every posted settlement entry, so the journal nets to zero on its own
+      // while the payments table shows the matching payout.
       const received = collectReceivedPayments(tx, invoice.id, userId);
       const refundTotal = received.sumReceived;
       if (refundTotal > 0) {
@@ -754,7 +773,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
         const [customer] = tx
           .select()
           .from(customers)
-          .where(eq(customers.id, invoice.customerId))
+          .where(and(eq(customers.id, invoice.customerId), eq(customers.createdBy, userId)))
           .limit(1)
           .all();
         if (customer) {
@@ -765,7 +784,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
               balance: Math.max(0, (customer.balance ?? 0) - invoice.grandTotal + refundTotal),
               updatedAt: now,
             })
-            .where(eq(customers.id, invoice.customerId))
+            .where(and(eq(customers.id, invoice.customerId), eq(customers.createdBy, userId)))
             .run();
         }
       }
@@ -808,6 +827,51 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
     return rows.length > 0;
   };
 
+  /**
+   * Fix 3 — cancel/delete must reverse EVERY journal entry tied to this
+   * invoice, not just the sale entry: settlements recorded through
+   * POST /api/payments post `sourceType = "payment"` entries (Dr CASH/BANK /
+   * Cr AR) that would otherwise keep AR/CASH permanently open after the
+   * invoice is gone. Each payment row of this invoice is offered to
+   * `reverseSafely`:
+   * - invoice-created receipt rows and the refund payout row written by
+   *   `reverseInvoice` are never journal-posted → `found: false` no-op;
+   * - an already-reversed settlement stays reversed (reverse is idempotent).
+   * Every actual reversal is audited with `{ invoiceNo, kind: "settlement" }`.
+   */
+  const reverseSettlements = async (
+    invoice: typeof invoices.$inferSelect,
+    userId: string,
+    reason: string
+  ): Promise<void> => {
+    const rows = db
+      .select({ id: payments.id })
+      .from(payments)
+      .where(and(eq(payments.invoiceId, invoice.id), eq(payments.createdBy, userId)))
+      .all();
+    const today = new Date().toISOString().split("T")[0];
+    for (const row of rows) {
+      const result = await reverseSafely(
+        userId,
+        { sourceType: "payment", sourceId: row.id, date: today, reason },
+        { entity: "payment", entityId: row.id }
+      );
+      if (result?.found) {
+        await auditEvents.record({
+          actorId: userId,
+          action: "accounting.reversed",
+          entity: "payment",
+          entityId: row.id,
+          metadata: {
+            invoiceNo: invoice.invoiceNo,
+            kind: "settlement",
+            alreadyReversed: result.alreadyReversed,
+          },
+        });
+      }
+    }
+  };
+
   // Cancel invoice
   fastify.post("/:id/cancel", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -823,9 +887,12 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ success: false, error: `Unable to cancel invoice: ${error.message}` });
     }
 
-    // Task 11: mirror the sale's journal entry (no-op when never posted).
-    // Best-effort — a ledger failure never blocks the cancellation.
-    await reverseSafely(
+    // Task 11 / Fix 3: mirror the ledger — settlements FIRST (each payment
+    // row of this invoice that posted a `payment` entry), then the sale entry
+    // itself. Both are idempotent no-ops when nothing was posted. Best-effort:
+    // a ledger failure never blocks the cancellation.
+    await reverseSettlements(invoice, request.userId!, "Invoice cancelled");
+    const saleReversal = await reverseSafely(
       request.userId!,
       {
         sourceType: "invoice",
@@ -835,6 +902,19 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       },
       { entity: "invoice", entityId: invoice.id }
     );
+    if (saleReversal?.found) {
+      await auditEvents.record({
+        actorId: request.userId!,
+        action: "accounting.reversed",
+        entity: "invoice",
+        entityId: invoice.id,
+        metadata: {
+          invoiceNo: invoice.invoiceNo,
+          kind: "invoice",
+          alreadyReversed: saleReversal.alreadyReversed,
+        },
+      });
+    }
 
     return reply.send({ success: true, data: { message: "Invoice cancelled successfully" } });
   });
@@ -871,6 +951,9 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
   // Hold invoice
   fastify.post("/:id/hold", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const [invoice] = await db.select({ id: invoices.id }).from(invoices)
+      .where(and(eq(invoices.id, id), eq(invoices.createdBy, request.userId!))).limit(1);
+    if (!invoice) return reply.status(404).send({ success: false, error: "Invoice not found" });
     await db.update(invoices).set({ hold: true, updatedAt: new Date() }).where(and(eq(invoices.id, id), eq(invoices.createdBy, request.userId!)));
     return reply.send({ success: true, data: { message: "Invoice put on hold" } });
   });
@@ -878,6 +961,9 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
   // Recall invoice
   fastify.post("/:id/recall", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const [invoice] = await db.select({ id: invoices.id }).from(invoices)
+      .where(and(eq(invoices.id, id), eq(invoices.createdBy, request.userId!))).limit(1);
+    if (!invoice) return reply.status(404).send({ success: false, error: "Invoice not found" });
     await db.update(invoices).set({ hold: false, updatedAt: new Date() }).where(and(eq(invoices.id, id), eq(invoices.createdBy, request.userId!)));
     return reply.send({ success: true, data: { message: "Invoice recalled" } });
   });
@@ -971,8 +1057,10 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       return reply.status(500).send({ success: false, error: `Unable to delete invoice: ${error.message}` });
     }
 
-    // Task 11: mirror the sale's journal entry (deletes cancel, never erase).
-    await reverseSafely(
+    // Task 11 / Fix 3: mirror the sale's journal entry (deletes cancel, never
+    // erase) — settlements first, then the sale entry (see reverseSettlements).
+    await reverseSettlements(invoice, request.userId!, "Invoice deleted");
+    const deleteReversal = await reverseSafely(
       request.userId!,
       {
         sourceType: "invoice",
@@ -982,6 +1070,19 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       },
       { entity: "invoice", entityId: invoice.id }
     );
+    if (deleteReversal?.found) {
+      await auditEvents.record({
+        actorId: request.userId!,
+        action: "accounting.reversed",
+        entity: "invoice",
+        entityId: invoice.id,
+        metadata: {
+          invoiceNo: invoice.invoiceNo,
+          kind: "invoice",
+          alreadyReversed: deleteReversal.alreadyReversed,
+        },
+      });
+    }
 
     return reply.send({ success: true, data: { message: "Invoice deleted" } });
   });

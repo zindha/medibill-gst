@@ -44,7 +44,7 @@ export default async function medicineRoutes(fastify: FastifyInstance) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    const conds = [eq(medicines.isActive, true)];
+    const conds = [eq(medicines.createdBy, request.userId!), eq(medicines.isActive, true)];
     if (search) {
       const pat = searchPattern(search);
       const matches = [
@@ -108,11 +108,13 @@ export default async function medicineRoutes(fastify: FastifyInstance) {
   // Get single medicine
   fastify.get("/:id", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [medicine] = await db.select().from(medicines).where(and(eq(medicines.id, id), eq(medicines.isActive, true))).limit(1);
+    const [medicine] = await db.select().from(medicines)
+      .where(and(eq(medicines.id, id), eq(medicines.createdBy, request.userId!), eq(medicines.isActive, true))).limit(1);
     if (!medicine) return reply.status(404).send({ success: false, error: "Medicine not found" });
 
     const medicineBatches = await db.select().from(batches)
-      .where(and(eq(batches.medicineId, id), eq(batches.isActive, true))).orderBy(asc(batches.expiryDate));
+      .where(and(eq(batches.medicineId, id), eq(batches.createdBy, request.userId!), eq(batches.isActive, true)))
+      .orderBy(asc(batches.expiryDate));
 
     return reply.send({ success: true, data: { ...medicine, batches: medicineBatches } });
   });
@@ -144,10 +146,12 @@ export default async function medicineRoutes(fastify: FastifyInstance) {
     const parsed = updateMedicineSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
-    const [existing] = await db.select().from(medicines).where(and(eq(medicines.id, id), eq(medicines.isActive, true))).limit(1);
+    const [existing] = await db.select().from(medicines)
+      .where(and(eq(medicines.id, id), eq(medicines.createdBy, request.userId!), eq(medicines.isActive, true))).limit(1);
     if (!existing) return reply.status(404).send({ success: false, error: "Medicine not found" });
 
-    const [updated] = await db.update(medicines).set({ ...parsed.data, updatedAt: new Date() }).where(eq(medicines.id, id)).returning();
+    const [updated] = await db.update(medicines).set({ ...parsed.data, updatedAt: new Date() })
+      .where(and(eq(medicines.id, id), eq(medicines.createdBy, request.userId!))).returning();
     return reply.send({ success: true, data: updated });
   });
 
@@ -192,12 +196,13 @@ export default async function medicineRoutes(fastify: FastifyInstance) {
   // Search by barcode
   fastify.get("/barcode/:barcode", { preHandler: [authGuard] }, async (request, reply) => {
     const { barcode } = request.params as { barcode: string };
-    const [medicine] = await db.select().from(medicines).where(and(eq(medicines.barcode, barcode), eq(medicines.isActive, true))).limit(1);
+    const [medicine] = await db.select().from(medicines)
+      .where(and(eq(medicines.barcode, barcode), eq(medicines.createdBy, request.userId!), eq(medicines.isActive, true))).limit(1);
     if (!medicine) return reply.status(404).send({ success: false, error: "Medicine not found for this barcode" });
 
     const today = new Date().toISOString().split("T")[0];
     const medicineBatches = await db.select().from(batches)
-      .where(and(eq(batches.medicineId, medicine.id), eq(batches.isActive, true), gt(batches.expiryDate, today), gt(batches.quantity, 0)))
+      .where(and(eq(batches.medicineId, medicine.id), eq(batches.createdBy, request.userId!), eq(batches.isActive, true), gt(batches.expiryDate, today), gt(batches.quantity, 0)))
       .orderBy(asc(batches.expiryDate));
 
     return reply.send({ success: true, data: { ...medicine, batches: medicineBatches } });

@@ -24,7 +24,7 @@ export default async function doctorRoutes(fastify: FastifyInstance) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    const conds = [eq(doctors.isActive, true)];
+    const conds = [eq(doctors.createdBy, request.userId!), eq(doctors.isActive, true)];
     if (search) {
       const pat = searchPattern(search);
       conds.push(or(
@@ -42,7 +42,8 @@ export default async function doctorRoutes(fastify: FastifyInstance) {
 
   fastify.get("/:id", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [doctor] = await db.select().from(doctors).where(and(eq(doctors.id, id), eq(doctors.isActive, true))).limit(1);
+    const [doctor] = await db.select().from(doctors)
+      .where(and(eq(doctors.id, id), eq(doctors.createdBy, request.userId!), eq(doctors.isActive, true))).limit(1);
     if (!doctor) return reply.status(404).send({ success: false, error: "Doctor not found" });
     return reply.send({ success: true, data: doctor });
   });
@@ -67,10 +68,12 @@ export default async function doctorRoutes(fastify: FastifyInstance) {
     const parsed = createDoctorSchema.partial().safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
-    const [existing] = await db.select().from(doctors).where(and(eq(doctors.id, id), eq(doctors.isActive, true))).limit(1);
+    const [existing] = await db.select().from(doctors)
+      .where(and(eq(doctors.id, id), eq(doctors.createdBy, request.userId!), eq(doctors.isActive, true))).limit(1);
     if (!existing) return reply.status(404).send({ success: false, error: "Doctor not found" });
 
-    const [updated] = await db.update(doctors).set({ ...parsed.data, updatedAt: new Date() }).where(eq(doctors.id, id)).returning();
+    const [updated] = await db.update(doctors).set({ ...parsed.data, updatedAt: new Date() })
+      .where(and(eq(doctors.id, id), eq(doctors.createdBy, request.userId!))).returning();
     return reply.send({ success: true, data: updated });
   });
 

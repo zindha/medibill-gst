@@ -784,6 +784,43 @@ describe("GET /api/orders — staff queue", () => {
     expect(pending.json().data).toHaveLength(2);
   });
 
+  it("returns server-computed status counts for the search scope", async () => {
+    const store = seedUser();
+    const staff = seedUser();
+    const med = seedMedicine(store.id, { name: "CountMed" });
+    const scope = { customerName: "CountScope", phone: "9111111111" };
+
+    const a = await makeOrder(store.id, med, 1, scope); // stays pending
+    const b = await makeOrder(store.id, med, 1, scope); // -> accepted
+    const accept = await transitionAs(staff.token, b.id, "accept");
+    expect(accept.statusCode).toBe(200);
+
+    const res = await listOrdersAs(staff.token, "?q=CountScope");
+    expect(res.statusCode).toBe(200);
+    const counts = res.json().counts;
+    expect(counts.all).toBe(2);
+    expect(counts.pending).toBe(1);
+    expect(counts.accepted).toBe(1);
+    expect(counts.rejected).toBe(0);
+    expect(counts.cancelled).toBe(0);
+    expect(counts.delivered).toBe(0);
+    expect(res.json().total).toBe(2);
+
+    // Counts ignore the status filter, so pills keep their totals while the
+    // rows narrow to the selected status.
+    const filtered = await listOrdersAs(staff.token, "?q=CountScope&status=accepted");
+    expect(filtered.json().data.map((o: any) => o.id)).toEqual([b.id]);
+    expect(filtered.json().counts.all).toBe(2);
+    expect(filtered.json().counts.pending).toBe(1);
+    expect(filtered.json().counts.accepted).toBe(1);
+
+    // The scoped search never counts other orders in the file.
+    const other = await listOrdersAs(staff.token, "?q=NoSuchCustomerName");
+    expect(other.json().counts.all).toBe(0);
+    expect(other.json().counts.pending).toBe(0);
+    expect(a.id).toBeTruthy();
+  });
+
   it("returns 404 for an unknown detail id", async () => {
     const staff = seedUser();
     const res = await getOrderAs(staff.token, "nope");

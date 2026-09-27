@@ -39,7 +39,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
-type TabKey = "trial" | "pl" | "bs" | "daybook" | "journals" | "periods";
+type TabKey = "trial" | "pl" | "bs" | "daybook" | "journals" | "periods" | "opening";
 
 const money = (value?: number | null) =>
   `₹${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -127,6 +127,13 @@ export default function AccountingPage() {
   const [periodTo, setPeriodTo] = useState(today);
   const [closing, setClosing] = useState(false);
 
+  // Opening balances form
+  const [openingDate, setOpeningDate] = useState(today);
+  const [openingLines, setOpeningLines] = useState<JournalLineDraft[]>([emptyLine(), emptyLine()]);
+  const [openingEntries, setOpeningEntries] = useState<any[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [postingOpening, setPostingOpening] = useState(false);
+
   const load = useCallback(async () => {
     if (!isAuthenticated) return;
     setLoading(true);
@@ -143,6 +150,13 @@ export default function AccountingPage() {
         setDayBook(result);
       } else if (tab === "journals") {
         setAccounts(await accountingApi.accounts());
+      } else if (tab === "opening") {
+        const [accs, entries] = await Promise.all([
+          accountingApi.accounts(),
+          accountingApi.entries({ sourceType: "opening" }),
+        ]);
+        setAccounts(accs);
+        setOpeningEntries(entries);
       } else if (tab === "periods") {
         setPeriods(await accountingApi.periods());
       }
@@ -252,6 +266,94 @@ export default function AccountingPage() {
     }
   };
 
+  // ─── Opening balances ─────────────────────────────────────────
+  const updateOpeningLine = (index: number, patch: Partial<JournalLineDraft>) => {
+    setOpeningLines((lines) => lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  };
+
+  // Rows with an amount drive the balance indicator; zero rows (e.g. the
+  // un-inferable CASH suggestion) stay visible but are not submitted.
+  const openingActive = openingLines.filter(
+    (line) => line.code && (Number(line.debit) > 0 || Number(line.credit) > 0)
+  );
+  const openingTotals = (() => {
+    let debit = 0;
+    let credit = 0;
+    for (const line of openingActive) {
+      debit += Number(line.debit) || 0;
+      credit += Number(line.credit) || 0;
+    }
+    debit = Math.round(debit * 100) / 100;
+    credit = Math.round(credit * 100) / 100;
+    return { debit, credit, diff: Math.round((debit - credit) * 100) / 100 };
+  })();
+  const openingValid =
+    openingTotals.diff === 0 &&
+    openingTotals.debit > 0 &&
+    openingActive.length > 0 &&
+    openingLines.every((line) => !(Number(line.debit) > 0 && Number(line.credit) > 0));
+
+  const suggestOpening = async () => {
+    if (!canPost) {
+      toast.error("Only admins and pharmacists can prepare opening balances");
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const result = await accountingApi.suggestOpening();
+      const rows = (result?.lines ?? []).map((line) => ({
+        code: line.code,
+        debit: line.debit > 0 ? String(line.debit) : "",
+        credit: line.credit > 0 ? String(line.credit) : "",
+        partyType: "",
+        partyId: "",
+        memo: "",
+      }));
+      // Keep at least two editable rows (e.g. to add CASH/BANK by hand).
+      setOpeningLines(rows.length >= 2 ? rows : [...rows, emptyLine(), emptyLine()].slice(0, 2));
+      toast.success("Suggested from current stock and ledgers — review before posting");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to suggest opening balances");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
+  const submitOpening = async () => {
+    if (!canPost) {
+      toast.error("Only admins and pharmacists can post opening balances");
+      return;
+    }
+    if (!openingValid) {
+      toast.error("Opening entry must be balanced with at least one debit and one credit");
+      return;
+    }
+    const ok = window.confirm(
+      `Post opening balances for ${openingDate}? One opening batch per date is allowed — a repeat for the same date is rejected.`
+    );
+    if (!ok) return;
+    setPostingOpening(true);
+    try {
+      await accountingApi.postOpening({
+        date: openingDate,
+        lines: openingActive.map((line) => ({
+          code: line.code,
+          debit: Number(line.debit) || 0,
+          credit: Number(line.credit) || 0,
+        })),
+      });
+      toast.success(`Opening balances posted for ${openingDate}`);
+      setOpeningLines([emptyLine(), emptyLine()]);
+      setOpeningEntries(await accountingApi.entries({ sourceType: "opening" }));
+      // The trial balance carries openings forward — reload it too.
+      setTrial(await accountingApi.trialBalance({ from: fromDate, to: toDate }));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to post opening balances");
+    } finally {
+      setPostingOpening(false);
+    }
+  };
+
   const renderBody = () => {
     if (loading && !hasData()) {
       return (
@@ -281,6 +383,7 @@ export default function AccountingPage() {
     (tab === "bs" && !!bs) ||
     (tab === "daybook" && !!dayBook) ||
     (tab === "journals" && accounts.length > 0) ||
+    (tab === "opening" && accounts.length > 0) ||
     (tab === "periods" && periods.length > 0);
 
   if (!authLoading && !isAuthenticated) {
@@ -336,6 +439,7 @@ export default function AccountingPage() {
           <TabsTrigger value="bs">Balance Sheet</TabsTrigger>
           <TabsTrigger value="daybook">Day Book</TabsTrigger>
           <TabsTrigger value="journals">Journals</TabsTrigger>
+          <TabsTrigger value="opening">Opening</TabsTrigger>
           <TabsTrigger value="periods">Periods</TabsTrigger>
         </TabsList>
 
@@ -351,9 +455,12 @@ export default function AccountingPage() {
                   { key: "code", header: "Code" },
                   { key: "name", header: "Account" },
                   { key: "type", header: "Type" },
-                  { key: "debit", header: "Debit" },
-                  { key: "credit", header: "Credit" },
+                  { key: "openingDebit", header: "Opening Debit" },
+                  { key: "openingCredit", header: "Opening Credit" },
+                  { key: "debit", header: "Movement Debit" },
+                  { key: "credit", header: "Movement Credit" },
                   { key: "balance", header: "Balance" },
+                  { key: "closing", header: "Closing" },
                 ])
               }
             >
@@ -369,9 +476,12 @@ export default function AccountingPage() {
                     <TableHead>Code</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Debit</TableHead>
-                    <TableHead className="text-right">Credit</TableHead>
+                    <TableHead className="text-right">Opening Dr</TableHead>
+                    <TableHead className="text-right">Opening Cr</TableHead>
+                    <TableHead className="text-right">Movement Dr</TableHead>
+                    <TableHead className="text-right">Movement Cr</TableHead>
                     <TableHead className="text-right">Balance</TableHead>
+                    <TableHead className="text-right">Closing</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -380,18 +490,22 @@ export default function AccountingPage() {
                       <TableCell className="font-mono text-xs">{row.code}</TableCell>
                       <TableCell>{row.name}</TableCell>
                       <TableCell className="text-xs uppercase text-muted-foreground">{row.type}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{row.openingDebit ? money(row.openingDebit) : "—"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{row.openingCredit ? money(row.openingCredit) : "—"}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{row.debit ? money(row.debit) : "—"}</TableCell>
                       <TableCell className="text-right font-mono text-xs">{row.credit ? money(row.credit) : "—"}</TableCell>
-                      <TableCell className="text-right font-mono text-xs font-medium">{money(row.balance)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{money(row.balance)}</TableCell>
+                      <TableCell className="text-right font-mono text-xs font-medium">{money(row.closing ?? 0)}</TableCell>
                     </TableRow>
                   ))}
                   <TableRow className="bg-secondary/40 font-semibold">
                     <TableCell colSpan={3}>Totals</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{money(trial.totals.totalOpeningDebit ?? 0)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{money(trial.totals.totalOpeningCredit ?? 0)}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{money(trial.totals.totalDebit)}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{money(trial.totals.totalCredit)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      Net income {money(trial.totals.netIncome)}
-                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">Net income {money(trial.totals.netIncome)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{money(trial.totals.totalClosingDebit ?? 0)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -403,11 +517,12 @@ export default function AccountingPage() {
               )}
             </Card>
           )}
-          {trial && trial.rows.every((r: any) => !r.debit && !r.credit) && (
+          {trial &&
+            trial.rows.every((r: any) => !r.openingDebit && !r.openingCredit && !r.debit && !r.credit) && (
             <EmptyState
               icon={Scale}
-              title="No movement in this range"
-              description="Trial balance reflects journal movement between the selected dates (no opening balances)."
+              title="No opening balances or movement yet"
+              description="Post an opening balance from the Opening tab, or record activity in this range — entries before `from` carry forward automatically."
             />
           )}
         </TabsContent>
@@ -984,6 +1099,187 @@ export default function AccountingPage() {
               </Table>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ---------------- Opening balances ---------------- */}
+        <TabsContent value="opening" className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label className="text-xs">Opening date</Label>
+                <Input
+                  type="date"
+                  value={openingDate}
+                  onChange={(e) => setOpeningDate(e.target.value)}
+                  className="mt-1 h-9 w-40"
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void suggestOpening()}
+                disabled={!canPost || suggesting}
+              >
+                {suggesting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                )}{" "}
+                Suggest from current stock/ledgers
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="h-3.5 w-3.5" />}{" "}
+                Refresh
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-md">
+              Seeds the ledger before real traffic: one opening batch per date, carried forward into every
+              later trial-balance range.
+            </p>
+          </div>
+
+          {renderBody()}
+
+          <Card className="border-border/60 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Opening entry</h3>
+              <span className="text-xs text-muted-foreground">
+                Suggested values are prefilled from stock and party balances — CASH/BANK stay editable
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_auto] gap-2 px-1">
+                <span className="text-xs text-muted-foreground">Account</span>
+                <span className="text-xs text-muted-foreground text-right">Debit</span>
+                <span className="text-xs text-muted-foreground text-right">Credit</span>
+                <span />
+              </div>
+              {openingLines.map((line, index) => (
+                <div key={index} className="grid grid-cols-2 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2 items-center">
+                  <Select value={line.code || undefined} onValueChange={(v) => updateOpeningLine(index, { code: v })}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Account code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={account.code}>
+                          {account.code} — {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="0.00"
+                    value={line.debit}
+                    onChange={(e) => updateOpeningLine(index, { debit: e.target.value, credit: e.target.value ? "" : line.credit })}
+                    className="h-9 text-right"
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="0.00"
+                    value={line.credit}
+                    onChange={(e) => updateOpeningLine(index, { credit: e.target.value, debit: e.target.value ? "" : line.debit })}
+                    className="h-9 text-right"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-destructive"
+                    disabled={openingLines.length <= 1}
+                    onClick={() => setOpeningLines((lines) => lines.filter((_, i) => i !== index))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setOpeningLines((lines) => [...lines, emptyLine()])}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add line
+              </Button>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="font-mono text-xs">Dr {money(openingTotals.debit)}</span>
+                <span className="font-mono text-xs">Cr {money(openingTotals.credit)}</span>
+                <span
+                  className={`px-2 py-0.5 rounded-sm border text-xs ${
+                    openingTotals.diff === 0
+                      ? "border-green-600/30 text-green-700 bg-green-600/5"
+                      : "border-amber-600/30 text-amber-700 bg-amber-600/5"
+                  }`}
+                >
+                  {openingTotals.diff === 0
+                    ? "Balanced"
+                    : `Out of balance by ${money(openingTotals.diff)}`}
+                </span>
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={!canPost || !openingValid || postingOpening}
+              onClick={() => void submitOpening()}
+            >
+              {postingOpening ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Post Opening Balances
+            </Button>
+            {!canPost && (
+              <p className="text-xs text-muted-foreground text-center">
+                Only admins and pharmacists can post opening balances.
+              </p>
+            )}
+          </Card>
+
+          <Card className="border-border/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-border/60 text-sm font-medium flex items-center justify-between">
+              <span>Posted opening entries</span>
+              <span className="text-xs text-muted-foreground">{openingEntries.length} entries</span>
+            </div>
+            {openingEntries.length === 0 ? (
+              <div className="px-4 py-6 text-xs text-muted-foreground text-center">
+                Nothing posted yet — use “Suggest from current stock/ledgers”, review the rows and post.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Debit</TableHead>
+                    <TableHead className="text-right">Credit</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {openingEntries.map((entry: any) => {
+                    const dr = (entry.lines ?? []).reduce((s: number, l: any) => s + (l.debit ?? 0), 0);
+                    const cr = (entry.lines ?? []).reduce((s: number, l: any) => s + (l.credit ?? 0), 0);
+                    return (
+                      <TableRow key={entry.id}>
+                        <TableCell className="text-sm font-mono">{entry.date}</TableCell>
+                        <TableCell className="text-sm">{entry.description || "Opening balances"}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{money(dr)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">{money(cr)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

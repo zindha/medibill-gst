@@ -266,6 +266,15 @@ export default function IntegrationsPage() {
                       Open backup settings
                     </Button>
                   </div>
+                ) : p.id === "einvoice" ? (
+                  <div className="mt-auto flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      IRNs are generated locally — nothing to configure.
+                    </p>
+                    <Badge variant="outline" className="text-[10px] whitespace-nowrap">
+                      Fake IRN generator
+                    </Badge>
+                  </div>
                 ) : (
                   <div className="mt-auto flex items-center gap-2">
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => void openConfigure(p.id)}>

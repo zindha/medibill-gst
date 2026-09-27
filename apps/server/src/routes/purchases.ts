@@ -4,7 +4,7 @@ import { db } from "../db/index.js";
 import {
   purchaseBills, purchaseBillItems, batches, medicines, inventoryTransactions, suppliers, payments, activityLog,
 } from "../db/schema/index.js";
-import { eq, and, desc, or, like, sql } from "drizzle-orm";
+import { eq, and, desc, or, like, sql, inArray } from "drizzle-orm";
 import { authGuard } from "../plugins/auth.js";
 import { generateId, INVENTORY_TRANSACTION_TYPES } from "../db/schema/index.js";
 import { getPolicy, getUserRole, evaluateLineItems } from "../services/expiryPolicy.js";
@@ -58,7 +58,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       supplierId?: string; from?: string; to?: string; search?: string; page?: string; limit?: string;
     };
 
-    const conds = [];
+    const conds = [eq(purchaseBills.createdBy, request.userId!)];
     if (supplierId) conds.push(eq(purchaseBills.supplierId, supplierId));
     if (search) {
       const pat = `%${search}%`;
@@ -89,7 +89,8 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
   // Get single purchase bill
   fastify.get("/:id", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [bill] = await db.select().from(purchaseBills).where(eq(purchaseBills.id, id)).limit(1);
+    const [bill] = await db.select().from(purchaseBills)
+      .where(and(eq(purchaseBills.id, id), eq(purchaseBills.createdBy, request.userId!))).limit(1);
     if (!bill) return reply.status(404).send({ success: false, error: "Purchase bill not found" });
 
     const items = await db.select().from(purchaseBillItems).where(eq(purchaseBillItems.purchaseBillId, id));
@@ -146,6 +147,20 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       }
     }
 
+    const medicineIds = [...new Set(data.items.map((i) => i.medicineId).filter(Boolean))] as string[];
+    if (medicineIds.length > 0) {
+      const owned = await db.select({ id: medicines.id }).from(medicines)
+        .where(and(inArray(medicines.id, medicineIds), eq(medicines.createdBy, request.userId!)));
+      if (owned.length !== medicineIds.length) {
+        return reply.status(400).send({ success: false, error: "Medicine not found" });
+      }
+    }
+    if (data.supplierId) {
+      const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
+        .where(and(eq(suppliers.id, data.supplierId), eq(suppliers.createdBy, request.userId!))).limit(1);
+      if (!supplier) return reply.status(400).send({ success: false, error: "Supplier not found" });
+    }
+
     try {
       const [bill] = await db.insert(purchaseBills).values({
         billNo: data.billNo,
@@ -191,10 +206,12 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
 
         // Add stock to batch
         if (item.batchId) {
-          const [batch] = await db.select().from(batches).where(eq(batches.id, item.batchId)).limit(1);
+          const [batch] = await db.select().from(batches)
+            .where(and(eq(batches.id, item.batchId), eq(batches.createdBy, request.userId!))).limit(1);
           if (batch) {
             const newQty = (batch.quantity ?? 0) + item.quantity + item.freeQuantity;
-            await db.update(batches).set({ quantity: newQty, updatedAt: now }).where(eq(batches.id, item.batchId));
+            await db.update(batches).set({ quantity: newQty, updatedAt: now })
+              .where(and(eq(batches.id, item.batchId), eq(batches.createdBy, request.userId!)));
 
             await db.insert(inventoryTransactions).values({
               id: generateId(),
@@ -258,12 +275,13 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       }
 
       if (data.supplierId) {
-        const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, data.supplierId)).limit(1);
+        const [supplier] = await db.select().from(suppliers)
+          .where(and(eq(suppliers.id, data.supplierId), eq(suppliers.createdBy, request.userId!))).limit(1);
         if (supplier) {
           await db.update(suppliers).set({
             balance: (supplier.balance ?? 0) + (data.grandTotal - data.amountPaid),
             updatedAt: now,
-          }).where(eq(suppliers.id, data.supplierId));
+          }).where(and(eq(suppliers.id, data.supplierId), eq(suppliers.createdBy, request.userId!)));
         }
       }
 

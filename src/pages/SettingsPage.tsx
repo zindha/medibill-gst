@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
-import { usePrintPrefs, DEFAULT_PRINT_PREFS, type PrintPaper, type PrintLayout } from "@/hooks/usePrintPrefs";
+import { usePrintPrefs, type PrintPaper, type PrintLayout } from "@/hooks/usePrintPrefs";
 import { Building2, Clock3, Cloud, CloudOff, Copy, Database, Download, FileBadge, ImagePlus, Loader2, MapPin, MessageSquare, Printer, RefreshCw, Save, ShieldAlert, ShoppingBag, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -105,7 +105,9 @@ export default function SettingsPage() {
       try {
         const raw = storeSettings.store_timings;
         if (raw) setStoreTimings(typeof raw === "string" ? raw : JSON.stringify(raw, null, 2));
-      } catch {}
+      } catch {
+        // Non-JSON timings value — keep whatever is already in the field.
+      }
       const pic = storeSettings.store_front_picture ?? storeSettings.store_front_image ?? null;
       if (pic) setStoreFrontPicture(typeof pic === "string" ? pic : null);
       if (format?.prefix) setInvoicePrefix(format.prefix);

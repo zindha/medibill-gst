@@ -809,7 +809,6 @@ export default function PurchaseImportPage() {
                 {visibleRows.map((row) => {
                   const d = drafts[row.rowIndex] ?? draftFromRow(row);
                   const errors = row.issues.filter((i) => i.severity === "error");
-                  const warnings = row.issues.filter((i) => i.severity === "warning");
                   return (
                     <TableRow
                       key={row.id}

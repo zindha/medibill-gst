@@ -25,6 +25,14 @@ import labelRoutes from "../src/routes/labels.js";
 import messageRoutes from "../src/routes/messages.js";
 import refillRoutes from "../src/routes/refills.js";
 import invoiceRoutes from "../src/routes/invoices.js";
+import purchaseRoutes from "../src/routes/purchases.js";
+import supplierRoutes from "../src/routes/suppliers.js";
+import customerRoutes from "../src/routes/customers.js";
+import doctorRoutes from "../src/routes/doctors.js";
+import medicineRoutes from "../src/routes/medicines.js";
+import paymentRoutes from "../src/routes/payments.js";
+import returnRoutes from "../src/routes/returns.js";
+import inventoryRoutes from "../src/routes/inventory.js";
 import accountingRoutes from "../src/routes/accounting.js";
 import reconciliationRoutes from "../src/routes/reconciliation.js";
 import complianceRoutes from "../src/routes/compliance.js";
@@ -163,6 +171,14 @@ beforeAll(async () => {
   await app.register(messageRoutes, { prefix: "/api/messages" });
   await app.register(refillRoutes, { prefix: "/api/refills" });
   await app.register(invoiceRoutes, { prefix: "/api/invoices" });
+  await app.register(purchaseRoutes, { prefix: "/api/purchases" });
+  await app.register(supplierRoutes, { prefix: "/api/suppliers" });
+  await app.register(customerRoutes, { prefix: "/api/customers" });
+  await app.register(doctorRoutes, { prefix: "/api/doctors" });
+  await app.register(medicineRoutes, { prefix: "/api/medicines" });
+  await app.register(paymentRoutes, { prefix: "/api/payments" });
+  await app.register(returnRoutes, { prefix: "/api/returns" });
+  await app.register(inventoryRoutes, { prefix: "/api/inventory" });
   await app.register(accountingRoutes, { prefix: "/api/accounting" });
   await app.register(reconciliationRoutes, { prefix: "/api/reconciliation" });
   await app.register(complianceRoutes, { prefix: "/api/compliance" });
@@ -1342,5 +1358,341 @@ describe("integrations (Task 17 — per-install registry by design)", () => {
     // Cleanup so the rest of the run sees a pristine registry.
     expect((await post("/api/integrations/sms/disconnect", A)).statusCode).toBe(200);
     expect(count("SELECT COUNT(*) AS c FROM settings WHERE key = 'integration:sms'")).toBe(0);
+  });
+});
+
+// ===========================================================================
+// Legacy CRUD sweep — routes that predate Task 18 (purchases, suppliers,
+// customers, doctors, medicines, payments, returns, invoices, inventory)
+// ===========================================================================
+describe("legacy CRUD tenant isolation", () => {
+  const A_BILL_NO = "TENANT-A-LEGACY-PO";
+  const A_SUPPLIER_NAME = "A's Legacy Supplier";
+  const A_DOCTOR_NAME = "A Legacy Doctor";
+  const A_PAY_MARKER = "A legacy payment marker";
+  const A_RETURN_NO = "RET-A-LEGACY-0001";
+  const A_BARCODE = "A-LEGACY-BARCODE-42";
+
+  let aSupplierId: string;
+  let aDoctorId: string;
+  let aPaymentId: string;
+  let aReturnId: string;
+  let aBarcodeMed: SeededMedicine;
+
+  beforeAll(async () => {
+    const now = Date.now();
+
+    aSupplierId = seedSupplierRow(A.id, A_SUPPLIER_NAME);
+
+    aDoctorId = nanoid(16);
+    run(
+      `INSERT INTO doctors (id, name, is_active, created_by, created_at, updated_at)
+       VALUES (?, ?, 1, ?, ?, ?)`,
+      aDoctorId,
+      A_DOCTOR_NAME,
+      A.id,
+      now,
+      now
+    );
+
+    aBarcodeMed = seedMedicine(A.id, { name: "TENANT-A BARCODE MED" });
+    run(`UPDATE medicines SET barcode = ? WHERE id = ?`, A_BARCODE, aBarcodeMed.medicineId);
+
+    const soon = new Date(Date.now() + 5 * 24 * 3600e3).toISOString().slice(0, 10);
+    seedMedicine(A.id, { name: "TENANT-A EXPIRING MED", expiry: soon });
+    seedMedicine(A.id, { name: "TENANT-A LOWSTOCK MED", quantity: 1 });
+
+    run(
+      `INSERT INTO purchase_bills (id, bill_no, supplier_id, supplier_name, bill_date, subtotal, total_gst, grand_total, amount_paid, payment_mode, payment_status, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, '2026-08-15', 100, 12, 112, 112, 'cash', 'paid', ?, ?, ?)`,
+      nanoid(16),
+      A_BILL_NO,
+      aSupplierId,
+      A_SUPPLIER_NAME,
+      A.id,
+      now,
+      now
+    );
+
+    aPaymentId = nanoid(16);
+    run(
+      `INSERT INTO payments (id, date, type, amount, description, payment_mode, created_by, created_at)
+       VALUES (?, '2026-08-16', 'received', 4242, ?, 'cash', ?, ?)`,
+      aPaymentId,
+      A_PAY_MARKER,
+      A.id,
+      now
+    );
+
+    aReturnId = nanoid(16);
+    run(
+      `INSERT INTO sales_returns (id, return_no, invoice_id, date, subtotal, total_gst, grand_total, refund_amount, status, created_by, created_at)
+       VALUES (?, ?, ?, '2026-08-17', 10, 0.5, 10.5, 10.5, 'completed', ?, ?)`,
+      aReturnId,
+      A_RETURN_NO,
+      aInvoice.id,
+      A.id,
+      now
+    );
+  });
+
+  it("every legacy list endpoint serves A its own rows and never B's a single A row", async () => {
+    const cases: Array<[string, string]> = [
+      ["/api/purchases", A_BILL_NO],
+      ["/api/suppliers", A_SUPPLIER_NAME],
+      ["/api/customers", "A's Customer"],
+      ["/api/doctors", A_DOCTOR_NAME],
+      ["/api/medicines?search=TENANT-A", "TENANT-A DOLO 650"],
+      ["/api/payments", A_PAY_MARKER],
+      ["/api/returns", A_RETURN_NO],
+      ["/api/invoices", aInvoiceNo],
+      ["/api/inventory/stock", "TENANT-A EXPIRING MED"],
+      ["/api/inventory/low-stock", "TENANT-A LOWSTOCK MED"],
+      ["/api/inventory/expiry", "TENANT-A EXPIRING MED"],
+      ["/api/inventory/transactions?limit=100", aInvoiceNo],
+    ];
+
+    for (const [url, marker] of cases) {
+      const asB = await get(url, B);
+      expect(asB.statusCode, `${url} (B)`).toBe(200);
+      expect(asB.body, `${url} must not leak tenant A rows to B`).not.toContain(marker);
+
+      const asA = await get(url, A);
+      expect(asA.statusCode, `${url} (A)`).toBe(200);
+      expect(asA.body, `${url} must still serve tenant A its own rows`).toContain(marker);
+    }
+  });
+
+  it("inventory batch listings are empty for a foreign medicineId", async () => {
+    const foreign = await get(`/api/inventory/batches?medicineId=${aMed.medicineId}`, B);
+    expect(foreign.statusCode).toBe(200);
+    expect(foreign.json().data).toHaveLength(0);
+    expect(foreign.body).not.toContain(aMed.batchId);
+
+    const foreignAvailable = await get(
+      `/api/inventory/batches/available?medicineId=${aMed.medicineId}`,
+      B
+    );
+    expect(foreignAvailable.statusCode).toBe(200);
+    expect(foreignAvailable.json().data).toHaveLength(0);
+
+    const own = await get(`/api/inventory/batches?medicineId=${aMed.medicineId}`, A);
+    expect(own.statusCode).toBe(200);
+    expect(own.json().data.length).toBeGreaterThan(0);
+  });
+
+  it("search filters keep the tenant condition outside the OR group", async () => {
+    const checks: Array<[string, string]> = [
+      [`/api/purchases?search=${encodeURIComponent("TENANT-A")}`, A_BILL_NO],
+      [`/api/suppliers?search=${encodeURIComponent("Legacy")}`, A_SUPPLIER_NAME],
+      [`/api/customers?search=${encodeURIComponent("Customer")}`, "A's Customer"],
+      [`/api/doctors?search=${encodeURIComponent("Legacy")}`, A_DOCTOR_NAME],
+      [`/api/medicines?search=${encodeURIComponent("DOLO")}`, "TENANT-A DOLO 650"],
+    ];
+
+    for (const [url, marker] of checks) {
+      const asB = await get(url, B);
+      expect(asB.statusCode, `${url} (B)`).toBe(200);
+      expect(asB.body, `${url} search must stay tenant-scoped`).not.toContain(marker);
+
+      const asA = await get(url, A);
+      expect(asA.body, `${url} search must still find A's rows`).toContain(marker);
+    }
+  });
+
+  it("foreign detail ids 404 while the owner still reads the same URL", async () => {
+    const billId = all<{ id: string }>(
+      "SELECT id FROM purchase_bills WHERE bill_no = ?",
+      A_BILL_NO
+    )[0].id;
+
+    const checks: Array<[string, string | null]> = [
+      [`/api/purchases/${billId}`, A_BILL_NO],
+      [`/api/suppliers/${aSupplierId}`, A_SUPPLIER_NAME],
+      [`/api/suppliers/${aSupplierId}/ledger`, null],
+      [`/api/customers/${aCustomer}`, "A's Customer"],
+      [`/api/customers/${aCustomer}/ledger`, null],
+      [`/api/doctors/${aDoctorId}`, A_DOCTOR_NAME],
+      [`/api/medicines/${aBarcodeMed.medicineId}`, "TENANT-A BARCODE MED"],
+      [`/api/medicines/barcode/${A_BARCODE}`, "TENANT-A BARCODE MED"],
+      [`/api/invoices/${aInvoice.id}`, aInvoiceNo],
+      [`/api/returns/${aReturnId}`, A_RETURN_NO],
+    ];
+
+    for (const [url, marker] of checks) {
+      const foreign = await get(url, B);
+      expect(foreign.statusCode, `${url} (B)`).toBe(404);
+      if (marker) expect(foreign.body, `${url} (B)`).not.toContain(marker);
+
+      const owner = await get(url, A);
+      expect(owner.statusCode, `${url} (A)`).toBe(200);
+      if (marker) expect(owner.body, `${url} (A)`).toContain(marker);
+    }
+
+    const foreignBarcode = await get(`/api/medicines/barcode/${A_BARCODE}`, B);
+    expect(foreignBarcode.statusCode).toBe(404);
+    expect(foreignBarcode.json().error).toMatch(/barcode/i);
+  });
+
+  it("foreign mutations 404 and leave the rows byte-identical", async () => {
+    const before = {
+      supplier: all("SELECT name, balance FROM suppliers WHERE id = ?", aSupplierId)[0],
+      doctor: all("SELECT name FROM doctors WHERE id = ?", aDoctorId)[0],
+      customer: all("SELECT name FROM customers WHERE id = ?", aCustomer)[0],
+      medicine: all("SELECT name, mrp FROM medicines WHERE id = ?", aMed.medicineId)[0],
+      batch: all("SELECT mrp, quantity FROM batches WHERE id = ?", aMed.batchId)[0],
+      payment: all("SELECT amount FROM payments WHERE id = ?", aPaymentId)[0],
+      barcodeMed: all("SELECT name, is_active FROM medicines WHERE id = ?", aBarcodeMed.medicineId)[0],
+    };
+
+    expect((await put(`/api/suppliers/${aSupplierId}`, B, { name: "HIJACKED" })).statusCode).toBe(404);
+    expect((await put(`/api/customers/${aCustomer}`, B, { name: "HIJACKED" })).statusCode).toBe(404);
+    expect((await put(`/api/doctors/${aDoctorId}`, B, { name: "HIJACKED" })).statusCode).toBe(404);
+    expect((await put(`/api/medicines/${aMed.medicineId}`, B, { name: "HIJACKED" })).statusCode).toBe(404);
+    expect((await put(`/api/inventory/batches/${aMed.batchId}`, B, { mrp: 1 })).statusCode).toBe(404);
+    expect((await del(`/api/medicines/${aBarcodeMed.medicineId}`, B)).statusCode).toBe(404);
+    expect((await del(`/api/payments/${aPaymentId}`, B)).statusCode).toBe(404);
+    expect((await post(`/api/invoices/${aInvoice.id}/hold`, B)).statusCode).toBe(404);
+    expect((await post(`/api/invoices/${aInvoice.id}/recall`, B)).statusCode).toBe(404);
+
+    expect(all("SELECT name, balance FROM suppliers WHERE id = ?", aSupplierId)[0]).toEqual(before.supplier);
+    expect(all("SELECT name FROM doctors WHERE id = ?", aDoctorId)[0]).toEqual(before.doctor);
+    expect(all("SELECT name FROM customers WHERE id = ?", aCustomer)[0]).toEqual(before.customer);
+    expect(all("SELECT name, mrp FROM medicines WHERE id = ?", aMed.medicineId)[0]).toEqual(before.medicine);
+    expect(all("SELECT mrp, quantity FROM batches WHERE id = ?", aMed.batchId)[0]).toEqual(before.batch);
+    expect(all("SELECT amount FROM payments WHERE id = ?", aPaymentId)[0]).toEqual(before.payment);
+    expect(
+      all("SELECT name, is_active FROM medicines WHERE id = ?", aBarcodeMed.medicineId)[0]
+    ).toEqual(before.barcodeMed);
+    expect(count("SELECT COUNT(*) AS c FROM payments WHERE id = ?", aPaymentId)).toBe(1);
+
+    // …and the owner can still run the same mutation (proves 404 = tenant
+    // scoping, not a broken route).
+    const ownerUpdate = await put(`/api/suppliers/${aSupplierId}`, A, { name: A_SUPPLIER_NAME });
+    expect(ownerUpdate.statusCode).toBe(200);
+    expect(ownerUpdate.json().data.name).toBe(A_SUPPLIER_NAME);
+  });
+
+  it("creates cannot write across tenants (purchase, batch, return, sale)", async () => {
+    const baseItem = {
+      medicineId: bMed.medicineId,
+      medicineName: "TENANT-B AZITHRO 500",
+      batchNo: "BPO-LEGACY-1",
+      expiryDate: "2099-12-31",
+      quantity: 1,
+      freeQuantity: 0,
+      rate: 10,
+      amount: 10,
+      gstRate: "12",
+      gstAmount: 1.07,
+      cgst: 0.54,
+      sgst: 0.53,
+      mrp: 20,
+    };
+    const purchaseBody = (over: Record<string, unknown> = {}) => ({
+      billNo: `B-PO-${nanoid(6)}`,
+      billDate: "2026-09-20",
+      items: [baseItem],
+      subtotal: 10,
+      totalGst: 1.07,
+      grandTotal: 11.07,
+      amountPaid: 0,
+      paymentMode: "credit",
+      ...over,
+    });
+
+    // A foreign medicineId on a purchase bill is refused before any write.
+    const foreignMed = await post(
+      "/api/purchases",
+      B,
+      purchaseBody({ items: [{ ...baseItem, medicineId: aMed.medicineId, medicineName: "stolen" }] })
+    );
+    expect(foreignMed.statusCode).toBe(400);
+    expect(foreignMed.json().error).toBe("Medicine not found");
+
+    // A foreign supplierId is refused before any write (A's payable untouched).
+    const balanceBefore = all<{ balance: number | null }>(
+      "SELECT balance FROM suppliers WHERE id = ?",
+      aSupplierId
+    )[0].balance;
+    const foreignSupplier = await post("/api/purchases", B, purchaseBody({ supplierId: aSupplierId }));
+    expect(foreignSupplier.statusCode).toBe(400);
+    expect(foreignSupplier.json().error).toBe("Supplier not found");
+    expect(
+      all<{ balance: number | null }>("SELECT balance FROM suppliers WHERE id = ?", aSupplierId)[0].balance
+    ).toBe(balanceBefore);
+
+    // A foreign batchId must not restock A's batch.
+    const batchQtyBefore = all<{ quantity: number }>(
+      "SELECT quantity FROM batches WHERE id = ?",
+      aMed.batchId
+    )[0].quantity;
+    const foreignBatch = await post(
+      "/api/purchases",
+      B,
+      purchaseBody({ items: [{ ...baseItem, batchId: aMed.batchId }] })
+    );
+    expect(foreignBatch.statusCode).toBe(201);
+    expect(
+      all<{ quantity: number }>("SELECT quantity FROM batches WHERE id = ?", aMed.batchId)[0].quantity
+    ).toBe(batchQtyBefore);
+
+    // Batch creation under a foreign medicine is a 404.
+    const batchCreate = await post("/api/inventory/batches", B, {
+      medicineId: aMed.medicineId,
+      batchNo: "STEAL-1",
+      expiryDate: "2099-12-31",
+      mrp: 10,
+      purchasePrice: 5,
+      sellingPrice: 8,
+      quantity: 5,
+    });
+    expect(batchCreate.statusCode).toBe(404);
+    expect(
+      count(
+        "SELECT COUNT(*) AS c FROM batches WHERE medicine_id = ? AND created_by = ?",
+        aMed.medicineId,
+        B.id
+      )
+    ).toBe(0);
+
+    // A sales return against a foreign invoice is a 404 and writes nothing.
+    const returnsBefore = count("SELECT COUNT(*) AS c FROM sales_returns WHERE created_by = ?", B.id);
+    const foreignReturn = await post("/api/returns", B, {
+      invoiceId: aInvoice.id,
+      items: [
+        {
+          medicineId: bMed.medicineId,
+          medicineName: "TENANT-B AZITHRO 500",
+          quantity: 1,
+          rate: 1,
+          amount: 1,
+          gstRate: "5",
+          gstAmount: 0,
+          cgst: 0,
+          sgst: 0,
+          refundAmount: 1,
+        },
+      ],
+      subtotal: 1,
+      totalGst: 0,
+      grandTotal: 1,
+      refundAmount: 1,
+    });
+    expect(foreignReturn.statusCode).toBe(404);
+    expect(foreignReturn.json().error).toBe("Invoice not found");
+    expect(count("SELECT COUNT(*) AS c FROM sales_returns WHERE created_by = ?", B.id)).toBe(returnsBefore);
+
+    // Selling a foreign medicine can never deduct A's stock (FEFO is scoped).
+    const aQtyBefore = all<{ quantity: number }>(
+      "SELECT quantity FROM batches WHERE id = ?",
+      aMed.batchId
+    )[0].quantity;
+    const foreignSale = await post("/api/invoices", B, invoiceBody(aMed));
+    expect(foreignSale.statusCode).toBe(409);
+    expect(
+      all<{ quantity: number }>("SELECT quantity FROM batches WHERE id = ?", aMed.batchId)[0].quantity
+    ).toBe(aQtyBefore);
+    expect(count("SELECT COUNT(*) AS c FROM invoices WHERE created_by = ?", B.id)).toBe(0);
   });
 });

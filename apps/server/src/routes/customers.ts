@@ -25,7 +25,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    const conds = [eq(customers.isActive, true)];
+    const conds = [eq(customers.createdBy, request.userId!), eq(customers.isActive, true)];
     if (search) {
       const pat = searchPattern(search);
       conds.push(sql`(fold(${customers.name}) LIKE ${pat} OR fold(${customers.phone}) LIKE ${pat})`);
@@ -54,10 +54,13 @@ export default async function customerRoutes(fastify: FastifyInstance) {
   // Get single customer with ledger
   fastify.get("/:id", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [customer] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.isActive, true))).limit(1);
+    const [customer] = await db.select().from(customers)
+      .where(and(eq(customers.id, id), eq(customers.createdBy, request.userId!), eq(customers.isActive, true))).limit(1);
     if (!customer) return reply.status(404).send({ success: false, error: "Customer not found" });
 
-    const ledger = await db.select().from(payments).where(eq(payments.customerId, id)).orderBy(sql`${payments.date} DESC`);
+    const ledger = await db.select().from(payments)
+      .where(and(eq(payments.customerId, id), eq(payments.createdBy, request.userId!)))
+      .orderBy(sql`${payments.date} DESC`);
     return reply.send({ success: true, data: { ...customer, ledger } });
   });
 
@@ -84,10 +87,12 @@ export default async function customerRoutes(fastify: FastifyInstance) {
     const parsed = createCustomerSchema.partial().safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
-    const [existing] = await db.select().from(customers).where(and(eq(customers.id, id), eq(customers.isActive, true))).limit(1);
+    const [existing] = await db.select().from(customers)
+      .where(and(eq(customers.id, id), eq(customers.createdBy, request.userId!), eq(customers.isActive, true))).limit(1);
     if (!existing) return reply.status(404).send({ success: false, error: "Customer not found" });
 
-    const [updated] = await db.update(customers).set({ ...parsed.data, updatedAt: new Date() }).where(eq(customers.id, id)).returning();
+    const [updated] = await db.update(customers).set({ ...parsed.data, updatedAt: new Date() })
+      .where(and(eq(customers.id, id), eq(customers.createdBy, request.userId!))).returning();
     return reply.send({ success: true, data: updated });
   });
 
@@ -105,7 +110,13 @@ export default async function customerRoutes(fastify: FastifyInstance) {
   fastify.get("/:id/ledger", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { from, to } = request.query as { from?: string; to?: string };
-    let ledger = await db.select().from(payments).where(eq(payments.customerId, id)).orderBy(sql`${payments.date} DESC`);
+    const [customer] = await db.select({ id: customers.id }).from(customers)
+      .where(and(eq(customers.id, id), eq(customers.createdBy, request.userId!))).limit(1);
+    if (!customer) return reply.status(404).send({ success: false, error: "Customer not found" });
+
+    let ledger = await db.select().from(payments)
+      .where(and(eq(payments.customerId, id), eq(payments.createdBy, request.userId!)))
+      .orderBy(sql`${payments.date} DESC`);
     if (from) ledger = ledger.filter(p => p.date >= from);
     if (to) ledger = ledger.filter(p => p.date <= to);
     return reply.send({ success: true, data: ledger });

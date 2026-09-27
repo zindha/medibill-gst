@@ -52,6 +52,10 @@ Logout current session.
 
 ## Medicines
 
+All endpoints are tenant-scoped (`created_by`): list, detail, barcode lookup
+and updates only ever touch the caller's own medicines — a foreign `:id` or
+barcode returns `404`.
+
 ### GET `/api/medicines`
 Search/list medicines.
 - Query: `search`, `category`, `page`, `limit`
@@ -113,16 +117,17 @@ Explicit substitute links for a medicine (annotated substitute `medicine` includ
 ## Inventory / Batches
 
 ### GET `/api/inventory/batches?medicineId=`
-Get all batches for a medicine.
+Get all batches for a medicine. Tenant-scoped (`created_by`) — a foreign
+`medicineId` returns an empty list.
 
 ### GET `/api/inventory/batches/available?medicineId=`
-Get non-expired, in-stock batches (FEFO-ordered).
+Get non-expired, in-stock batches (FEFO-ordered). Tenant-scoped.
 
 ### POST `/api/inventory/batches`
-Create a new batch.
+Create a new batch. `404` when the `medicineId` is not the caller's medicine.
 
 ### PUT `/api/inventory/batches/:id`
-Update batch (expiry, MRP, prices).
+Update batch (expiry, MRP, prices). `404` for a foreign batch.
 
 ### POST `/api/inventory/adjust`
 Stock adjustment.
@@ -138,7 +143,7 @@ Transaction history.
 Medicines at or below minimum quantity.
 
 ### GET `/api/inventory/expiry?status=expired|30|60|90`
-Batches expiring within timeframe.
+Batches expiring within timeframe. Tenant-scoped (`created_by`).
 
 ### GET `/api/inventory/stock`
 Current stock report with valuations.
@@ -148,7 +153,8 @@ Current stock report with valuations.
 ## Invoices
 
 ### GET `/api/invoices`
-List/search invoices.
+List/search invoices. Tenant-scoped (`created_by`) — only the caller's
+invoices are ever returned.
 - Query: `date`, `from`, `to`, `customerId`, `status`, `page`, `limit`
 
 ### GET `/api/invoices/:id`
@@ -193,27 +199,102 @@ Task 18 acceptance matrix).
 ```
 
 ### POST `/api/invoices/:id/cancel`
-Cancel invoice (reverses stock, updates customer balance).
+Cancel invoice (reverses stock, updates customer balance, records the refund
+payout row). **Ledger (Fix 3)**: reverses every posted `payment` settlement
+entry of this invoice first (`{ invoiceNo, kind: "settlement" }` audit), then
+the sale entry (`kind: "invoice"`) — both idempotent; the refund payout row
+itself stays unposted (its cash effect is modeled by those reversals).
 
 ### POST `/api/invoices/:id/hold`
-Put invoice on hold.
+Put invoice on hold. `404` for a foreign invoice.
 
 ### POST `/api/invoices/:id/recall`
-Recall a held invoice.
+Recall a held invoice. `404` for a foreign invoice.
 
 ---
 
 ## Purchases
 
 ### GET `/api/purchases`
-List purchase bills.
+List purchase bills. Tenant-scoped (`created_by`).
 - Query: `supplierId`, `from`, `to`, `page`
 
 ### GET `/api/purchases/:id`
-Get purchase bill with items.
+Get purchase bill with items. `404` for a foreign bill.
 
 ### POST `/api/purchases`
-Create purchase bill (creates batches, increases stock).
+Create purchase bill (creates batches, increases stock). `medicineId` and
+`supplierId` must belong to the caller (`400 Medicine not found` /
+`400 Supplier not found`); a foreign `batchId` never restocks.
+
+---
+
+## Purchase Returns
+
+Creation route for the pre-existing `purchase_returns` / `purchase_return_items`
+tables (no new table or migration). Service seam:
+`apps/server/src/routes/purchaseReturns.ts`, registered at
+`/api/purchase-returns`. Responses use `{ success, data, error }`; every read
+and write is tenant-scoped (`created_by`).
+
+### POST `/api/purchase-returns` *(admin | pharmacist — cashier → 403)*
+```json
+{
+  "purchaseBillId": "...optional...",
+  "supplierId": "...optional...",
+  "supplierName": "...optional...",
+  "date": "2026-07-10",
+  "reason": "...optional...",
+  "refundAmount": 0,
+  "refundMode": "cash",
+  "items": [
+    { "medicineId": "...", "batchId": "...optional...", "quantity": 2, "rate": 100,
+      "gstRate": "5 optional", "hsnCode": "optional", "mrp": 0 }
+  ]
+}
+```
+- **Validation**: ≥1 item; medicine must be tenant-owned (`400 Medicine not
+  found`); `supplierId` must exist in the tenant (`400 Supplier not found`);
+  `purchaseBillId` must exist in the tenant (`404 Purchase bill not found`) and
+  supplies the supplier when none is given; a `batchId` must belong to the
+  tenant **and** to the medicine (`400 Batch does not belong to this medicine`).
+- **Batch resolution**: purchase returns target a specific lot — an explicit
+  `batchId` is required unless the medicine has exactly **one** active batch
+  (auto-picked); zero batches → `400 No stock batch found for X`, multiple →
+  `400 Multiple batches for X — batchId is required`.
+- **Stock guard**: the batch quantity must cover the (cumulative) demand, else
+  `400 Insufficient stock in batch <no>, available <n>` — nothing is written.
+- **Money math** (server-computed, mirrors invoice create): `amount = rate ×
+  quantity` (GST-inclusive), `gstRate` defaults to the medicine's rate,
+  `gstAmount = round2(amount − amount/(1 + rate/100))`, cgst/sgst split;
+  `subtotal = grandTotal − totalGst`, `grandTotal = Σ amount`, `refundAmount`
+  defaults to `grandTotal`.
+- **One transaction**: insert header (`PR-YYYY-NNNNNN` unique series) + items,
+  deduct batch stock with an `inventory_transactions` row
+  (`type = 'purchase_return'`, `quantity = −qty`, `balanceAfter`, `reference =
+  returnNo`), adjust the supplier balance (see rule below), then post the
+  journal (a ledger failure is caught + audited as `accounting.post_failed`,
+  never blocks the return). Audit: `purchase_return.create`.
+- **Supplier balance rule** (mirrors `purchases.ts`, which only adds the
+  *unpaid* portion): `refundMode "credit"` → `balance −= refundAmount` (the
+  refund settles against our dues, journal Dr `AP`); cash/card/upi/other →
+  balance unchanged (money changed hands, journal Dr `CASH|BANK`).
+- **Journal** (`source_type = "purchase_return"`, posted in the same
+  transaction): Dr `AP` (credit mode, party = supplier) | Dr `CASH|BANK`
+  `refundAmount`; Cr `PURCHASE_RETURNS` taxable portion; Cr `GST_INPUT`
+  proportional GST share (`round2(refundAmount × totalGst / grandTotal)`) —
+  zero legs omitted, idempotent per return id.
+
+### GET `/api/purchase-returns`
+List the tenant's purchase returns. Query: `date`, `from`, `to`, `supplierId`,
+`page`, `limit` → `{ success, data, total, page, limit }`.
+
+### GET `/api/purchase-returns/:id`
+One return with its `items[]`; another tenant's id → `404`.
+
+UI: `/dashboard/purchases` → **Purchase Returns** tab (`src/pages/PurchasesPage.tsx`)
+— list + New Return dialog (supplier → optional bill → medicine rows with
+batch select, qty, prefilled rate, auto-computed refund).
 
 ---
 
@@ -398,6 +479,9 @@ Response `data`: `{ contentType, filename, data }`. 404 for unknown ids or other
 
 ## Customers
 
+All endpoints tenant-scoped (`created_by`): list, detail, ledger and updates
+only touch the caller's own customers — a foreign `:id` returns `404`.
+
 ### GET `/api/customers`
 List/search customers.
 - Query: `search`, `page`, `limit`
@@ -418,6 +502,9 @@ Update customer.
 
 ## Suppliers
 
+All endpoints tenant-scoped (`created_by`): list, detail, ledger and updates
+only touch the caller's own suppliers — a foreign `:id` returns `404`.
+
 ### GET `/api/suppliers`
 List/search suppliers.
 - Query: `search`, `page`
@@ -437,6 +524,8 @@ Update supplier.
 ---
 
 ## Doctors
+
+All endpoints tenant-scoped (`created_by`) — a foreign `:id` returns `404`.
 
 ### GET `/api/doctors`
 List doctors.
@@ -879,6 +968,14 @@ Built-ins (settings key `message_templates`, a JSON object of
 `{tokens}` are replaced at send time; a missing token renders as an empty string
 (never throws). `{storeName}` defaults from the `store_name` setting.
 
+**Overrides UI + merge semantics.** Communications → **Templates** tab edits
+one template at a time: it shows the effective body (`override ?? default`), a
+"Reset to default" action and the tokens available for that template.
+`PUT /api/settings/message_templates` accepts a PARTIAL object and **merges**
+it into the stored JSON — saving `{ invoice_share: "…" }` never touches
+`payment_due`, and `{ invoice_share: null }` (or `""`) deletes that override
+so the built-in default takes over again.
+
 ### Consent rules
 
 - `communication_preferences (created_by, customer_id, channel, opted_out)` is
@@ -1137,12 +1234,37 @@ debit/credit.
   `Journal entry not balanced`, or a date inside a closed period
   (`Period closed`).
 - **GET `/api/accounting/trial-balance?from&to`** →
-  `{ from, to, rows: [{ accountId, code, name, type, debit, credit, balance }],
-  totals: { totalDebit, totalCredit, netIncome } }`. `balance` is signed by
-  nature (asset/expense → debit−credit; income/liability/equity →
-  credit−debit). Rows reflect movement **inside the range only** — opening
-  balances from before `from` are not carried forward (documented Task 11
-  simplification; Task 12/16 own opening-balance tooling).
+  `{ from, to, rows: [{ accountId, code, name, type, debit, credit, balance,
+  openingDebit, openingCredit, closing }], totals: { totalDebit, totalCredit,
+  totalOpeningDebit, totalOpeningCredit, totalClosingDebit, totalClosingCredit,
+  netIncome } }`. `balance` is signed by nature **over the range** (asset/expense
+  → debit−credit; income/liability/equity → credit−debit) — unchanged for
+  backward compatibility. The additive carry-forward columns:
+  `openingDebit`/`openingCredit` = one-sided opening from **all** entries dated
+  before `from` (signed by account nature), `closing` = signed-by-nature
+  opening + movement (positive = the account's natural side), and the matching
+  totals. Ranges without `from` start from zero opening. P&L / balance sheet
+  rows are unchanged (they never carry these keys).
+- **POST `/api/accounting/opening`** *(admin | pharmacist — cashier → 403)*
+  ```json
+  { "date": "YYYY-MM-DD", "description": "optional",
+    "lines": [ { "code": "INVENTORY", "debit": 1000 },
+               { "code": "CAPITAL", "credit": 1000 } ] }
+  ```
+  Guarded opening-balance batch: posts `source_type = "opening"` with
+  `source_id = opening:<date>`, so **one batch per tenant per date** — a repeat
+  for the same date → `400 Opening balances already posted for <date>` (the
+  source key also makes the raw post idempotent). A date inside a closed period
+  → `400 Period closed`; unbalanced/unknown-code/negative lines reuse the
+  standard manual-post validation (`201`, `alreadyPosted` → `200`).
+- **GET `/api/accounting/opening/suggest`** → `{ lines: [{ code, debit,
+  credit }] }` prefilled from the tenant's current state:
+  `INVENTORY` = Σ batches `purchasePrice × quantity`, `AR` = Σ customer
+  balances > 0, `AP` = Σ supplier balances > 0, `CASH` = 0 (cannot be inferred
+  — the UI leaves it editable) and `CAPITAL` = balancing figure
+  `(INVENTORY + AR + CASH − AP)` so the suggestion is balanced as returned.
+  Every row is one-sided (exactly one of debit/credit set); zero-amount rows
+  are still returned for display and are filtered before posting.
 - **GET `/api/accounting/profit-loss?from&to`** →
   `{ income[], expense[], incomeTotal, expenseTotal, net }`
   (`net = income − expense`).
@@ -1178,11 +1300,21 @@ source_id)`) and **best-effort**: a ledger failure is logged, audited as
 `accounting.post_failed` and never blocks the business flow.
 
 - **Invoice create** (`source_type = "invoice"`, posted inside the sale
-  transaction): Dr `CASH` (cash) | `BANK` (card/upi/other/bank_transfer) |
-  `AR` (credit, party = customer) `grandTotal`; Cr `SALES`
-  (`grandTotal − totalGst`); Cr `GST_OUTPUT` `totalGst` (zero legs omitted).
-- **Invoice cancel/delete**: mirrors the invoice entry (dated today,
-  `reason` = "Invoice cancelled"/"Invoice deleted"); no-op when never posted.
+  transaction): the debit side is split by what was actually collected —
+  Dr `CASH` (cash) | `BANK` (card/upi/other/bank_transfer) `amountPaid` (only
+  when > 0) **plus** Dr `AR` (party = customer) `grandTotal − amountPaid` (only
+  when a remainder > 0; credit mode always bills the full `grandTotal` to `AR`);
+  Cr `SALES` (`grandTotal − totalGst`); Cr `GST_OUTPUT` `totalGst` (zero legs
+  omitted). So a cash sale with `amountPaid = 0` posts entirely to `AR` —
+  partial cash/card sales never overstate cash. Invoice-created receipt rows
+  are written directly inside the sale transaction and are deliberately **not**
+  journal-posted (`payment` entries only come from `POST /api/payments`), so
+  there is no double-count between the sale's cash leg and the payments route.
+- **Invoice cancel/delete**: reverses every posted `payment` settlement entry
+  of this invoice FIRST (audit `{ invoiceNo, kind: "settlement" }`), then the
+  invoice entry (`{ invoiceNo, kind: "invoice" }`) — both dated today, both
+  idempotent, no-op when never posted. The refund payout row stays unposted:
+  its cash effect is already modeled by those reversals (documented netting).
 - **Purchase create** (`source_type = "purchase"`): Dr `INVENTORY`
   (`grandTotal − totalGst`); Dr `GST_INPUT` `totalGst`; Cr `AP` (credit mode,
   party = supplier) | `CASH` | `BANK` `grandTotal`.
@@ -1197,12 +1329,15 @@ source_id)`) and **best-effort**: a ledger failure is logged, audited as
   `round(refundAmount × totalGst / grandTotal, 2)`, taxable =
   `refundAmount − GST share`; Dr `SALES_RETURNS` taxable + Dr `GST_OUTPUT`
   share / Cr `CASH|BANK` (`refundMode: "credit"` → `AR`) `refundAmount`.
-- **Purchase returns**: no creation route exists yet (the `purchase_returns`
-  table is read by reports only), so no posting seam — covered when a create
-  route lands.
+- **Purchase return** (`source_type = "purchase_return"`, posted inside the
+  create transaction): GST share = `round(refundAmount × totalGst / grandTotal,
+  2)`, taxable = `refundAmount − GST share`; Dr `AP` (refundMode `"credit"`,
+  party = supplier) | `CASH`/`BANK` `refundAmount` + Cr `PURCHASE_RETURNS`
+  taxable + Cr `GST_INPUT` share.
 
-UI: `/dashboard/accounting` (AccountingPage — Trial Balance, P&L, Balance
-Sheet, Day Book, Journals and Periods tabs with CSV export).
+UI: `/dashboard/accounting` (AccountingPage — Trial Balance (Opening /
+Movement / Closing columns + CSV), P&L, Balance Sheet, Day Book, Journals,
+Opening (suggest + post, role-gated) and Periods tabs with CSV export).
 
 ---
 
@@ -1331,25 +1466,19 @@ are the GSTIN's leading 2-digit state code, and `request_hash` is
 **Decision — 24h cancellation window is a hard local constant**
 (`CANCEL_WINDOW_MS = 24h`, not configurable) checked against `submitted_at`
 **before** any provider call, so an expired cancel never reaches the network
-(`400 Cancellation window exceeded (24h)`). The NIC provider may enforce its
-own window; its failure surfaces as `422`.
+(`400 Cancellation window exceeded (24h)`).
 
-**Providers (env only, never settings, never returned to the browser):**
-
-| Variable | Purpose |
-|----------|---------|
-| `EINVOICE_PROVIDER` | `fake` (default) or `nic` |
-| `EINVOICE_GSP_ID` / `EINVOICE_GSP_KEY` | NIC GSP credentials |
-| `EINVOICE_USERNAME` / `EINVOICE_PASSWORD` | NIC account credentials |
-| `EINVOICE_BASE_URL` | NIC e-invoice endpoint base (`/invoice`, `/invoice/cancel`) |
-| `EWAY_BASE_URL` | NIC e-way endpoint base (`/eway`) |
-
-The default `fake` provider needs **zero** configuration: it issues
-`FAKE…` IRNs (NOT government-issued), `ACK…` ack numbers, base64 QR data,
-unconditional cancels and `EWB…` e-way bills valid for 24h — so the whole
-workflow is exercisable out of the box. With `EINVOICE_PROVIDER=nic` and any
-credential missing, every call fails fast with `503 E-invoice provider not
-configured` and the row records the missing env **names** (never values).
+**Providers — FAKE ONLY (removed by decision: no live NIC e-invoice).** This
+build never submits to the GSTN portal. `providers/gst.ts` exposes a single
+adapter, `fakeGstProvider`, and `getGstProvider()` returns it on every call —
+there is no `EINVOICE_PROVIDER` switch, no `EINVOICE_*`/`EWAY_*` env vars and
+no settings-backed credential path. The fake provider needs **zero**
+configuration: it issues `FAKE…` IRNs (NOT government-issued), `ACK…` ack
+numbers, base64 QR data, unconditional cancels and `EWB…` e-way bills valid
+for 24h — so the whole workflow is exercisable out of the box. Because the
+fake provider cannot fail for lack of credentials, there is no
+`503 E-invoice provider not configured` path anywhere: the only provider
+failure mode is a rejection → `422`.
 
 **Roles:** reading (status, providers, submissions) is open to every role;
 `POST .../generate`, `POST .../cancel` and `POST .../eway` are **admin |
@@ -1387,34 +1516,36 @@ distance, vehicle and reason kept on the row's `vehicle_json`.
   invoice, missing customer GSTIN, missing store GSTIN, missing HSN — item
   names listed, invalid GST rate), `404` foreign invoice, `409 E-invoice
   already generated`, `422 <provider message>` (row → `rejected` + error
-  recorded), `503 E-invoice provider not configured` (row stays `pending` +
-  error recorded). Audit `compliance.einvoice_generated`.
+  recorded). Audit `compliance.einvoice_generated`.
 - **POST `/api/compliance/invoices/:invoiceId/cancel`** *(admin |
   pharmacist)* `{ "reason" }` (required) → `200` (row → `cancelled`,
   `cancelled_at` set; audit `compliance.einvoice_cancelled`). Errors: `404`
   foreign invoice, `409 No accepted e-invoice to cancel`, `400 Cancellation
-  window exceeded (24h)`, `422 <provider message>` (row stays `accepted`),
-  `503`.
+  window exceeded (24h)`, `422 <provider message>` (row stays `accepted`).
 - **POST `/api/compliance/invoices/:invoiceId/eway`** *(admin | pharmacist)*
   `{ "distanceKm", "transporterName"?, "transporterGstin"?, "vehicleNo"?,
   "reason"? }` → `201` / `200` with the `ewaybill` row (`ackNo` = e-way bill
   no, `ackDate` = valid upto, `vehicleJson` = the details above). Errors:
   `400 Generate e-invoice first`, `409 E-way bill already generated`, `400`
-  validation (`distanceKm` must be positive), `422`, `503`. Audit
+  validation (`distanceKm` must be positive), `422`. Audit
   `compliance.ewaybill_generated`.
-- **GET `/api/compliance/providers`** → `{ provider: "fake"|"nic", einvoice:
-  boolean, eway: boolean, baseUrlsConfigured: boolean, missingEinvoice:
-  string[], missingEway: string[] }` — booleans and env **names** only; the
-  endpoint never contains a field matching `token|key|secret|password`.
+- **GET `/api/compliance/providers`** → static fake-only health:
+  `{ provider: "fake", einvoice: true, eway: true, live: false, note:
+  "Fake provider — IRNs are generated locally and are not government-issued." }`.
+  There is no env surface at all (no `missingEnv*`, no `baseUrlsConfigured`)
+  and the endpoint never contains a field matching
+  `token|key|secret|password`.
 - **GET `/api/compliance/submissions?from&to&status`** → tenant-scoped list
   (newest first) with `invoiceNo`, `invoiceDate`, `customerName`, `grandTotal`
   and parsed `vehicle`; `status` must be one of
   `pending|submitted|accepted|rejected|cancelled` (else `400`).
 
-UI: `/dashboard/compliance` (CompliancePage — provider health banner with
-missing env names, preflight/generate panel with invoice picker, submissions
-table with IRN copy/cancel/e-way actions). InvoicesPage shows the compliance
-state inside a row's expanded detail (fetched only on expand).
+UI: `/dashboard/compliance` (CompliancePage — a single honest banner
+"Fake provider — IRNs are generated locally and are not government-issued.
+This build does not submit to the GSTN portal.", preflight/generate panel with
+invoice picker, submissions table with IRN copy/cancel/e-way actions).
+InvoicesPage shows the compliance state inside a row's expanded detail
+(fetched only on expand).
 
 ---
 
@@ -1506,8 +1637,12 @@ an order operation.
 ### Staff endpoints (`/api/orders`, authGuard)
 
 - **GET `/api/orders?status&q&from&to&page&limit`** — install-shared queue,
-  newest first; `q` matches customer name / phone / order id; returns
-  `data` + `total` + `pagination`.
+  newest first; `q` matches customer name / phone / order id; returns `data`
+  + `total` + `pagination` + `counts` (`{ all, pending, accepted, packed,
+  ready, delivered, rejected, cancelled }` — one GROUP BY over the same
+  search scope, deliberately EXCLUDING the `status` filter so the UI pills
+  keep their totals while the rows narrow). `limit` caps at 100; the UI pages
+  with *Load more*.
 - **GET `/api/orders/:id`** — order + items (+ `invoiceId`,
   `prescriptionFileId`); when a prescription is attached, `prescriptionFile`
   `{ filename, contentType, data (base64) }` is **inlined** so staff users who
@@ -1521,7 +1656,8 @@ an order operation.
 - **POST `/api/orders/:id/reject`** / **`/cancel`** `{ reason }` (≥3 chars,
   ≤500) — terminal states with reason.
 
-UI: `/dashboard/orders` (OrdersPage — status filter pills with counts, order
+UI: `/dashboard/orders` (OrdersPage — status filter pills with **server**
+counts, debounced server-side search, *Load more* paging until `total`, order
 rows with per-state actions, 409 stock shortfalls shown inline, detail dialog
 with prescription preview, *Bill this order* → billing), the public portal at
 `/order?storeId=…` (OrderPortalPage — search, cart, details, prescription
@@ -1687,6 +1823,11 @@ configuration and honest health reporting. Service code in
 `/dashboard/integrations`. All routes require `authGuard`;
 `connect` / `disconnect` are **admin | pharmacist** (cashier → 403).
 
+**The consolidated integration reference (registry, env vars, encryption,
+connect/disconnect semantics, health precedence, delivery behaviour) lives in
+[docs/INTEGRATIONS.md](./INTEGRATIONS.md)** — this section only lists the
+endpoints.
+
 **Registry** (`PROVIDERS`, returned by every list response):
 
 | id | Name | Category | Fields (secret in parentheses) |
@@ -1694,7 +1835,7 @@ configuration and honest health reporting. Service code in
 | `whatsapp` | WhatsApp (Cloud API) | Messaging | `apiToken` (secret), `phoneNumberId` |
 | `sms` | SMS Gateway | Messaging | `webhookUrl` (secret), `sender` |
 | `email` | Email | Messaging | `webhookUrl` (secret) |
-| `einvoice` | E-Invoice (GSTN/GSP) | Compliance | `gspId`, `gspKey` (secret), `username`, `password` (secret), `baseUrl` |
+| `einvoice` | E-Invoice (fake IRN generator) | Compliance | none — informational card, fake-only build |
 | `google_drive` | Google Drive Backup | Backup | none — existing OAuth flow in Settings → Backup |
 | `online_orders` | Online Ordering | Storefront | none — toggle mirrored to the `online_orders` setting |
 | `payment_collect` | Payment Collection (UPI QR) | Payments | `upiId` — informational only (QR display, no gateway) |
@@ -1715,9 +1856,8 @@ are shared by every user of the install.
   `WHATSAPP_PHONE_NUMBER_ID`, `SMS_WEBHOOK_URL`, `EMAIL_WEBHOOK_URL`) →
   `mode: "env"`; else `mode: null` + `missingEnv` lists the missing env var
   NAMES (values are never read into a response).
-- `einvoice`: settings → `settings`; `EINVOICE_PROVIDER=nic` + env creds →
-  `env`; otherwise the zero-config `fake` provider (IRNs are `FAKE…`) →
-  `mode: "fake"` (always configured).
+- `einvoice`: ALWAYS `mode: "fake"`, `connected: true` — the fake-only build
+  has no settings path and no env path (see the compliance section).
 - `google_drive`: live status from `getDriveStatus()` (connected + account
   email only). `online_orders`: the existing settings toggle.
   `payment_collect`: configured when a `upiId` is stored.
@@ -1725,13 +1865,13 @@ are shared by every user of the install.
   fake paths report connected on their own (the operator enabled them
   out-of-band).
 
-**Adapter fallbacks.** `providers/messaging.getProvider()` and
-`providers/gst.getGstProvider()` first call
+**Adapter fallbacks.** `providers/messaging.getProvider()` first calls
 `integrations.getResolvedCredentials(id)` — when an enabled settings record
 holds complete credentials, an adapter is built with those (decrypted) values;
 otherwise the historical env path runs unchanged (so an install with no
-settings rows behaves exactly like Task 9/13). Decryption failures (e.g. a
-replaced key file) safely resolve to "not configured".
+settings rows behaves exactly like Task 9). Decryption failures (e.g. a
+replaced key file) safely resolve to "not configured". The GST provider does
+not participate: it is fake-only (`providers/gst.ts`).
 
 **Endpoints**
 
@@ -1752,8 +1892,8 @@ replaced key file) safely resolve to "not configured".
 
 ## Scheduled Reports
 
-Task 17 — CSV reports generated on a schedule and delivered through the
-existing messaging outbox. Service in
+Task 17 — CSV **and PDF** reports generated on a schedule and delivered
+through the existing messaging outbox. Service in
 `apps/server/src/services/reportsDelivery.ts`, routes in
 `apps/server/src/routes/scheduledReports.ts` (tables in migration
 `0016_integrations_reports.sql`, see docs/DATABASE.md), UI at
@@ -1775,19 +1915,25 @@ zone) computed by `computeNextRun(after, schedule)` — the install is
 single-store and runs in the pharmacy's timezone; the worker compares it as a
 plain string against the server clock.
 
-**CSV only (documented limitation).** `format` accepts `"csv"` for
-compatibility but `"pdf"` is rejected with
-`400 PDF export not supported yet` — the product has no server-side PDF
-renderer. Generated files are UTF-8 with a BOM (Excel), CRLF rows and RFC 4180
-quoting.
+**Formats.** `format: "csv" | "pdf"` (created once, immutable on update):
+- **CSV** — UTF-8 with a BOM (Excel), CRLF rows, RFC 4180 quoting; ≤ 100 KB
+  is inlined in the delivery message body (larger bodies say "(CSV saved …)").
+- **PDF** — server-rendered A4 portrait via **pdfkit** (`buildPdf`): title,
+  generated date, report type and period block; gray header row; equal column
+  widths capped to the printable width with ellipsis-truncated cells;
+  right-aligned numeric cells; automatic row pagination; centered
+  "Page N of M" footer. Stored as a `stored_files` row (`application/pdf`,
+  filename `<name>_<date>.pdf`) and **downloaded from the run** — channel
+  messages cannot carry attachments, so the delivery body only carries the
+  summary counts plus "PDF available in Scheduled Reports".
 
 **Run + delivery semantics.**
 `POST /api/scheduled-reports/:id/run` (manual, does NOT advance the schedule)
 or the worker tick (messaging cron, every 2 min, limit 50 due reports):
-insert `running` run → build rows + CSV → store via `fileStorage`
+insert `running` run → build rows + CSV/PDF → store via `fileStorage`
 (purpose `scheduled-report`) → queue ONE `custom` message per recipient
 (`aggregateType: scheduled_report`, idempotency `sr:<runId>:<channel>:<i>`)
-whose body inlines the CSV when ≤ 100 KB (else a "(file saved)" note) →
+whose body carries the summary counts (+ inline CSV / PDF note) →
 update run `done` (`row_count`, `file_id`, `message_status`) → set
 `last_run_at` (and `next_run_at` on schedule-triggered runs, even after a
 failure so a bad report never hot-loops) → audit `report.scheduled_run`.
@@ -1799,7 +1945,8 @@ Generation failures store `failed` + `error` and rethrow with the HTTP status.
 **Endpoints**
 
 - `POST /api/scheduled-reports` `{name, reportType, schedule, recipients, format, filters}`
-  → 201 with the row incl. computed `next_run_at`. `recipients` is
+  → 201 with the row incl. computed `next_run_at`. `format` accepts `"csv"`
+  (default) and `"pdf"`; `recipients` is
   `[{channel:"email"|"sms", address}]` (may be empty = file-only report).
 - `GET /api/scheduled-reports` → my reports (newest first).
 - `GET /api/scheduled-reports/:id` → `{ report, runs }` (10 most recent runs).
@@ -1837,25 +1984,30 @@ exactly what is still missing — nothing is rounded up.
 | Messaging — WhatsApp/SMS/email delivery | Implemented — queueing, outbox, consent and retry work with zero configuration; **live send additionally needs provider credentials** (env vars or Integrations Center) | `POST/GET /api/messages`, `PUT/GET /api/messages/preferences`, `POST /api/messages/:id/retry`, `/api/refills/*`, `POST /api/invoices/:id/share`; `src/pages/CommunicationsPage.tsx`, `src/pages/RefillsPage.tsx`; `apps/server/test/messaging.test.ts` |
 | Customer growth — loyalty, offers, campaigns, consent, patient analytics | Implemented | `GET /api/customer-engagement/{insights/:customerId,loyalty,offers,campaigns}`, `POST .../{loyalty/earn,loyalty/redeem,offers,campaigns,campaigns/:id/send}`; `src/pages/CampaignsPage.tsx`; `apps/server/test/customer-engagement.test.ts` |
 | Accounting — double-entry ledger | Implemented | `GET/POST /api/accounting/{accounts,post,trial-balance,profit-loss,balance-sheet,day-book,entries,periods}`; `src/pages/AccountingPage.tsx`; `apps/server/test/accounting.test.ts`, `regression-workflows.test.ts` |
+| Purchase returns — creation workflow | Implemented | `POST/GET /api/purchase-returns` (admin\|pharmacist, tenant-scoped batch + stock guard, `PR-` series, documented supplier-balance rule, `purchase_return` journal posted in the create transaction); `src/pages/PurchasesPage.tsx` (Purchase Returns tab + New Return dialog); `apps/server/test/purchase-returns.test.ts` |
+| Accounting — opening balances + trial-balance carry-forward | Implemented | `POST /api/accounting/opening`, `GET /api/accounting/opening/suggest` (date-keyed `opening:<date>` idempotency, closed-period guard, admin\|pharmacist); trial-balance `openingDebit/openingCredit/closing` columns (+ totals) carried forward across ranges; `src/pages/AccountingPage.tsx` (Opening tab + TB columns); `apps/server/test/opening-balances.test.ts` |
 | Reconciliation — cash/bank books + statement matching | Implemented | `GET /api/reconciliation/{cash,bank,rows,suggest,status}`, `POST /api/reconciliation/{import,match,unmatch}`; `src/pages/CashBankPage.tsx`; `apps/server/test/reconciliation.test.ts` |
-| Compliance — e-invoice / e-way bills | **Partial — Deferred: NIC live e-invoice** (the default provider is the zero-config **fake** IRN, clearly labelled in the UI; NIC mode only activates with `EINVOICE_PROVIDER=nic` + credentials) | `GET/POST /api/compliance/invoices/:invoiceId/{,generate,cancel,eway}`, `GET /api/compliance/{providers,submissions}`; `src/pages/CompliancePage.tsx`; `apps/server/test/compliance.test.ts` |
+| Compliance — e-invoice / e-way bills | **Implemented (fake-only)** — the whole generate → accept → cancel → e-way workflow runs on the zero-config **fake** provider, clearly labelled in the UI; **NIC live e-invoice: Out of scope (removed by decision)** — the live adapter, its `EINVOICE_*`/`EWAY_*` env vars and the "not configured" 503 path were deleted; `GET /api/compliance/providers` reports `{provider:"fake", live:false}` | `GET/POST /api/compliance/invoices/:invoiceId/{,generate,cancel,eway}`, `GET /api/compliance/{providers,submissions}`; `src/pages/CompliancePage.tsx`; `apps/server/test/compliance.test.ts` |
 | Online orders — customer order channel + delivery workflow | **Partial — soft reservation**: `POST /api/orders/accept` verifies current availability but never deducts; stock deduction happens only through the invoice path (FEFO + expiry policy included) | `GET /api/orders`, `POST /api/orders/:id/{accept,pack,ready,deliver,reject,cancel}`, public `POST/GET /api/public/{orders,medicines,store,files}`; `src/pages/OrdersPage.tsx`, `src/pages/OrderPortalPage.tsx`; `apps/server/test/customer-orders.test.ts` |
 | Cloud/device operations — device registry, staff permissions, remote monitoring | Implemented | `POST/GET /api/devices`, `POST /api/devices/:id/{revoke,restore}`, `GET /api/devices/{sessions,activity,me}`; `src/pages/DevicesPage.tsx`; `apps/server/test/devices-sync.test.ts` |
 | Cloud/device operations — offline sync / "cloud sync" | **Partial — master-data propagation only** (medicine, setting, customer, supplier). Invoices are **live** server reads and are deliberately rejected by push with `unsupported entity` — there is no invoice replication | `POST /api/sync/push`, `GET /api/sync/{pull,status}`; `src/pages/DevicesPage.tsx`; `apps/server/test/devices-sync.test.ts` |
 | Migration/admin — full data migration (customers/suppliers/medicines/opening stock) | Implemented | `POST/GET/DELETE /api/data-migrations`, `POST /api/data-migrations/:id/{preview,commit,rollback}`; `src/pages/MigrationPage.tsx`; `apps/server/test/data-migration.test.ts` |
 | Migration/admin — bulk bill edits | Implemented | `POST /api/bulk-bills/{preview,commit}` (admin\|pharmacist, `confirm:"CONFIRM"`); `src/pages/BulkBillsPage.tsx`; `apps/server/test/data-migration.test.ts` |
-| Migration/admin — scheduled reports | **Partial — Deferred: PDF export** (`format:"pdf"` is rejected with `400 PDF export not supported yet`; CSV generation + outbox delivery are implemented) | `POST/GET/PUT/DELETE /api/scheduled-reports`, `POST /api/scheduled-reports/:id/run`; `src/pages/ScheduledReportsPage.tsx`; `apps/server/test/integrations.test.ts` |
-| Migration/admin — integrations center | Implemented (per-install registry, AES-256-GCM secrets never returned, redacted to `•••`; e-invoice provider default is the fake one — see the compliance row) | `GET/POST /api/integrations/{,/:id,/:id/connect,/:id/disconnect,registry}`; `src/pages/IntegrationsPage.tsx`; `apps/server/test/integrations.test.ts` |
+| Migration/admin — scheduled reports | **Implemented** — CSV **and** server-rendered A4 PDF (`pdfkit`): PDF runs store an `application/pdf` file on the run, delivery bodies carry summary counts + a "PDF available" note (channel messages cannot attach files — download from the run) | `POST/GET/PUT/DELETE /api/scheduled-reports`, `POST /api/scheduled-reports/:id/run`; `src/pages/ScheduledReportsPage.tsx`; `apps/server/test/integrations.test.ts` (`buildPdf`, PDF run) |
+| Migration/admin — integrations center | Implemented (per-install registry, AES-256-GCM secrets never returned, redacted to `•••`; the e-invoice card is an informational **fake IRN generator** with no credential fields — see the compliance row) | `GET/POST /api/integrations/{,/:id,/:id/connect,/:id/disconnect,registry}`; `src/pages/IntegrationsPage.tsx`; `apps/server/test/integrations.test.ts` |
 | Multi-branch: Branch Transfer, Delivery Challan, Quotation, duplicate medicines across branches | **Out of scope (single-store)** — excluded by the plan's Global Constraints; no route, page or table exists by design | — |
-| Cross-tenant security sweep (Task 18) | **Implemented — 1 real leak found and fixed**: `GET /api/invoices/number/:invoiceNo` returned any tenant's invoice + items for a guessable number; it now requires `created_by`. Everything else tested clean | every new route surface (outbox, files, purchase-imports, product-intelligence, procurement, expiry-policy, prescriptions, stock-audits, labels, messages, refills, invoices/share, customer-engagement, accounting, reconciliation, compliance, orders + public catalog, devices, sync, data-migrations, bulk-bills, scheduled-reports, integrations) | `apps/server/test/tenant-isolation.test.ts` (33 tests) |
-| Invoice lifecycle regression (Task 18) | Implemented — sale / schedule-H block / cancel-reversal / purchase + expiry block / payment + return / admin expiry override each asserted end to end, closing with **trial-balance debit == credit** over the whole story | invoice, purchase, payment, return, accounting and expiry-policy routes | `apps/server/test/regression-workflows.test.ts` (6 tests) |
+| Cross-tenant security sweep (Task 18) | **Implemented — 1 real leak found and fixed**: `GET /api/invoices/number/:invoiceNo` returned any tenant's invoice + items for a guessable number; it now requires `created_by`. Everything else tested clean | every new route surface (outbox, files, purchase-imports, product-intelligence, procurement, expiry-policy, prescriptions, stock-audits, labels, messages, refills, invoices/share, customer-engagement, accounting, reconciliation, compliance, orders + public catalog, devices, sync, data-migrations, bulk-bills, scheduled-reports, integrations) | `apps/server/test/tenant-isolation.test.ts` (39 tests) |
+| Invoice lifecycle regression (Task 18) | Implemented — sale / schedule-H block / cancel-reversal / purchase + expiry block / payment + return / admin expiry override each asserted end to end, closing with **trial-balance debit == credit** over the whole story; plus the partial-payment chain (Fix 3): partial cash sale split → settlement → cancel reverses settlement + sale → exact zeroed balances, double-cancel safety and the no-double-post guard | invoice, purchase, payment, return, accounting and expiry-policy routes | `apps/server/test/regression-workflows.test.ts` (12 tests) |
 | Performance budgets (Task 18) | Implemented — measured on this machine: purchase import 5,000 rows **5.7 s** (budget 15 s), 100k inventory transactions seeded in **0.96 s**, opening-closing **456 ms** (budget 5 s), stock statement **75 ms** (budget 2 s), stock adjustments **475 ms** (budget 2 s), 500-label preview **7 ms** (budget 2 s) | purchase-import, reports and labels routes | `apps/server/test/performance-load.test.ts` (6 tests) |
+| Legacy CRUD cross-tenant hardening (Task 18 follow-up sweep) | **Implemented — every legacy route predating Task 18 was unscoped**: list + detail + mutations for purchases, suppliers, customers, doctors, medicines (incl. barcode lookup), returns, invoices, inventory (batch update, expiry report, batch create) now filter on `created_by` and return `404` for foreign ids; purchase/invoice/return creates reject foreign medicine/supplier/invoice/batch references; FEFO/FIFO batch selection is tenant-scoped. Fixture pollution purged from the live DB (9 orphan rows) with backup `C:\ProgramData\MediBill\backups\pre-cleanup-2026-09-27T03-10-47-778Z.db` | `purchases`, `suppliers`, `customers`, `doctors`, `medicines`, `payments`, `returns`, `invoices`, `inventory`, `catalog` (global by design), `settings` (install singleton) routes | `apps/server/test/tenant-isolation.test.ts` — `legacy CRUD tenant isolation` (6 tests) |
 
-**Honest-status summary:** of the 20 gap rows — **15 Implemented**, **4
-Partial** (online-order soft reservation, master-data-only sync, PDF export,
-fake-default e-invoice), **1 Out of scope (single-store)**. The remaining 3
-rows are the Task 18 verification sweeps (tenant isolation, invoice lifecycle
-regression, performance budgets) and are all implemented.
+**Honest-status summary:** of the 23 gap rows — **20 Implemented**, **2
+Partial** (online-order soft reservation, master-data-only sync), **1 Out of
+scope (single-store)**. The live NIC e-invoice sub-gap inside the compliance
+row is now **Out of scope (removed by decision)** rather than deferred. The
+remaining 4 rows are the cross-tenant/lifecycle verification sweeps (tenant
+isolation, legacy CRUD hardening, invoice lifecycle regression, performance
+budgets) and are all implemented.
 
 ### Migrations applied to the live database (Tasks 0-17)
 
@@ -1880,13 +2032,24 @@ regression, performance budgets) and are all implemented.
 | 15 | `0015_data_migration.sql` | `data_imports`, `data_import_rows` |
 | 16 | `0016_integrations_reports.sql` | `scheduled_reports`, `scheduled_report_runs` |
 
-### Verification gates (Task 18)
+### Verification gates
 
-- `cd apps/server && npx vitest run` → **34 files, 718 tests, all green**.
-- `cd apps/server && npx tsc --noEmit -p tsconfig.json` → only the 3
-  pre-existing `src/plugins/auth.ts` declaration errors (fastify-cookie typing
-  drift); no new errors.
+- `cd apps/server && npx vitest run` → **36 files, 767 tests, all green**
+  (baseline 36/760 + `customer-orders` counts (+1) + `messaging`
+  template-override merge tests (+3) + `integrations` PDF tests (+3)).
+- `cd apps/server && npx tsc --noEmit -p tsconfig.json` → **zero errors**
+  (the 3 pre-existing `src/plugins/auth.ts` fastify-cookie declaration
+  conflicts were fixed by removing our duplicated `cookies` / `setCookie` /
+  `clearCookie` / `sendFile` declarations — `@fastify/cookie` and
+  `@fastify/static` already augment them).
 - `npx tsc --noEmit -p tsconfig.app.json` (repository root) → clean.
 - `npx vite build` → success.
+- New runtime dependency: **`pdfkit`** (+ `@types/pdfkit`) in the root and
+  `apps/server` `package.json` for scheduled-report PDF export.
+- Lint sweep over the session-touched `src/` files → errors 538 → 517 and
+  warnings 9 → 7 (all unused-vars / empty-block / render-time-ref errors
+  fixed; the remainder are the repo's pre-existing `no-explicit-any` style
+  and the pervasive `set-state-in-effect` pattern, deliberately not
+  mass-refactored).
 - Browser verification of the new surfaces is tracked separately by the
   orchestrator (Task 18, Step 5) and is NOT claimed here.

@@ -48,12 +48,11 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 type ProviderHealth = {
-  provider: "fake" | "nic";
+  provider: "fake";
   einvoice: boolean;
   eway: boolean;
-  baseUrlsConfigured: boolean;
-  missingEinvoice: string[];
-  missingEway: string[];
+  live: boolean;
+  note?: string;
 };
 
 const STATUS_PILL: Record<string, { label: string; cls: string }> = {
@@ -263,53 +262,20 @@ export default function CompliancePage() {
     );
   }
 
-  const isFake = health?.provider === "fake";
-  const allConfigured = health?.provider === "nic" && health.einvoice && health.eway;
-  const missingNames = [...new Set([...(health?.missingEinvoice ?? []), ...(health?.missingEway ?? [])])];
   const filtered =
     statusFilter === "all" ? submissions : submissions.filter((row) => row.status === statusFilter);
 
   const selected = candidates.find((c) => c.id === selectedId);
 
   const banner = health && (
-    <div
-      className={cn(
-        "flex items-start gap-2.5 rounded-md border px-3.5 py-3 text-xs",
-        isFake
-          ? "border-amber-300/70 bg-amber-50 text-amber-800"
-          : allConfigured
-            ? "border-green-300/70 bg-green-50 text-green-800"
-            : "border-amber-300/70 bg-amber-50 text-amber-800"
-      )}
-    >
-      {isFake || !allConfigured ? (
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      ) : (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-      )}
+    <div className="flex items-start gap-2.5 rounded-md border border-amber-300/70 bg-amber-50 px-3.5 py-3 text-xs text-amber-800">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="min-w-0">
-        {isFake ? (
-          <>
-            <p className="font-medium">Fake provider — IRNs are not government-issued.</p>
-            <p className="mt-0.5">
-              Set <span className="font-mono">EINVOICE_PROVIDER=nic</span> plus credentials in the
-              server .env to submit real e-invoices.
-            </p>
-          </>
-        ) : allConfigured ? (
-          <p className="font-medium">
-            NIC provider configured — e-invoice and e-way submission enabled.
-          </p>
-        ) : (
-          <>
-            <p className="font-medium">NIC provider partially configured.</p>
-            <p className="mt-0.5">
-              Missing env:{" "}
-              <span className="font-mono">{missingNames.join(", ") || "unknown"}</span> (names only —
-              values are never shown or stored).
-            </p>
-          </>
-        )}
+        <p className="font-medium">Fake provider — IRNs are generated locally and are not government-issued.</p>
+        <p className="mt-0.5">
+          This build does not submit to the GSTN portal. Generate, cancel and e-way flows work
+          end to end with locally issued <span className="font-mono">FAKE…</span> IRNs.
+        </p>
       </div>
     </div>
   );

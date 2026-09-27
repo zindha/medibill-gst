@@ -25,7 +25,6 @@ import { BarcodeCameraScanner } from "@/components/BarcodeCameraScanner";
 import { ExpiryMMYYInput } from "@/components/ExpiryMMYYInput";
 import { MoneyInput } from "@/components/MoneyInput";
 import { FitText } from "@/components/FitText";
-import { useFitText } from "@/hooks/useFitText";
 import { RowMedicineInput } from "@/components/RowMedicineInput";
 import { MedicineAlternatives } from "@/components/MedicineAlternatives";
 import {
@@ -257,6 +256,9 @@ export default function BillingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const billingOrderId = searchParams.get("orderId") ?? "";
   const [billingOrder, setBillingOrder] = useState<any>(null);
+  // Next invoice number computed by the fetch effect below — declared BEFORE
+  // that effect so the closure never reads a binding declared later.
+  const [getNextInvoiceNo, setGetNextInvoiceNo] = useState<string>("");
 
   // Fetch data on mount
   useEffect(() => {
@@ -264,26 +266,22 @@ export default function BillingPage() {
     const fetchData = async () => {
       try {
         const { medicinesApi, customersApi, doctorsApi, invoicesApi } = await import("@/lib/api");
-        const [meds, custs, docs, invoiceList] = await Promise.all([
+        const [meds, custs, docs] = await Promise.all([
           medicinesApi.list(),
           customersApi.list(),
           doctorsApi.list(),
-          invoicesApi.list({ limit: 1 }),
         ]);
         setMedicines(meds);
         setCustomers(custs);
         setDoctors(docs);
-        // Generate next invoice number
-        if (invoiceList && invoiceList.length > 0) {
-          const last = invoiceList[0].invoiceNo;
-          const match = last.match(/^MB-\d{4}-(\d+)$/);
-          if (match) {
-            const next = String(parseInt(match[1]) + 1).padStart(6, "0");
-            setGetNextInvoiceNo(`MB-${new Date().getFullYear()}-${next}`);
-          } else {
-            setGetNextInvoiceNo(`MB-${new Date().getFullYear()}-000001`);
-          }
-        } else {
+        // Next invoice number — ask the server (same generator POST / uses) so
+        // the header preview matches the install-wide sequence. The old
+        // client-side guess derived from this tenant's list could disagree
+        // (fallback MB-...-000001) and show a number the server never assigns.
+        try {
+          const next = await invoicesApi.nextNumber();
+          if (next?.invoiceNo) setGetNextInvoiceNo(next.invoiceNo);
+        } catch {
           setGetNextInvoiceNo(`MB-${new Date().getFullYear()}-000001`);
         }
       } catch (err) {
@@ -302,8 +300,6 @@ export default function BillingPage() {
       navigate("/auth", { replace: true });
     }
   }, [authLoading, isAuthenticated, navigate]);
-
-  const [getNextInvoiceNo, setGetNextInvoiceNo] = useState<string>("");
 
   const [items, setItems] = useState<LineItem[]>([
     {
@@ -792,9 +788,12 @@ export default function BillingPage() {
 
   // Batch order toggle: FEFO (earliest expiry) or FIFO (oldest received).
   // loadBatchesFor reads the current toggle via ref so existing callbacks
-  // need no dep-array changes; cache key includes the order.
+  // need no dep-array changes; cache key includes the order. The ref is
+  // synced in an effect (never during render — react-hooks/refs).
   const batchOrderRef = useRef(batchOrder);
-  batchOrderRef.current = batchOrder;
+  useEffect(() => {
+    batchOrderRef.current = batchOrder;
+  });
 
   const loadBatchesFor = useCallback(async (medicineId: string, order?: "fefo" | "fifo"): Promise<BatchOption[]> => {
     const effective = order ?? batchOrderRef.current;
@@ -884,6 +883,12 @@ export default function BillingPage() {
             const rowBatches = await loadBatchesFor(String(med.id));
             applyMedicineToRow(i, { ...med, _id: med.id }, rowBatches);
             setRowQty(i, Number(item.quantity) || 1, "pack");
+            // Honor the price the customer was quoted on the portal (defaults
+            // to MRP − discount otherwise, which can overcharge vs unitPrice).
+            const quoted = Number((item as any).unitPrice ?? (item as any).unit_price);
+            if (Number.isFinite(quoted) && quoted > 0) {
+              updateItem(i, "sellingPrice", quoted);
+            }
           }
           if (missing.length > 0) {
             toast.error(
@@ -1292,7 +1297,6 @@ export default function BillingPage() {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offerId, offerBaseSubtotal, items]);
 
   const offerDiscountPreview = offerEval?.applies ? Number(offerEval.discount) || 0 : 0;
@@ -1494,7 +1498,10 @@ export default function BillingPage() {
       });
 
       setLastInvoice({
-        invoiceNo,
+        // The stored invoice is authoritative — getNextInvoiceNo is only a
+        // preview and can differ from the number the server actually assigns
+        // (install-wide sequence), which would print a wrong invoice number.
+        invoiceNo: created?.data?.invoiceNo ?? invoiceNo,
         date,
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
@@ -1606,13 +1613,16 @@ export default function BillingPage() {
   };
 
   // Counter keyboard flow: save, scan focus, add row. Refs keep the
-  // once-registered hotkeys reading latest state (no stale closures).
+  // once-registered hotkeys reading latest state (no stale closures). The
+  // refs are synced in an effect — never written during render.
   const saveDisabledReasonRef = useRef(saveDisabledReason);
-  saveDisabledReasonRef.current = saveDisabledReason;
   const handleSubmitRef = useRef(handleSubmit);
-  handleSubmitRef.current = handleSubmit;
   const addItemRef = useRef(addItem);
-  addItemRef.current = addItem;
+  useEffect(() => {
+    saveDisabledReasonRef.current = saveDisabledReason;
+    handleSubmitRef.current = handleSubmit;
+    addItemRef.current = addItem;
+  });
   useHotkeys([
     { key: "ctrl+s", label: "Save invoice", allowInInputs: true, handler: () => { if (!saveDisabledReasonRef.current) void handleSubmitRef.current(); } },
     { key: "/", label: "Focus scan bar", handler: () => document.querySelector<HTMLInputElement>('[aria-label="Scan barcode to add item"]')?.focus() },

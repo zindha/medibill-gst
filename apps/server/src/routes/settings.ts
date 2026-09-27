@@ -25,7 +25,10 @@ async function setSetting(key: string, value: any): Promise<void> {
 }
 
 export default async function settingsRoutes(fastify: FastifyInstance) {
-  // Get all settings
+  // Get all settings.
+  // The settings table has no tenant column — an install-wide singleton by
+  // design (invoice format, store name, templates, integrations config), so
+  // these reads are intentionally NOT tenant-scoped.
   fastify.get("/", { preHandler: [authGuard] }, async (request, reply) => {
     const allSettings = await db.select().from(settings);
     const settingsObj: Record<string, any> = {};
@@ -43,9 +46,29 @@ export default async function settingsRoutes(fastify: FastifyInstance) {
   });
 
   // Update setting
+  //
+  // `message_templates` (documented in API.md) uses per-key MERGE semantics
+  // so saving one template can never clobber the others: the payload is a
+  // partial `{ "<template>": "<body>" }` object merged into the stored JSON.
+  // A `null` / `""` value REMOVES that key's override (reset to the built-in
+  // default). Every other key keeps the plain replace behaviour.
   fastify.put("/:key", { preHandler: [authGuard] }, async (request, reply) => {
     const { key } = request.params as { key: string };
-    const { value } = request.body as { value: any };
+    const { value } = (request.body ?? {}) as { value: any };
+    if (value === undefined) {
+      return reply.status(400).send({ success: false, error: "value is required" });
+    }
+    if (key === "message_templates" && value && typeof value === "object" && !Array.isArray(value)) {
+      const current = await getSetting(key);
+      const merged: Record<string, unknown> =
+        current && typeof current === "object" && !Array.isArray(current) ? { ...current } : {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        if (v === null || v === undefined || v === "") delete merged[k];
+        else merged[k] = v;
+      }
+      await setSetting(key, merged);
+      return reply.send({ success: true, data: { key, value: merged } });
+    }
     await setSetting(key, value);
     return reply.send({ success: true, data: { key, value } });
   });

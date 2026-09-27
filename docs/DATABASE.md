@@ -230,6 +230,54 @@ invoice is recorded on both sides.
 | `is_active` | INTEGER | |
 | `created_by` | TEXT (FK) | users.id |
 
+### `purchase_returns`
+Exists since `0000_init.sql` — **no new migration**; the purchase-return
+creation route (`POST /api/purchase-returns`, Fix 1) is the first writer.
+Header of a goods return to a supplier. `return_no` uses the unique
+`PR-YYYY-NNNNNN` series (sales returns use `RET-…`).
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | TEXT (PK) | |
+| `return_no` | TEXT | Unique (`PR-YYYY-NNNNNN`) |
+| `purchase_bill_id` | TEXT (FK) | purchase_bills.id — optional link to the bill |
+| `supplier_id` | TEXT (FK) | suppliers.id (nullable for walk-in returns) |
+| `supplier_name` | TEXT | Denormalised display name |
+| `date` | TEXT | YYYY-MM-DD return date |
+| `reason` | TEXT | Free text |
+| `subtotal` | REAL | Net of GST (Σ amount − gstAmount) |
+| `total_gst` | REAL | Σ item gstAmount |
+| `grand_total` | REAL | Σ item amount (GST-inclusive) |
+| `refund_amount` | REAL | Defaults to `grand_total` |
+| `refund_mode` | TEXT | `cash` / `card` / `upi` / `credit` / `other` |
+| `status` | TEXT | `completed` (default) |
+| `created_by` | TEXT (FK) | users.id — tenant scope |
+| `created_at` | INTEGER | |
+| | | `UNIQUE(return_no)` |
+
+### `purchase_return_items`
+Line items of a purchase return. Stock moves **out** of `batch_id`
+(`inventory_transactions.type = 'purchase_return'` with a **negative**
+`quantity`); `refund_amount` per line defaults to the line `amount`.
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | TEXT (PK) | |
+| `return_id` | TEXT (FK) | purchase_returns.id |
+| `medicine_id` | TEXT (FK) | medicines.id (tenant-owned) |
+| `medicine_name` | TEXT | Snapshot at creation |
+| `batch_id` | TEXT (FK) | batches.id — required unless the medicine has exactly one active batch |
+| `batch_no` | TEXT | Snapshot |
+| `hsn_code` | TEXT | |
+| `quantity` | INTEGER | ≥ 1, deducted from the batch |
+| `unit` | TEXT | From the medicine |
+| `rate` | REAL | > 0, GST-inclusive unit rate |
+| `amount` | REAL | rate × quantity (GST-inclusive) |
+| `gst_rate` | TEXT | `0/5/12/18/28` (defaults to the medicine rate) |
+| `gst_amount` | REAL | amount − amount / (1 + rate/100) |
+| `cgst` / `sgst` | REAL | gst_amount / 2 each |
+| `refund_amount` | REAL | = `amount` per line |
+| `created_at` | INTEGER | |
+| | | `INDEX(return_id)` |
+
 ### `sessions`
 | Column | Type | Description |
 |--------|------|-------------|
@@ -570,15 +618,16 @@ Entries are **append-only**: cancelling a source inserts a mirrored reversal
 entry (`is_reversal = 1`, `source_type = 'reversal'`, `source_id` = original
 entry id) and stamps `reversed_by` on the original — never a delete.
 `UNIQUE(created_by, source_type, source_id)` makes `post` idempotent per
-business source (invoice/purchase/payment/sales_return); manual entries carry
-`source_id = NULL`, which SQLite UNIQUE treats as distinct by design.
+business source (invoice/purchase/payment/sales_return/purchase_return/opening);
+manual entries carry `source_id = NULL`, which SQLite UNIQUE treats as distinct
+by design.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | TEXT (PK) | |
 | `created_by` | TEXT (FK) | users.id — tenant scope |
 | `date` | TEXT | YYYY-MM-DD posting date (checked against closed periods) |
-| `source_type` | TEXT | `invoice` / `purchase` / `payment` / `sales_return` / `manual` / `reversal` |
-| `source_id` | TEXT | originating row id (nullable for manual) |
+| `source_type` | TEXT | `invoice` / `purchase` / `payment` / `sales_return` / `purchase_return` / `opening` / `manual` / `reversal` |
+| `source_id` | TEXT | originating row id (nullable for manual; opening batches use `opening:<date>` — one per tenant per date) |
 | `description` | TEXT | e.g. the invoice/bill number |
 | `is_reversal` | INTEGER | 1 = mirrored cancellation entry (default 0) |
 | `reversed_by` | TEXT | `journal_entries.id` of the reversal (nullable) |
@@ -664,8 +713,9 @@ idempotency guard — an invoice has at most one live `einvoice` row and one
 live `ewaybill` row; rejected/cancelled rows are updated in place on
 re-generate. `request_hash` fingerprints the payload sent, `response_json`
 keeps the raw provider reply, `vehicle_json` carries e-way specifics
-(transporter, distance, vehicle). **Provider secrets are never stored here**
-— they live only in process env (`EINVOICE_*`, `EWAY_*`).
+(transporter, distance, vehicle). **No provider secrets exist in this build**
+— the live NIC adapter was removed by decision, the provider is the local
+fake one, and nothing is ever stored here beyond the fake reply payload.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | TEXT (PK) | |
@@ -673,14 +723,14 @@ keeps the raw provider reply, `vehicle_json` carries e-way specifics
 | `invoice_id` | TEXT (FK) | invoices.id |
 | `kind` | TEXT | `einvoice` / `ewaybill` |
 | `status` | TEXT | `pending` / `submitted` / `accepted` / `rejected` / `cancelled` |
-| `provider` | TEXT | `fake` / `nic` (name only, no credentials) |
+| `provider` | TEXT | `fake` (fake-only build; older rows may say `nic`) — name only, no credentials |
 | `irn` | TEXT | Invoice Reference Number (nullable) |
 | `ack_no` | TEXT | Ack no (e-way: e-way bill number) |
 | `ack_date` | TEXT | Ack date (e-way: valid upto) |
 | `qr_data` | TEXT | Base64 QR payload from the provider |
 | `request_hash` | TEXT | sha256 of the exact request payload |
 | `response_json` | TEXT | Raw provider response (JSON) |
-| `error` | TEXT | Last failure message / missing env names |
+| `error` | TEXT | Last failure message (provider rejection) |
 | `vehicle_json` | TEXT | e-way: transporter, distance, vehicle, reason |
 | `submitted_at` | INTEGER | timestamp — anchors the 24h cancel window |
 | `cancelled_at` | INTEGER | timestamp (nullable) |
@@ -776,18 +826,18 @@ with day 1-28), `recipients` is `[{channel:"email"|"sms", address}]` and
 `filters` is `{daysBack}` (period-relative window ending at run time).
 `next_run_at` / `last_run_at` are SERVER-LOCAL wall-clock strings
 `YYYY-MM-DDTHH:mm` (no zone suffix) — they are string-compared against the
-server's local clock by the worker tick. `format` is `csv` only (PDF is
-rejected at the API with "PDF export not supported yet"). Tenant-scoped by
-`created_by`.
+server's local clock by the worker tick. `format` is `csv` (RFC-4180, BOM) or
+`pdf` (server-rendered A4 via pdfkit, stored as a file on the run). Tenant-
+scoped by `created_by`.
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | TEXT (PK) | |
 | `created_by` | TEXT (FK) | users.id |
-| `name` | TEXT | display name (also part of the CSV filename) |
+| `name` | TEXT | display name (also part of the CSV/PDF filename) |
 | `report_type` | TEXT | `sales` / `stock` / `purchase` / `payments` / `party` |
 | `schedule` | TEXT | JSON schedule preset (see above) |
 | `recipients` | TEXT | JSON `[{ channel, address }]` (may be empty = file-only) |
-| `format` | TEXT | `csv` (default) |
+| `format` | TEXT | `csv` (default) / `pdf` — immutable after create |
 | `filters` | TEXT | JSON `{ daysBack }` — default 30, clamped 1..365 |
 | `next_run_at` | TEXT | local `YYYY-MM-DDTHH:mm` of the next automatic run |
 | `last_run_at` | TEXT | ISO timestamp of the most recent run |

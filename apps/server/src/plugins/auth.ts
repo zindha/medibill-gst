@@ -8,14 +8,11 @@ declare module "fastify" {
   interface FastifyRequest {
     userId?: string;
     sessionToken?: string;
-    cookies?: Record<string, string | undefined>;
   }
-
-  interface FastifyReply {
-    setCookie(name: string, value: string, options?: Record<string, unknown>): FastifyReply;
-    clearCookie(name: string, options?: Record<string, unknown>): FastifyReply;
-    sendFile(filename: string, options?: Record<string, unknown>): FastifyReply;
-  }
+  // `cookies` (FastifyRequest) and `setCookie`/`clearCookie` (FastifyReply) are
+  // intentionally NOT declared here — @fastify/cookie v11 already augments
+  // `fastify` with them, and @fastify/static owns `sendFile`. Re-declaring them
+  // causes TS2687/TS2717/TS2300 (duplicate/conflicting declarations).
 }
 
 /**

@@ -13,7 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
-import { ApiError, ordersApi, type CustomerOrder, type CustomerOrderStatus } from "@/lib/api";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import {
+  ApiError,
+  ordersApi,
+  type CustomerOrder,
+  type CustomerOrderStatus,
+  type OrderStatusCounts,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -56,6 +63,10 @@ const FILTERS: Array<{ key: FilterKey; label: string }> = [
 
 const money = (n: number) => `₹${Number(n ?? 0).toFixed(2)}`;
 
+/** Server page size — "Load more" appends the next page until `total`. */
+const PAGE_SIZE = 100;
+const COUNT_KEYS = ["pending", "accepted", "packed", "ready", "delivered", "rejected", "cancelled"];
+
 const timeLabel = (ts: string | number | Date) =>
   new Date(ts).toLocaleString("en-IN", {
     day: "2-digit",
@@ -84,9 +95,14 @@ export default function OrdersPage() {
 
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 300);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<OrderStatusCounts | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Detail dialog
@@ -111,53 +127,85 @@ export default function OrdersPage() {
     Record<string, Array<{ medicineName: string; available: number; requested: number }>>
   >({});
 
-  const load = useCallback(async () => {
-    // Yield once so an effect-triggered call never sets state synchronously.
-    await Promise.resolve();
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const res = await ordersApi.list({ limit: 100 });
-      setOrders(res.data ?? []);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load orders");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  /**
+   * Fetch one page from the server (status + q are server-side). `append`
+   * adds the next page; otherwise the list is replaced (scope change).
+   */
+  const fetchPage = useCallback(
+    async (pageNo: number, append: boolean) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await ordersApi.list({
+          page: pageNo,
+          limit: PAGE_SIZE,
+          q: debouncedQuery.trim() || undefined,
+          status: filter !== "all" ? filter : undefined,
+        });
+        const rows = res.data ?? [];
+        setOrders((prev) => (append ? [...prev, ...rows] : rows));
+        setTotal(res.total ?? rows.length);
+        if (res.counts) setCounts(res.counts);
+        setPage(pageNo);
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : "Failed to load orders");
+      } finally {
+        if (append) setLoadingMore(false);
+        else setLoading(false);
+      }
+    },
+    [debouncedQuery, filter]
+  );
 
+  /** Refresh only the pills/total after a state change — keeps loaded rows. */
+  const refreshScope = useCallback(async () => {
+    try {
+      const res = await ordersApi.list({
+        page: 1,
+        limit: 1,
+        q: debouncedQuery.trim() || undefined,
+        status: filter !== "all" ? filter : undefined,
+      });
+      setTotal(res.total ?? 0);
+      if (res.counts) setCounts(res.counts);
+    } catch {
+      // Pill refresh is best-effort — the loaded rows are already correct.
+    }
+  }, [debouncedQuery, filter]);
+
+  // (Re)load page 1 whenever the auth session or the search scope changes.
   useEffect(() => {
     if (!isAuthenticated) return;
-    // Deferred: load() sets loading state, which must not run synchronously
+    // Deferred: fetchPage sets loading state, which must not run synchronously
     // inside the effect body.
-    const t = setTimeout(() => void load(), 0);
+    const t = setTimeout(() => void fetchPage(1, false), 0);
     return () => clearTimeout(t);
-  }, [isAuthenticated, load]);
+  }, [isAuthenticated, fetchPage]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate("/auth", { replace: true });
   }, [authLoading, isAuthenticated, navigate]);
 
-  const counts = useMemo(() => {
-    const map: Record<string, number> = { all: orders.length };
-    for (const key of ["pending", "accepted", "packed", "ready", "delivered", "rejected", "cancelled"]) {
-      map[key] = orders.filter((o) => o.status === key).length;
-    }
-    return map;
-  }, [orders]);
+  const load = useCallback(() => fetchPage(1, false), [fetchPage]);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return orders.filter((o) => {
-      if (filter !== "all" && o.status !== filter) return false;
-      if (!q) return true;
-      return (
-        o.customerName.toLowerCase().includes(q) ||
-        o.phone.includes(q) ||
-        o.id.toLowerCase().includes(q)
-      );
-    });
-  }, [orders, filter, query]);
+  const loadMore = useCallback(() => {
+    if (loadingMore || loading) return;
+    if (orders.length >= total) return;
+    void fetchPage(page + 1, true);
+  }, [fetchPage, loading, loadingMore, orders.length, page, total]);
+
+  /** Pills use the SERVER counts; fall back to the loaded set if absent. */
+  const pillCounts = useMemo<Record<string, number>>(() => {
+    if (counts) {
+      const map: Record<string, number> = {};
+      for (const [key, value] of Object.entries(counts)) map[key] = value;
+      return map;
+    }
+    const map: Record<string, number> = { all: orders.length };
+    for (const key of COUNT_KEYS) map[key] = orders.filter((o) => o.status === key).length;
+    return map;
+  }, [counts, orders]);
 
   /** Shared action runner — refreshes the queue and surfaces 409 stock detail. */
   const runAction = async (
@@ -176,6 +224,9 @@ export default function OrdersPage() {
       const updated = await fn();
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
       if (successMsg) toast.success(successMsg);
+      // Server counts/total can move with the transition — refresh the pills
+      // without dropping the loaded (possibly paged) rows.
+      void refreshScope();
       return updated;
     } catch (err) {
       const shortages = stockShortages(err);
@@ -347,7 +398,7 @@ export default function OrdersPage() {
                 filter === f.key ? "bg-primary-foreground/20" : "bg-muted text-muted-foreground"
               )}
             >
-              {counts[f.key] ?? 0}
+              {pillCounts[f.key] ?? 0}
             </span>
           </button>
         ))}
@@ -369,11 +420,11 @@ export default function OrdersPage() {
         </p>
       )}
 
-      {loading ? (
+      {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading orders…
         </div>
-      ) : visible.length === 0 ? (
+      ) : orders.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
           title={filter === "all" && !query ? "No online orders yet" : "No orders match this filter"}
@@ -390,7 +441,7 @@ export default function OrdersPage() {
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {visible.map((o) => {
+          {orders.map((o) => {
             const pill = STATUS_PILL[o.status] ?? STATUS_PILL.pending;
             const shortages = stockErrors[o.id];
             return (
@@ -471,6 +522,29 @@ export default function OrdersPage() {
               </Card>
             );
           })}
+
+          {/* Paging — append the next server page until the total is loaded */}
+          {orders.length < total && (
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={loadMore}
+                disabled={loadingMore || loading}
+              >
+                {loadingMore && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                Load more
+              </Button>
+              <span className="text-[11px] text-muted-foreground">
+                {orders.length} of {total} orders
+              </span>
+            </div>
+          )}
+          {!loading && orders.length >= total && total > PAGE_SIZE && (
+            <p className="pt-1 text-center text-[11px] text-muted-foreground">
+              All {total} orders loaded
+            </p>
+          )}
         </div>
       )}
 

@@ -6,7 +6,6 @@ import {
   COMPLIANCE_STATUSES,
   type ComplianceStatus,
 } from "../db/schema/index.js";
-import { isGstProviderConfigured } from "../providers/gst.js";
 import {
   cancelEInvoice,
   complianceStatus,
@@ -23,8 +22,8 @@ import {
  *
  * Role gating (documented): reading status/submissions/providers is open to
  * every role, but generate / cancel / e-way are **admin | pharmacist** only —
- * cashiers get 403. Secrets are env-only: GET /providers returns booleans and
- * the active provider name, never a credential or its value.
+ * cashiers get 403. This build is fake-only (no live GSTN submission): the
+ * /providers endpoint returns static booleans and never a credential.
  */
 
 const cancelSchema = z.object({
@@ -114,22 +113,17 @@ export default async function complianceRoutes(fastify: FastifyInstance) {
     }
   });
 
-  // Provider health — booleans + provider name + missing env NAMES only.
+  // Provider health — static, fake-only build: no credentials, no env, no
+  // secrets. `live:false` states plainly that nothing reaches the GSTN portal.
   fastify.get("/providers", { preHandler: [authGuard] }, async (_request, reply) => {
-    const health = isGstProviderConfigured();
-    const baseUrlsConfigured =
-      health.provider === "fake"
-        ? true
-        : !!(process.env.EINVOICE_BASE_URL?.trim() && process.env.EWAY_BASE_URL?.trim());
     return reply.send({
       success: true,
       data: {
-        provider: health.provider,
-        einvoice: health.einvoice,
-        eway: health.eway,
-        baseUrlsConfigured,
-        missingEinvoice: health.missingEinvoice,
-        missingEway: health.missingEway,
+        provider: "fake",
+        einvoice: true,
+        eway: true,
+        live: false,
+        note: "Fake provider — IRNs are generated locally and are not government-issued.",
       },
     });
   });

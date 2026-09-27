@@ -7,6 +7,12 @@ import { searchCatalog, getCatalogStats } from "../catalog/db.js";
  *
  * Replaces the old client-side approach that shipped the full 37 MB dataset
  * (243,578 rows) to every browser. A search now returns only the matching rows.
+ *
+ * Deliberately NOT tenant-scoped: the catalog is a shared, read-only product
+ * database (same reference rows for every store on the install). Tenant
+ * isolation for catalog data applies to the per-tenant tables
+ * `/api/catalog-overrides` and `/api/catalog-additions`, which are filtered by
+ * createdBy — bare catalog reads stay global by design.
  */
 export default async function catalogRoutes(fastify: FastifyInstance) {
   fastify.get(

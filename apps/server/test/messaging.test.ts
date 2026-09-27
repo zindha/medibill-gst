@@ -16,12 +16,15 @@ import {
 import messageRoutes from "../src/routes/messages.js";
 import invoiceRoutes from "../src/routes/invoices.js";
 import refillRoutes from "../src/routes/refills.js";
+import settingsRoutes from "../src/routes/settings.js";
 import {
+  MESSAGE_TEMPLATES,
   __setProviderForTest,
   isOptedOut,
   processMessageEvent,
   queueMessage,
   renderTemplate,
+  resolveMessageBody,
   runOutboxWorkerOnce,
   sendRefillDue,
   setPreference,
@@ -148,6 +151,7 @@ beforeAll(async () => {
   await app.register(messageRoutes, { prefix: "/api/messages" });
   await app.register(invoiceRoutes, { prefix: "/api/invoices" });
   await app.register(refillRoutes, { prefix: "/api/refills" });
+  await app.register(settingsRoutes, { prefix: "/api/settings" });
 });
 
 afterEach(() => {
@@ -497,6 +501,93 @@ describe("template rendering", () => {
     });
     await processMessageEvent(result.outboxEventId!);
     expect((send.mock.calls[0][0] as any).body).toBe("Ping Sam!");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// message_templates overrides (Communications → Templates tab)
+// ---------------------------------------------------------------------------
+describe("message_templates overrides", () => {
+  const TEMPLATE_KEY = "message_templates";
+
+  const putTemplates = (value: unknown) =>
+    app.inject({
+      method: "PUT",
+      url: `/api/settings/${TEMPLATE_KEY}`,
+      headers: auth(ctx.token),
+      payload: { value },
+    });
+
+  const storedOverrides = async (): Promise<Record<string, unknown> | null> => {
+    const rows = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, TEMPLATE_KEY))
+      .limit(1);
+    if (!rows[0]) return null;
+    return JSON.parse(rows[0].value);
+  };
+
+  afterAll(async () => {
+    // Leave the shared settings table pristine for later test files.
+    await db.delete(settings).where(eq(settings.key, TEMPLATE_KEY));
+  });
+
+  it("applies a stored override to the rendered body (tokens still expand)", async () => {
+    await upsertSetting(TEMPLATE_KEY, {
+      invoice_share: "Override for {customerName} / {invoiceNo}",
+    });
+
+    const body = await resolveMessageBody("invoice_share", {
+      customerName: "Asha",
+      invoiceNo: "MB-9",
+    });
+    expect(body).toBe("Override for Asha / MB-9");
+
+    // Templates without an override keep their built-in default.
+    expect(await resolveMessageBody("payment_due", { customerName: "Asha" })).toBe(
+      renderTemplate(MESSAGE_TEMPLATES.payment_due, { customerName: "Asha" })
+    );
+
+    // And the override reaches an actual send.
+    const { provider, send } = fakeProvider();
+    __setProviderForTest(provider);
+    const result = await queueMessage(ctx.id, {
+      channel: "whatsapp",
+      recipient: "+91111100002",
+      template: "invoice_share",
+      variables: { customerName: "Asha", invoiceNo: "MB-9" },
+    });
+    await processMessageEvent(result.outboxEventId!);
+    expect((send.mock.calls[0][0] as any).body).toBe("Override for Asha / MB-9");
+  });
+
+  it("resetting an override (null) falls back to the built-in default", async () => {
+    await upsertSetting(TEMPLATE_KEY, { invoice_share: "Temporary override" });
+    expect(await resolveMessageBody("invoice_share", {})).toBe("Temporary override");
+
+    const res = await putTemplates({ invoice_share: null });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.value.invoice_share).toBeUndefined();
+
+    expect(await resolveMessageBody("invoice_share", {})).toBe(
+      renderTemplate(MESSAGE_TEMPLATES.invoice_share, {})
+    );
+  });
+
+  it("merging one template's override never clobbers the other keys", async () => {
+    const first = await putTemplates({ invoice_share: "Body A", payment_due: "Body B" });
+    expect(first.statusCode).toBe(200);
+    expect(first.json().data.value).toEqual({ invoice_share: "Body A", payment_due: "Body B" });
+
+    // Save only ONE key — the other override must survive (merge semantics).
+    const second = await putTemplates({ invoice_share: "Body A2" });
+    expect(second.statusCode).toBe(200);
+    expect(second.json().data.value).toEqual({ invoice_share: "Body A2", payment_due: "Body B" });
+
+    expect(await storedOverrides()).toEqual({ invoice_share: "Body A2", payment_due: "Body B" });
+    expect(await resolveMessageBody("payment_due", {})).toBe("Body B");
+    expect(await resolveMessageBody("invoice_share", {})).toBe("Body A2");
   });
 });
 

@@ -61,9 +61,10 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 
 /**
- * Scheduled Reports (Task 17) — CSV-only scheduled delivery (PDF is honestly
- * rejected: the product has no server-side PDF renderer). Periods are
- * period-relative (`daysBack` from the run date) and next-run times are
+ * Scheduled Reports (Task 17) — scheduled CSV / PDF delivery. PDF is
+ * server-rendered A4 (pdfkit), stored as a file on the run and downloaded
+ * from the run history — it is never inlined in a channel message. Periods
+ * are period-relative (`daysBack` from the run date) and next-run times are
  * computed in the SERVER's local timezone, shown verbatim from the API.
  */
 
@@ -130,6 +131,11 @@ async function downloadBase64(filename: string, contentType: string, base64: str
   URL.revokeObjectURL(url);
 }
 
+/** Fallback name when the file row has no filename — honour its content type. */
+function fallbackName(runId: string, contentType: string | null | undefined): string {
+  return contentType === "application/pdf" ? `${runId}.pdf` : `${runId}.csv`;
+}
+
 export default function ScheduledReportsPage() {
   const [reports, setReports] = useState<ScheduledReportRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +156,7 @@ export default function ScheduledReportsPage() {
     { channel: "email", address: "" },
   ]);
   const [daysBack, setDaysBack] = useState(30);
+  const [format, setFormat] = useState<"csv" | "pdf">("csv");
 
   // Runs drawer
   const [runsFor, setRunsFor] = useState<ScheduledReportRow | null>(null);
@@ -183,6 +190,7 @@ export default function ScheduledReportsPage() {
     setTime("09:00");
     setRecipients([{ channel: "email", address: "" }]);
     setDaysBack(30);
+    setFormat("csv");
   };
 
   const openCreate = () => {
@@ -202,6 +210,7 @@ export default function ScheduledReportsPage() {
     const saved = parseJson<ScheduledReportRecipient[]>(row.recipients, []);
     setRecipients(saved.length > 0 ? saved : [{ channel: "email", address: "" }]);
     setDaysBack(parseJson<{ daysBack?: number }>(row.filters, {}).daysBack ?? 30);
+    setFormat(row.format === "pdf" ? "pdf" : "csv");
     setDialogOpen(true);
   };
 
@@ -228,7 +237,7 @@ export default function ScheduledReportsPage() {
         reportType: type,
         schedule: schedulePreset(),
         recipients: cleanRecipients,
-        format: "csv",
+        format,
         filters: { daysBack: Number(daysBack) || 30 },
       };
       if (editing) {
@@ -313,7 +322,11 @@ export default function ScheduledReportsPage() {
     setDownloading(run.id);
     try {
       const file = await filesApi.get(run.fileId);
-      await downloadBase64(file.filename || `${run.id}.csv`, file.contentType, file.data);
+      await downloadBase64(
+        file.filename || fallbackName(run.id, file.contentType),
+        file.contentType,
+        file.data
+      );
     } catch {
       toast.error("Could not download the file");
     } finally {
@@ -335,7 +348,7 @@ export default function ScheduledReportsPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Scheduled Reports</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Daily, weekly or monthly CSV reports delivered to email &amp; SMS
+            Daily, weekly or monthly CSV &amp; PDF reports delivered to email &amp; SMS
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -361,7 +374,7 @@ export default function ScheduledReportsPage() {
         <EmptyState
           icon={CalendarClock}
           title="No scheduled reports yet"
-          description="Create a daily, weekly or monthly CSV report — it runs automatically and lands in each recipient's inbox."
+          description="Create a daily, weekly or monthly CSV/PDF report — it runs automatically and lands in each recipient's inbox."
           actions={[{ label: "Create your first report", onClick: openCreate }]}
         />
       ) : (
@@ -371,6 +384,7 @@ export default function ScheduledReportsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Format</TableHead>
                 <TableHead>Schedule</TableHead>
                 <TableHead>Next run</TableHead>
                 <TableHead>Last run</TableHead>
@@ -384,6 +398,11 @@ export default function ScheduledReportsPage() {
                   <TableCell className="text-sm font-medium">{row.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {TYPE_LABELS[row.reportType] ?? row.reportType}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px] uppercase">
+                      {row.format === "pdf" ? "PDF" : "CSV"}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {scheduleLabel(row.schedule)}
@@ -443,7 +462,8 @@ export default function ScheduledReportsPage() {
 
       <p className="text-xs text-muted-foreground">
         Runs happen on the server&apos;s local timezone; periods are relative (last N days from
-        the run). CSV only for now — PDF export is not supported yet.{" "}
+        the run). CSV bodies are inlined in delivery messages; PDFs are stored on the run and
+        downloaded from the run history.{" "}
         <Link to="/dashboard/integrations" className="underline underline-offset-2 hover:text-foreground">
           Integrations
         </Link>{" "}
@@ -456,7 +476,8 @@ export default function ScheduledReportsPage() {
           <DialogHeader>
             <DialogTitle>{editing ? "Edit scheduled report" : "New scheduled report"}</DialogTitle>
             <DialogDescription>
-              The report runs on the server and stores a CSV you can download any time.
+              The report runs on the server and stores a file (CSV or PDF) you can download any
+              time.
             </DialogDescription>
           </DialogHeader>
 
@@ -594,11 +615,25 @@ export default function ScheduledReportsPage() {
 
             <div className="space-y-1.5">
               <Label className="text-xs">Format</Label>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-xs">CSV</Badge>
-                <Button size="sm" variant="outline" className="text-xs opacity-60" disabled title="PDF export not supported yet">
-                  PDF
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {(["csv", "pdf"] as const).map((f) => (
+                  <Button
+                    key={f}
+                    type="button"
+                    size="sm"
+                    variant={format === f ? "default" : "outline"}
+                    className="h-8 text-xs uppercase"
+                    disabled={editing !== null}
+                    title={editing ? "Format is fixed after creation" : `Export as ${f.toUpperCase()}`}
+                    onClick={() => setFormat(f)}
+                  >
+                    {f}
+                  </Button>
+                ))}
+                <span className="text-[11px] text-muted-foreground">
+                  PDF renders an A4 table — download it from the run history (not inlined in
+                  messages).
+                </span>
               </div>
             </div>
           </div>
@@ -621,7 +656,7 @@ export default function ScheduledReportsPage() {
           <SheetHeader>
             <SheetTitle>Run history — {runsFor?.name}</SheetTitle>
             <SheetDescription>
-              Each run stores a CSV (download below) and queues delivery messages.
+              Each run stores a file (CSV or PDF — download below) and queues delivery messages.
             </SheetDescription>
           </SheetHeader>
           <div className="mt-4">
@@ -666,7 +701,7 @@ export default function ScheduledReportsPage() {
                               variant="outline"
                               disabled={downloading === run.id}
                               onClick={() => void download(run)}
-                              title="Download CSV"
+                              title="Download file"
                             >
                               {downloading === run.id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -19,12 +19,11 @@
  * expiryPolicy / onlineOrders) — integrations are PER-INSTALL, one
  * configuration shared by every user of this install.
  *
- * Module graph note: the env checks (`providers/messaging`), GST provider
- * name (`providers/gst`), Drive status (`backup/drive`) and the online-orders
- * toggle (`services/customerOrders`) are all loaded via DYNAMIC import inside
- * the async functions that need them — so `providers/messaging.ts` and
- * `providers/gst.ts` can statically import `getResolvedCredentials` from this
- * module without creating an ESM cycle.
+ * Module graph note: the env checks (`providers/messaging`), Drive status
+ * (`backup/drive`) and the online-orders toggle (`services/customerOrders`)
+ * are all loaded via DYNAMIC import inside the async functions that need them
+ * — so `providers/messaging.ts` can statically import `getResolvedCredentials`
+ * from this module without creating an ESM cycle.
  */
 
 import crypto from "node:crypto";
@@ -80,15 +79,11 @@ export const PROVIDERS: readonly IntegrationProviderDef[] = [
   },
   {
     id: "einvoice",
-    name: "E-Invoice (GSTN/GSP)",
+    name: "E-Invoice (fake IRN generator)",
     category: "Compliance",
-    fields: [
-      { key: "gspId", secret: false },
-      { key: "gspKey", secret: true },
-      { key: "username", secret: false },
-      { key: "password", secret: true },
-      { key: "baseUrl", secret: false },
-    ],
+    // Fake-only build (no live GSTN submission) — informational card, no
+    // credentials to collect. See providers/gst.ts.
+    fields: [],
   },
   {
     id: "google_drive",
@@ -435,7 +430,7 @@ export interface IntegrationHealth {
    * Provider readiness. For settings-backed providers the settings path only
    * counts when `enabled` is true (so `enabled && configured` is folded in);
    * env/fake paths are "connected" on their own because the operator enabled
-   * them out-of-band (.env / EINVOICE_PROVIDER).
+   * them out-of-band (.env) or they are zero-config (einvoice → fake).
    */
   connected: boolean;
   mode: IntegrationMode;
@@ -496,21 +491,8 @@ export async function health(id: string): Promise<IntegrationHealth> {
   }
 
   if (def.id === "einvoice") {
-    const { isGstProviderConfigured } = await import("../providers/gst.js");
-    const gst = isGstProviderConfigured();
-    if (settingsComplete(record, def)) {
-      return { ...base, enabled: true, connected: true, mode: "settings", missingEnv: [] };
-    }
-    if (gst.provider === "nic") {
-      return {
-        ...base,
-        enabled: record?.enabled ?? false,
-        connected: gst.einvoice,
-        mode: "env",
-        missingEnv: gst.missingEinvoice,
-      };
-    }
-    // Zero-config fake IRNs (explicitly labelled FAKE… in the UI) — always active.
+    // Fake-only build: IRNs are generated locally (explicitly labelled FAKE…
+    // in the UI) — always configured, no settings and no env to check.
     return { ...base, enabled: true, connected: true, mode: "fake", missingEnv: [] };
   }
 
@@ -576,8 +558,8 @@ export interface ResolvedCredentials {
  * the key file was replaced) or the id is unknown. Safe to call anywhere —
  * it never throws and never returns partially-decrypted data.
  *
- * Used by `providers/messaging.getProvider` (whatsapp/sms/email) and
- * `providers/gst.getGstProvider` (einvoice) as the settings-over-env path.
+ * Used by `providers/messaging.getProvider` (whatsapp/sms/email) as the
+ * settings-over-env path.
  */
 export function getResolvedCredentials(id: string): ResolvedCredentials | null {
   const def = findProvider(id);
@@ -613,8 +595,8 @@ export function getResolvedCredentials(id: string): ResolvedCredentials | null {
 
 /**
  * Synchronous settings read: better-sqlite3's drizzle driver exposes `.all()`
- * on the query builder (see routes/invoices.ts). getProvider()/getGstProvider()
- * are synchronous, so the credentials lookup must be too.
+ * on the query builder (see routes/invoices.ts). `getProvider()` is
+ * synchronous, so the credentials lookup must be too.
  */
 function readRecordSync(id: string): IntegrationRecord | null {
   const rows = db

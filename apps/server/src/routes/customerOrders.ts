@@ -72,6 +72,8 @@ export default async function customerOrderRoutes(fastify: FastifyInstance) {
       success: true,
       data: result.rows,
       total: result.total,
+      // Server-computed per-status totals for the search scope (pills).
+      counts: result.counts,
       pagination: { page: result.page, limit: result.limit },
     });
   });

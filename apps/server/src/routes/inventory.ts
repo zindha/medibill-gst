@@ -13,20 +13,21 @@ import { getPolicy, getUserRole, evaluateLineItems } from "../services/expiryPol
 // required to be synchronous).
 export function selectBatchesFEFO(
   medicineId: string,
-  requiredQty: number
+  requiredQty: number,
+  userId?: string
 ): { batchId: string; quantity: number; rate: number }[] {
   const today = new Date().toISOString().split("T")[0];
+  const conds = [
+    eq(batches.medicineId, medicineId),
+    eq(batches.isActive, true),
+    gt(batches.expiryDate, today),
+    gt(batches.quantity, 0),
+  ];
+  if (userId) conds.push(eq(batches.createdBy, userId));
   const availableBatches = db
     .select()
     .from(batches)
-    .where(
-      and(
-        eq(batches.medicineId, medicineId),
-        eq(batches.isActive, true),
-        gt(batches.expiryDate, today),
-        gt(batches.quantity, 0)
-      )
-    )
+    .where(and(...conds))
     .orderBy(asc(batches.expiryDate))
     .all();
 
@@ -47,20 +48,21 @@ export function selectBatchesFEFO(
 // run inside a db.transaction() callback.
 export function selectBatchesFIFO(
   medicineId: string,
-  requiredQty: number
+  requiredQty: number,
+  userId?: string
 ): { batchId: string; quantity: number; rate: number }[] {
   const today = new Date().toISOString().split("T")[0];
+  const conds = [
+    eq(batches.medicineId, medicineId),
+    eq(batches.isActive, true),
+    gt(batches.expiryDate, today),
+    gt(batches.quantity, 0),
+  ];
+  if (userId) conds.push(eq(batches.createdBy, userId));
   const availableBatches = db
     .select()
     .from(batches)
-    .where(
-      and(
-        eq(batches.medicineId, medicineId),
-        eq(batches.isActive, true),
-        gt(batches.expiryDate, today),
-        gt(batches.quantity, 0)
-      )
-    )
+    .where(and(...conds))
     .orderBy(asc(batches.createdAt))
     .all();
 
@@ -135,8 +137,12 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
     const now = new Date();
+    const [medicine] = await db.select({ id: medicines.id }).from(medicines)
+      .where(and(eq(medicines.id, parsed.data.medicineId), eq(medicines.createdBy, request.userId!))).limit(1);
+    if (!medicine) return reply.status(404).send({ success: false, error: "Medicine not found" });
+
     const [existing] = await db.select().from(batches)
-      .where(and(eq(batches.medicineId, parsed.data.medicineId), eq(batches.batchNo, parsed.data.batchNo))).limit(1);
+      .where(and(eq(batches.medicineId, parsed.data.medicineId), eq(batches.batchNo, parsed.data.batchNo), eq(batches.createdBy, request.userId!))).limit(1);
     if (existing) return reply.status(409).send({ success: false, error: "Batch number already exists for this medicine" });
 
     // Expiry Safety Policy (Task 5): manual stock-in is incoming stock and is
@@ -175,7 +181,8 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
     const parsed = updateBatchSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
-    const [existing] = await db.select().from(batches).where(eq(batches.id, id)).limit(1);
+    const [existing] = await db.select().from(batches)
+      .where(and(eq(batches.id, id), eq(batches.createdBy, request.userId!))).limit(1);
     if (!existing) return reply.status(404).send({ success: false, error: "Batch not found" });
 
     // Expiry Safety Policy (Task 5): changing a batch's expiry is evaluated
@@ -199,7 +206,8 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
       }
     }
 
-    const [updated] = await db.update(batches).set({ ...parsed.data, updatedAt: new Date() }).where(eq(batches.id, id)).returning();
+    const [updated] = await db.update(batches).set({ ...parsed.data, updatedAt: new Date() })
+      .where(and(eq(batches.id, id), eq(batches.createdBy, request.userId!))).returning();
     return reply.send({ success: true, data: updated });
   });
 
@@ -307,7 +315,7 @@ export default async function inventoryRoutes(fastify: FastifyInstance) {
 
     const expiringBatches = await db.select().from(batches)
       .innerJoin(medicines, eq(batches.medicineId, medicines.id))
-      .where(and(eq(batches.isActive, true), lt(batches.expiryDate, cutoffStr), gt(batches.quantity, 0)))
+      .where(and(eq(batches.createdBy, request.userId!), eq(batches.isActive, true), lt(batches.expiryDate, cutoffStr), gt(batches.quantity, 0)))
       .orderBy(asc(batches.expiryDate));
 
     return reply.send({ success: true, data: expiringBatches.map((r: any) => ({

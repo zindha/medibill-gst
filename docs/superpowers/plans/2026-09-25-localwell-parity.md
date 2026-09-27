@@ -50,7 +50,7 @@
 - Consumes: `invoices`, `invoiceItems`, `salesReturns`, `salesReturnItems`, `medicines`, `customers`, `doctors`, `inventoryTransactions` from `apps/server/src/db/schema/index.ts`; existing `deriveItemTax`, `inPeriod`, `round2`, `emptyBucket` from `reports.ts`.
 - Produces: `GET /reports/sales/register?from&to&view=invoice|date&customer&doctor&party&schedule` (invoice-wise + date-wise), `GET /reports/sales/detail` (product-level sale+return), `GET /reports/sales/summary?groupBy=product|company|category|customer|supplier|user`, `GET /reports/sales/doctor?doctorId`, `GET /reports/sales/schedule?schedule=H|H1|X`, `GET /reports/sales/party?customerId`. Frontend `reportsApi.salesRegister/salesDetail/salesSummary/salesDoctor/salesSchedule/salesParty`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/server/test/sales-reports.test.ts
@@ -79,12 +79,12 @@ describe("sales reports parity", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/sales-reports.test.ts -v`  (from `D:\Projects\MediBillGST\apps\server`)
 Expected: FAIL — `Route GET:/reports/sales/register not found` / `GET:/reports/sales/schedule not found`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // apps/server/src/routes/reports.ts — add after imports
@@ -115,16 +115,16 @@ salesSchedule: (p) => api.get("/reports/sales/schedule", { params: p }).then(r =
 salesParty: (p) => api.get("/reports/sales/party", { params: p }).then(r => r.data),
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/sales-reports.test.ts -v`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Wire ReportsPage UI (view-by toggles + tables + CSV)**
+- [x] **Step 5: Wire ReportsPage UI (view-by toggles + tables + CSV)**
 
 In `ReportsPage.tsx` inside `TabsContent value="sales"` replace single-sales view with LocalWell catalog: render 6 rows (Sales Register, Sale & Return Product-Level Detail, Sales & Returns Summary, Sales Register Doctor-Wise, Scheduled Drug Register, Sales Register Party-Wise) each expandable with table + `exportCSV`. Date-wise bar chart for Register date view. Reuse `TabsList` 7-tab header (see Task file-structure).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/sales-reports.test.ts
@@ -145,7 +145,7 @@ git commit -m "feat(reports): add sales register/detail/summary/doctor/schedule/
 - Consumes: `medicines`, `batches`, `inventoryTransactions` (type filter), `invoices+invoiceItems` for fast/slow ranking.
 - Produces: `GET /reports/stock/fast?from&to&limit`, `GET /reports/stock/slow?from&to`, `GET /reports/stock/current`, `GET /reports/stock/expired?from&to`, `GET /reports/stock/opening-closing?from&to`, `GET /reports/stock/statement?medicineId&from&to`, `GET /reports/stock/adjustments?from&to`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // apps/server/test/stock-reports.test.ts
@@ -169,12 +169,12 @@ describe("stock reports", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/stock-reports.test.ts -v`
 Expected: FAIL — routes not found.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // reports.ts helpers
@@ -185,15 +185,15 @@ function buildOpeningClosing(transactions, from, to) { /* opening = sum qty befo
 
 Routes: `GET /reports/stock/fast|slow|current|expired|opening-closing|statement|adjustments` — all scoped by `createdBy`/`created_by` as existing patterns; `expired` filters `batches.expiryDate` between `from`/`to` or `<= today` + `near = today..today+90d`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/stock-reports.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage STOCK REPORTS UI — 7 rows, each drill-down**
+- [x] **Step 5: ReportsPage STOCK REPORTS UI — 7 rows, each drill-down**
 
 Each row: star toggle (nop — just localStorage), description from screenshots, `>` arrow opens detail table + CSV. Fast/Slow share a ranked table (Product, Company, Qty Sold, Stock, Last Sold). Expired groups into Expired vs Near-Expiry (≤90d). Opening/Closing shows `O:`, `C:`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/stock-reports.test.ts
@@ -212,7 +212,7 @@ git commit -m "feat(reports): add stock fast/slow/current/expired/opening-closin
 - Consumes: `purchaseBills`, `purchaseBillItems`, `purchaseReturns`, `purchaseReturnItems`, `suppliers`, `medicines`.
 - Produces: `GET /reports/purchase/register?view=invoice|date&distributor`, `GET /reports/purchase/detail`, `GET /reports/purchase/summary?groupBy=product|supplier|company`, `GET /reports/purchase/schedule?schedule`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // purchase-reports.test.ts
@@ -226,23 +226,23 @@ it("purchase schedule groups H-schedule", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/purchase-reports.test.ts -v` → FAIL.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Reuse sales pattern but source `purchaseBills/billItems` + joins `purchaseReturns`. `detail` row has product-wise gst/margin% (margin = (mrp - purchasePrice)/mrp). `summary` by `product|supplier|company` (company = `medicines.brand`).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/purchase-reports.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage PURCHASE REPORTS UI — 4 catalog rows + drill tables + CSV**
+- [x] **Step 5: ReportsPage PURCHASE REPORTS UI — 4 catalog rows + drill tables + CSV**
 
 Add distributor search filter (`SuppliersPage` combobox pattern) wired to `distributor` query param.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/purchase-reports.test.ts
@@ -261,7 +261,7 @@ git commit -m "feat(reports): add purchase register/detail/summary/schedule pari
 - Consumes: `payments` (type received/paid/expense, voided=false), `customers`, `suppliers`, `invoices`, `purchaseBills`.
 - Produces: `GET /reports/payments/pending-customers?view=summary|detail`, `GET /reports/payments/pending-distributors`, `GET /reports/payments/register?from&to&type&mode`, `GET /reports/payments/expense?from&to&groupBy=category|name`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 it("pending customers summary sums balance > 0", async () => {
@@ -274,11 +274,11 @@ it("payments register respects date filter", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/payments-reports.test.ts -v` → FAIL.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 function pendingCustomers(db, userId) { return db.select().from(customers).where(and(eq(customers.createdBy,userId), gt(customers.balance,0))).orderBy(desc(customers.balance)); }
@@ -288,15 +288,15 @@ function pendingCustomers(db, userId) { return db.select().from(customers).where
 
 Reuse `Dashboard:dues` aggregation (now report-scoped + detail row per invoice/bill).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/payments-reports.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage PAYMENTS REPORTS UI — 4 rows + Summary/Detail toggle**
+- [x] **Step 5: ReportsPage PAYMENTS REPORTS UI — 4 rows + Summary/Detail toggle**
 
 Rows: Pending Customers, Pending Distributors show summary card (Total Due) + detail table (Party, Payable, Balance, Last Tx). Payments Register shows by Invoice/Date/User. Expense Register grouped + with/without GST toggle (payments.category filter).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/payments-reports.test.ts
@@ -317,7 +317,7 @@ git commit -m "feat(reports): add pending payments + register + expense register
 - Consumes: `purchaseBills`, `purchaseBillItems`, `purchaseReturns`, `purchaseReturnItems`, `suppliers`, `medicines` (for rate derivation same as `deriveItemTax`).
 - Produces: `GET /reports/gstr2?from&to` returns `{ summary:{ totalTaxable, totalGst, cgst, sgst, igst, billCount, debitNoteCount }, b2b[], cdnr[] by supplier GSTIN }`; enriches `buildGstr1` sibling. Frontend `reportsApi.gstr2`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 it("gstr2 sums inward GST by rate net of debit notes", async () => {
@@ -328,23 +328,23 @@ it("gstr2 sums inward GST by rate net of debit notes", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/gst-gstr2.test.ts -v` → FAIL.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Mirror `buildOutwardSummary`/`buildGstr1` but source `purchaseBills` + `purchaseReturns` (debit notes). Rate bucket uses same `deriveItemTax` logic; split CGST/SGST for intra-state (all purchases treated intra-state unless `supplier.gstin` state differs — keep simple: split half).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/gst-gstr2.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage GST REPORTS catalog — 3 rows + sub-views**
+- [x] **Step 5: ReportsPage GST REPORTS catalog — 3 rows + sub-views**
 
 Tab GST REPORTS shows 3 catalog rows (GSTR-1, GSTR-2, GSTR-3B) per `7.54.49 PM.jpeg`; clicking a row switches `gstView` to the existing Overview/GSTR-1/HSN/ITC + new `gstr2` view. Keep CSV parity.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/gst-gstr2.test.ts
@@ -363,7 +363,7 @@ git commit -m "feat(reports): add GSTR-2 inward (purchase + debit notes) with ra
 - Consumes: `customers`, `suppliers`, `invoices`, `payments`, `refillReminders` (for pending medicine follow-ups), `medicines`.
 - Produces: `GET /reports/party/customers` (RFM), `GET /reports/party/customer-followups`, `GET /reports/party/ledger?type=customer|supplier&id`, `GET /reports/party/distributors`. Frontend `reportsApi.partyCustomers/partyDistributors/partyLedger/partyFollowups`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 it("customers register returns RFM score", async () => {
@@ -378,11 +378,11 @@ it("payment ledger for customer returns balance timeline", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/party-reports.test.ts -v` → FAIL.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 function rfmScore(customer, invoicesForCustomer) {
@@ -393,15 +393,15 @@ function rfmScore(customer, invoicesForCustomer) {
 // followups = refillReminders where status='pending' and reminderDate between from/to
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/party-reports.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage PARTY REPORTS UI — 5 rows**
+- [x] **Step 5: ReportsPage PARTY REPORTS UI — 5 rows**
 
 Rows per screenshot: Customers Register (Debtors) with RFM badge, Customer Pending Medicine Follow-ups (reuse RefillsPage card), Payment Ledger for Customer, Payment Ledger for Distributor (both with date range + customer/distributor search), Distributors Register (Creditors) outstanding table. Each has CSV.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/party-reports.test.ts
@@ -420,7 +420,7 @@ git commit -m "feat(reports): add party registers RFM, follow-ups, ledgers"
 - Consumes: `medicines`, `batches`, `purchaseBills`, `purchaseBillItems`.
 - Produces: `GET /reports/order/shortbook` (products to order: available <= reorderLevel/minQuantity), `GET /reports/order/purchase-orders?groupBy=product&from&to`. Frontend `reportsApi.shortbook/purchaseOrders`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 it("shortbook returns low-stock medicines ordered by shortage %", async () => {
@@ -434,11 +434,11 @@ it("purchase order register groups by product", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run apps/server/test/order-reports.test.ts -v` → FAIL.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // shortbook: for each medicine, availableStock = sum(batches.quantity) where batches.createdBy=userId and isActive,  shortage% = (reorderLevel - available)/reorderLevel; filter available <= reorderLevel
@@ -447,15 +447,15 @@ Run: `npx vitest run apps/server/test/order-reports.test.ts -v` → FAIL.
 
 No new table; shortbook is a read view, purchase orders derived from existing bills.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run apps/server/test/order-reports.test.ts -v` → PASS.
 
-- [ ] **Step 5: ReportsPage ORDER REPORTS UI — 2 rows**
+- [x] **Step 5: ReportsPage ORDER REPORTS UI — 2 rows**
 
 Shortbook table columns: Product, Company, Min/Reorder, Stock, Shortage %, Order Qty hint (reorderLevel - stock). Purchase Order Product Register: Product, Total Ordered, Bills, Suppliers.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/routes/reports.ts src/lib/api.ts src/pages/ReportsPage.tsx apps/server/test/order-reports.test.ts
@@ -474,7 +474,7 @@ git commit -m "feat(reports): add shortbook + purchase order register"
 - Consumes: `reportsApi.salesRegister` summary (Sales Count, Sales Amt Sum, Net Profit, Payable, Balance) + existing `invoicesApi.list`.
 - Produces: `GET /invoices` already returns `totalGst, grandTotal`; enhance row enrichment in frontend by merging `reportsApi.salesRegister(includeProfit=true)` or compute profit on-fly using `medicines.purchasePrice` per invoice item.
 
-- [ ] **Step 1: Write the failing test (or manual bsk check — unit sufficient)**
+- [x] **Step 1: Write the failing test (or manual bsk check — unit sufficient)**
 
 ```ts
 it("invoices list rows include adjAmount derived field", async () => {
@@ -485,19 +485,19 @@ it("invoices list rows include adjAmount derived field", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify current shape**
+- [x] **Step 2: Run test to verify current shape**
 
 Run: `npx vitest run apps/server/test/invoices.test.ts -v` → note what is missing (NET PROFIT %, ADJ).
 
-- [ ] **Step 3: Implement InvoicesPage header KPIs + row enrich**
+- [x] **Step 3: Implement InvoicesPage header KPIs + row enrich**
 
 Header: 5 KPI tiles (Sales Count, Sales Amt Sum, Sales Net Profit, Payable Sum, Balance Sum) fetched from `reportsApi.salesRegister({from,to,view:"invoice"})` + local date filter bar (`INV NO search, FILTER BY, SORT BY` per screenshot `7.54.43`). Table columns add: `INV AMT, NET PROFIT (+ green % below), ADJ AMT (= grandTotal - invoiceValue), PAYABLE, BALANCE, PAID/DUE pill, USERNAME`. Profit = `sum((rate - purchasePrice)*qty)`. Map `ADJ AMT` sign (+ green, − red muted) like LocalWell.
 
-- [ ] **Step 4: Verify via bsk**
+- [x] **Step 4: Verify via bsk**
 
 `bsk open http://localhost:5173/invoices` at 1280px, screenshot: confirm KPIs + NET PROFIT column green + no overflow.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/pages/InvoicesPage.tsx apps/server/src/routes/reports.ts src/lib/api.ts
@@ -516,7 +516,7 @@ git commit -m "feat(sales): bring invoices list to LocalWell parity: KPIs + prof
 - Consumes: `dashboardApi.kpis`, `refillsApi.upcoming`, `reportsApi.stockFast/Slow` (reuse), existing settings keys.
 - Produces: Dashboard date range picker (17-09 to 24-09 style), Customers tile (Total/Avg Order/New/Repeat per screenshot `7.54.45`), Profit card (from Profit 0.00 from ₹219.15 style). Settings adds BASIC/LICENSE/TAXATION/LOCATION/TIMINGS sub-tabs.
 
-- [ ] **Step 1: Extend dashboard.test for customers tile if needed**
+- [x] **Step 1: Extend dashboard.test for customers tile if needed**
 
 ```ts
 it("kpis include customers metrics", async () => {
@@ -525,19 +525,19 @@ it("kpis include customers metrics", async () => {
 });
 ```
 
-- [ ] **Step 2: Dashboard polish — date range + Customers tile**
+- [x] **Step 2: Dashboard polish — date range + Customers tile**
 
 Keep current Today's Sales/Bills/Profit row, then add row: `Net Sales, Stock Value (3 valuations), Customers` as per screenshot `7.54.45 PM.jpeg`. Customers: Total Customers, Avg Order Value, New Repeat. Payment Collection In/Out stays. Fast/Slow tabs + Due Payments toggle (Customer/Distributor) already but ensure date range filter wires to `from/to`.
 
-- [ ] **Step 3: Settings/Control Centre BASIC/LICENSE/TAXATION/LOCATION/TIMINGS tabs**
+- [x] **Step 3: Settings/Control Centre BASIC/LICENSE/TAXATION/LOCATION/TIMINGS tabs**
 
 Map BASIC → name/address/phone; LICENSE → drugLicenseNo; TAXATION → gstin/tax config; LOCATION → address; TIMINGS → settings key `store_timings`. Reuse `settingsApi.get/put`.
 
-- [ ] **Step 4: Run full gates**
+- [x] **Step 4: Run full gates**
 
 Run: `npx vitest run` (expect 8+ passed), `npm run typecheck` (`tsc --noEmit -p tsconfig.app.json`), `bsk` screenshot of `/reports`, `/invoices`, `/dashboard` at 1280px.
 
-- [ ] **Step 5: Update docs + graph + commit**
+- [x] **Step 5: Update docs + graph + commit**
 
 ```bash
 npm run typecheck 2>&1 | head -20

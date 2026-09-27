@@ -7,7 +7,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,15 +30,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { EmptyState } from "@/components/EmptyState";
 import {
-  Calculator,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   FileText,
   GitCompareArrows,
   Loader2,
   Plus,
-  Printer,
   Receipt,
+  RotateCcw,
   Search,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -76,7 +75,23 @@ function calcGST(amount: number, rate: number) {
   return { base, gstAmount: gst, cgst: gst / 2, sgst: gst / 2 };
 }
 
-type TabValue = "bills" | "new";
+type TabValue = "bills" | "new" | "returns";
+
+interface ReturnLineItem {
+  medicineId: string;
+  medicineName: string;
+  batchId: string;
+  quantity: number;
+  rate: number;
+}
+
+const emptyReturnItem = (): ReturnLineItem => ({
+  medicineId: "",
+  medicineName: "",
+  batchId: "",
+  quantity: 1,
+  rate: 0,
+});
 
 export default function PurchasesPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -120,8 +135,8 @@ export default function PurchasesPage() {
   const [submitting, setSubmitting] = useState(false);
   // Expiry Safety Policy: lines the server refused (400 + blocked[]).
   const [blockedExpiry, setBlockedExpiry] = useState<any[] | null>(null);
-  const [showMedPicker, setShowMedPicker] = useState(false);
-  const [pickerIndex, setPickerIndex] = useState<number | null>(null);
+  const [, setShowMedPicker] = useState(false);
+  const [, setPickerIndex] = useState<number | null>(null);
 
   // ─── Compare suppliers (procurement) ─────────────────────────
   const [compareOpen, setCompareOpen] = useState(false);
@@ -130,6 +145,39 @@ export default function PurchasesPage() {
   const [compareData, setCompareData] = useState<any>(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
+
+  // ─── Purchase Returns ────────────────────────────────────────
+  const [returnList, setReturnList] = useState<any[]>([]);
+  const [returnsLoading, setReturnsLoading] = useState(false);
+  const [returnsError, setReturnsError] = useState<string | null>(null);
+
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [returnForm, setReturnForm] = useState({
+    supplierId: "",
+    purchaseBillId: "",
+    date: new Date().toISOString().split("T")[0],
+    reason: "",
+    refundMode: "cash" as "cash" | "card" | "upi" | "credit" | "other",
+  });
+  const [returnBills, setReturnBills] = useState<any[]>([]);
+  const [returnBillDetail, setReturnBillDetail] = useState<any>(null);
+  const [returnItems, setReturnItems] = useState<ReturnLineItem[]>([emptyReturnItem()]);
+  const [batchesByMedicine, setBatchesByMedicine] = useState<Record<string, any[]>>({});
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+
+  const loadReturns = useCallback(async () => {
+    setReturnsLoading(true);
+    setReturnsError(null);
+    try {
+      const { purchaseReturnsApi } = await import("@/lib/api");
+      const result = await purchaseReturnsApi.list({ limit: 50 });
+      setReturnList(Array.isArray(result) ? result : (result as any)?.data ?? []);
+    } catch (err: any) {
+      setReturnsError(err?.message ?? "Failed to load purchase returns");
+    } finally {
+      setReturnsLoading(false);
+    }
+  }, []);
 
   const loadBills = useCallback(async (p = 1) => {
     try {
@@ -151,7 +199,7 @@ export default function PurchasesPage() {
       const next = new URLSearchParams(searchParams);
       next.set("page", String(p));
       setSearchParams(next, { replace: true });
-    } catch (err) {
+    } catch {
       toast.error("Failed to load purchase bills");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,6 +242,12 @@ export default function PurchasesPage() {
     void loadBills(1).finally(() => setSearching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, debouncedSearch]);
+
+  // Purchase Returns tab loads its list on first open (and stays fresh after
+  // each create via loadReturns()).
+  useEffect(() => {
+    if (isAuthenticated && activeTab === "returns") void loadReturns();
+  }, [isAuthenticated, activeTab, loadReturns]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) navigate("/auth", { replace: true });
@@ -249,34 +303,6 @@ export default function PurchasesPage() {
     }]);
   };
 
-  const selectMedicineForRow = (med: any, idx: number) => {
-    const unit = med.unit || "Nos";
-    const suggestedRate = med.purchasePrice || 0;
-    const mrp = med.mrp || med.sellingPrice || 0;
-    setItems(prev => {
-      const next = [...prev];
-      next[idx] = {
-        ...next[idx],
-        medicineId: med.id,
-        medicineName: `${med.name}${med.brand ? ` (${med.brand})` : ""}`,
-        unit,
-        rate: suggestedRate,
-        mrp,
-        purchasePrice: suggestedRate,
-        sellingPrice: mrp,
-        gstRate: (med.gstRate as any) || "12",
-      };
-      const amt = next[idx].quantity * suggestedRate;
-      const { gstAmount, cgst, sgst } = calcGST(amt, Number(next[idx].gstRate));
-      next[idx].amount = amt;
-      next[idx].gstAmount = gstAmount;
-      next[idx].cgst = cgst;
-      next[idx].sgst = sgst;
-      return next;
-    });
-    setShowMedPicker(false);
-    setPickerIndex(null);
-  };
 
   // ─── Compare suppliers ───────────────────────────────────────
   const openCompare = (idx: number) => {
@@ -321,6 +347,144 @@ export default function PurchasesPage() {
     if (form.supplierId) return;
     setForm((f) => ({ ...f, supplierId, supplierName }));
     toast.success(`Bill supplier set to ${supplierName}`);
+  };
+
+  // ─── Purchase Return dialog ──────────────────────────────────
+  const resetReturnForm = () => {
+    setReturnForm({
+      supplierId: "",
+      purchaseBillId: "",
+      date: new Date().toISOString().split("T")[0],
+      reason: "",
+      refundMode: "cash",
+    });
+    setReturnBills([]);
+    setReturnBillDetail(null);
+    setReturnItems([emptyReturnItem()]);
+  };
+
+  const loadBatchesFor = async (medicineId: string) => {
+    if (!medicineId || batchesByMedicine[medicineId]) return;
+    try {
+      const { inventoryApi } = await import("@/lib/api");
+      const rows = await inventoryApi.getBatches(medicineId);
+      setBatchesByMedicine((prev) => ({ ...prev, [medicineId]: Array.isArray(rows) ? rows : [] }));
+    } catch {
+      setBatchesByMedicine((prev) => ({ ...prev, [medicineId]: [] }));
+    }
+  };
+
+  const onReturnSupplierChange = async (supplierId: string) => {
+    setReturnForm((f) => ({ ...f, supplierId, purchaseBillId: "" }));
+    setReturnBillDetail(null);
+    if (!supplierId) {
+      setReturnBills([]);
+      return;
+    }
+    try {
+      const { purchasesApi } = await import("@/lib/api");
+      const res = await purchasesApi.list({ supplierId, limit: 50 });
+      setReturnBills(Array.isArray(res) ? res : ((res as any)?.data ?? []));
+    } catch {
+      setReturnBills([]);
+    }
+  };
+
+  const onReturnBillChange = async (purchaseBillId: string) => {
+    setReturnForm((f) => ({ ...f, purchaseBillId }));
+    setReturnBillDetail(null);
+    if (!purchaseBillId) return;
+    try {
+      const { purchasesApi } = await import("@/lib/api");
+      setReturnBillDetail(await purchasesApi.get(purchaseBillId));
+    } catch {
+      setReturnBillDetail(null);
+    }
+  };
+
+  const onReturnMedicineChange = (idx: number, medicineId: string) => {
+    const med = medicines.find((m: any) => m.id === medicineId);
+    const billItem = returnBillDetail?.items?.find((i: any) => i.medicineId === medicineId);
+    setReturnItems((prev) =>
+      prev.map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              medicineId,
+              medicineName: med?.name ?? "",
+              batchId: "",
+              // Rate prefill: selected bill's line first, else purchase price.
+              rate: billItem?.rate ?? med?.purchasePrice ?? item.rate,
+            }
+          : item
+      )
+    );
+    void loadBatchesFor(medicineId);
+  };
+
+  const onReturnBatchChange = (idx: number, batchId: string) => {
+    setReturnItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        const batch = (batchesByMedicine[item.medicineId] ?? []).find((b: any) => b.id === batchId);
+        const billItem = returnBillDetail?.items?.find(
+          (bi: any) => bi.medicineId === item.medicineId && (!batchId || bi.batchId === batchId)
+        );
+        return { ...item, batchId, rate: batch?.purchasePrice ?? billItem?.rate ?? item.rate };
+      })
+    );
+  };
+
+  const updateReturnItem = (idx: number, patch: Partial<ReturnLineItem>) => {
+    setReturnItems((prev) => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)));
+  };
+
+  const returnTotals = returnItems.reduce(
+    (sum, item) => sum + Math.round((item.quantity * item.rate + Number.EPSILON) * 100) / 100,
+    0
+  );
+
+  const submitReturn = async () => {
+    if (returnItems.some((i) => !i.medicineId)) {
+      toast.error("Select a medicine for every row");
+      return;
+    }
+    if (returnItems.some((i) => i.quantity < 1)) {
+      toast.error("Quantity must be at least 1");
+      return;
+    }
+    if (returnItems.some((i) => !(i.rate > 0))) {
+      toast.error("Rate must be greater than 0 for every row");
+      return;
+    }
+    setReturnSubmitting(true);
+    try {
+      const { purchaseReturnsApi } = await import("@/lib/api");
+      const created = await purchaseReturnsApi.create({
+        date: returnForm.date,
+        supplierId: returnForm.supplierId || undefined,
+        purchaseBillId: returnForm.purchaseBillId || undefined,
+        reason: returnForm.reason || undefined,
+        refundMode: returnForm.refundMode,
+        items: returnItems.map((item) => ({
+          medicineId: item.medicineId,
+          batchId: item.batchId || undefined,
+          quantity: item.quantity,
+          rate: item.rate,
+        })),
+      });
+      toast.success(
+        `Purchase return ${(created as any)?.returnNo ?? ""} created — stock updated`
+      );
+      setReturnOpen(false);
+      resetReturnForm();
+      await loadReturns();
+      loadMeta(); // credit refunds adjust the supplier balance
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to create purchase return");
+    } finally {
+      setReturnSubmitting(false);
+    }
   };
 
   // ─── Totals ─────────────────────────────────────────────────
@@ -445,6 +609,7 @@ export default function PurchasesPage() {
           <TabsList className="h-9">
             <TabsTrigger value="bills" className="text-xs gap-1"><FileText className="h-3 w-3" />Bills</TabsTrigger>
             <TabsTrigger value="new" className="text-xs gap-1"><Plus className="h-3 w-3" />New Purchase</TabsTrigger>
+            <TabsTrigger value="returns" className="text-xs gap-1"><RotateCcw className="h-3 w-3" />Purchase Returns</TabsTrigger>
           </TabsList>
         </div>
       </div>
@@ -748,6 +913,71 @@ export default function PurchasesPage() {
           </Button>
         </div>
       </TabsContent>
+
+      {/* ── PURCHASE RETURNS TAB ── */}
+      <TabsContent value="returns" className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Goods going back to a supplier — stock leaves the batch and the ledger records the refund.
+          </p>
+          <Button size="sm" onClick={() => setReturnOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />New Return
+          </Button>
+        </div>
+
+        {returnsLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : returnsError ? (
+          <EmptyState
+            icon={AlertTriangle}
+            title="Failed to load purchase returns"
+            description={returnsError}
+            actions={[{ label: "Retry", onClick: () => void loadReturns() }]}
+          />
+        ) : returnList.length === 0 ? (
+          <EmptyState
+            icon={RotateCcw}
+            title="No purchase returns yet"
+            description="Return purchased goods to a supplier — the batch stock is deducted and the refund is posted to the ledger."
+            actions={[{ label: "New Return", onClick: () => setReturnOpen(true) }]}
+          />
+        ) : (
+          <div className="border rounded-sm overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Return No.</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead className="text-right">Refund</TableHead>
+                  <TableHead>Mode</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {returnList.map((ret: any) => (
+                  <TableRow key={ret.id}>
+                    <TableCell className="font-mono text-sm">{ret.returnNo}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{ret.date}</TableCell>
+                    <TableCell className="text-sm">{ret.supplierName ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">
+                      ₹{Number(ret.refundAmount ?? 0).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] uppercase">{ret.refundMode ?? "cash"}</Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[16rem] truncate">
+                      {ret.reason ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </TabsContent>
       </Tabs>
 
       {/* ── Compare suppliers (procurement) ── */}
@@ -885,6 +1115,193 @@ export default function PurchasesPage() {
               />
             )
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── New purchase return ── */}
+      <Dialog
+        open={returnOpen}
+        onOpenChange={(open) => {
+          setReturnOpen(open);
+          if (!open) resetReturnForm();
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base">New purchase return</DialogTitle>
+            <DialogDescription>
+              Pick the supplier (and optionally the bill), choose the exact batch each item leaves from.
+              The refund is computed from quantity × rate — GST splits proportionally on the server.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <Label className="text-xs">Supplier</Label>
+              <Select
+                value={returnForm.supplierId || "__none__"}
+                onValueChange={(v) => void onReturnSupplierChange(v === "__none__" ? "" : v)}
+              >
+                <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Select supplier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No supplier</SelectItem>
+                  {suppliers.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Purchase bill (optional)</Label>
+              <Select
+                value={returnForm.purchaseBillId || "__none__"}
+                onValueChange={(v) => void onReturnBillChange(v === "__none__" ? "" : v)}
+                disabled={!returnForm.supplierId || returnBills.length === 0}
+              >
+                <SelectTrigger className="mt-1 h-9">
+                  <SelectValue placeholder={returnBills.length ? "Select bill" : "No bills for supplier"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No bill</SelectItem>
+                  {returnBills.map((b: any) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.billNo} · ₹{Number(b.grandTotal ?? 0).toFixed(2)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Date</Label>
+              <Input
+                type="date"
+                value={returnForm.date}
+                onChange={(e) => setReturnForm((f) => ({ ...f, date: e.target.value }))}
+                className="mt-1 h-9"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Refund mode</Label>
+              <Select
+                value={returnForm.refundMode}
+                onValueChange={(v) => setReturnForm((f) => ({ ...f, refundMode: v as typeof returnForm.refundMode }))}
+              >
+                <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="upi">UPI</SelectItem>
+                  <SelectItem value="credit">Credit (adjust supplier balance)</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-4">
+              <Label className="text-xs">Reason</Label>
+              <Input
+                value={returnForm.reason}
+                onChange={(e) => setReturnForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder="e.g. Near-expiry stock returned to distributor"
+                className="mt-1 h-9"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {returnItems.map((item, i) => (
+              <div key={i} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center p-2 rounded-sm border border-border/40">
+                <div className="col-span-2 sm:col-span-4">
+                  <Select
+                    value={item.medicineId || "__none__"}
+                    onValueChange={(v) => v !== "__none__" && onReturnMedicineChange(i, v)}
+                  >
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select medicine" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Select medicine…</SelectItem>
+                      {medicines.map((m: any) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-1 sm:col-span-3">
+                  <Select
+                    value={item.batchId || "__none__"}
+                    onValueChange={(v) => onReturnBatchChange(i, v === "__none__" ? "" : v)}
+                    disabled={!item.medicineId}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder={item.medicineId ? "Batch (auto if one)" : "—"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Auto (single batch)</SelectItem>
+                      {(batchesByMedicine[item.medicineId] ?? []).map((b: any) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.batchNo} · qty {b.quantity ?? 0}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-1 sm:col-span-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(e) => updateReturnItem(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                    className="h-8 text-sm text-center"
+                    aria-label={`Row ${i + 1} quantity`}
+                  />
+                </div>
+                <div className="col-span-1 sm:col-span-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={item.rate}
+                    onChange={(e) => updateReturnItem(i, { rate: Number(e.target.value) })}
+                    className="h-8 text-sm text-right"
+                    aria-label={`Row ${i + 1} rate`}
+                  />
+                </div>
+                <div className="col-span-1 sm:col-span-1 text-right text-sm tabular-nums leading-8">
+                  ₹{(item.quantity * item.rate).toFixed(2)}
+                </div>
+                <div className="col-span-1 sm:col-span-1 text-right">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => setReturnItems((prev) => (prev.length === 1 ? prev : prev.filter((_, x) => x !== i)))}
+                  >
+                    <span className="sr-only">Remove row</span>×
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button variant="outline" size="sm" onClick={() => setReturnItems((prev) => [...prev, emptyReturnItem()])}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />Add Row
+            </Button>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-muted-foreground">Refund (auto)</span>
+              <span className="text-lg font-semibold tabular-nums">₹{returnTotals.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReturnOpen(false)}>Cancel</Button>
+            <Button onClick={() => void submitReturn()} disabled={returnSubmitting}>
+              {returnSubmitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Create Purchase Return
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>

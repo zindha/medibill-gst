@@ -23,9 +23,9 @@ import {
  * admin | pharmacist (cashier → 403). Every loader filters by
  * `created_by = caller` → cross-tenant ids 404.
  *
- * PDF is intentionally rejected with 400 "PDF export not supported yet" —
- * the product has no server-side PDF renderer, only CSV (documented in
- * docs/API.md).
+ * Formats: `csv` (RFC-4180, inline-able in message bodies) and `pdf`
+ * (server-rendered A4 via pdfkit — stored as a file, downloaded from the run;
+ * never inlined in a channel message). Documented in docs/API.md.
  */
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -97,11 +97,6 @@ export default async function scheduledReportRoutes(fastify: FastifyInstance) {
       return reply
         .status(400)
         .send({ success: false, error: "Validation error", details: parsed.error.flatten() });
-    }
-    if (parsed.data.format === "pdf") {
-      return reply
-        .status(400)
-        .send({ success: false, error: "PDF export not supported yet" });
     }
     const now = new Date();
     const [row] = await db

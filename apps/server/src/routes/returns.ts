@@ -84,6 +84,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
     let results = await db
       .select()
       .from(salesReturns)
+      .where(eq(salesReturns.createdBy, request.userId!))
       .orderBy(desc(salesReturns.createdAt))
       .limit(200); // fetch enough, filter in memory
 
@@ -106,7 +107,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
     const [ret] = await db
       .select()
       .from(salesReturns)
-      .where(eq(salesReturns.id, id))
+      .where(and(eq(salesReturns.id, id), eq(salesReturns.createdBy, request.userId!)))
       .limit(1);
 
     if (!ret) return reply.status(404).send({ success: false, error: "Return not found" });
@@ -127,7 +128,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
     const [invoice] = await db
       .select()
       .from(invoices)
-      .where(eq(invoices.id, data.invoiceId))
+      .where(and(eq(invoices.id, data.invoiceId), eq(invoices.createdBy, request.userId!)))
       .limit(1);
 
     if (!invoice) {
@@ -194,7 +195,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
           const [batch] = await db
             .select()
             .from(batches)
-            .where(and(eq(batches.id, item.batchId), eq(batches.isActive, true)))
+            .where(and(eq(batches.id, item.batchId), eq(batches.createdBy, request.userId!), eq(batches.isActive, true)))
             .limit(1);
 
           if (batch) {
@@ -227,7 +228,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
         const [customer] = await db
           .select()
           .from(customers)
-          .where(eq(customers.id, invoice.customerId))
+          .where(and(eq(customers.id, invoice.customerId), eq(customers.createdBy, request.userId!)))
           .limit(1);
 
         if (customer) {

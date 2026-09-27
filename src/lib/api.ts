@@ -424,6 +424,7 @@ export const invoicesApi = {
   get: (id: string) => request<any>(`/invoices/${id}`, "GET"),
 
   getByNumber: (invoiceNo: string) => request<any>(`/invoices/number/${invoiceNo}`, "GET"),
+  nextNumber: () => request<{ invoiceNo: string }>("/invoices/next-number", "GET"),
 
   // Full body on success: `{ data, warnings }` — warnings carry near-expiry
   // notices from the Expiry Safety Policy (non-blocking).
@@ -528,6 +529,42 @@ export const purchasesApi = {
   // Full body on success: `{ data, warnings }` — warnings carry near-expiry
   // notices from the Expiry Safety Policy (non-blocking).
   create: (data: any) => requestFull<any>("/purchases", "POST", data),
+};
+
+// ---------------------------------------------------------------------------
+// Purchase Returns (goods going back to the supplier)
+// ---------------------------------------------------------------------------
+export const purchaseReturnsApi = {
+  list: (params?: { date?: string; from?: string; to?: string; supplierId?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.date) query.set("date", params.date);
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    if (params?.supplierId) query.set("supplierId", params.supplierId);
+    if (params?.page) query.set("page", String(params.page ?? 1));
+    if (params?.limit) query.set("limit", String(params.limit ?? 50));
+    return request<any>(`/purchase-returns?${query}`, "GET");
+  },
+
+  get: (id: string) => request<any>(`/purchase-returns/${id}`, "GET"),
+
+  create: (data: {
+    date: string;
+    purchaseBillId?: string;
+    supplierId?: string;
+    supplierName?: string;
+    reason?: string;
+    refundAmount?: number;
+    refundMode?: "cash" | "card" | "upi" | "credit" | "other";
+    items: Array<{
+      medicineId: string;
+      batchId?: string;
+      quantity: number;
+      rate: number;
+      gstRate?: string;
+      reason?: string;
+    }>;
+  }) => request<any>("/purchase-returns", "POST", data),
 };
 
 // ---------------------------------------------------------------------------
@@ -2035,6 +2072,20 @@ export const accountingApi = {
   post: (data: { date: string; description?: string; lines: Array<{ code: string; debit?: number; credit?: number; partyType?: string; partyId?: string; memo?: string }> }) =>
     request<any>("/accounting/post", "POST", data),
 
+  /**
+   * Opening balances (admin|pharmacist only). One batch per date — a repeat
+   * POST for the same date → 400 "Opening balances already posted for <date>".
+   */
+  postOpening: (data: { date: string; description?: string; lines: Array<{ code: string; debit?: number; credit?: number }> }) =>
+    request<any>("/accounting/opening", "POST", data),
+
+  /** Prefill: INVENTORY/AR/AP from current stock + ledgers, CAPITAL balancing. */
+  suggestOpening: () =>
+    request<{ lines: Array<{ code: string; debit: number; credit: number }> }>(
+      "/accounting/opening/suggest",
+      "GET"
+    ),
+
   trialBalance: (params?: { from?: string; to?: string }) => {
     const query = new URLSearchParams();
     if (params?.from) query.set("from", params.from);
@@ -2231,6 +2282,17 @@ export interface CustomerOrder {
   prescriptionFile?: { filename: string; contentType: string; data: string };
 }
 
+export interface OrderStatusCounts {
+  all: number;
+  pending: number;
+  accepted: number;
+  packed: number;
+  ready: number;
+  delivered: number;
+  rejected: number;
+  cancelled: number;
+}
+
 export const ordersApi = {
   /** Install-shared queue (authed, NOT tenant-filtered — see API.md). */
   list: async (params?: {
@@ -2253,6 +2315,8 @@ export const ordersApi = {
     return {
       data,
       total: (body?.total as number) ?? data.length,
+      /** Server-computed per-status totals for the search scope. */
+      counts: body?.counts as OrderStatusCounts | undefined,
       pagination: body?.pagination as { page: number; limit: number } | undefined,
     };
   },

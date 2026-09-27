@@ -13,8 +13,7 @@ import invoiceRoutes from "../src/routes/invoices.js";
 import complianceRoutes from "../src/routes/compliance.js";
 import {
   __setGstProviderForTest,
-  activeProviderName,
-  isGstProviderConfigured,
+  getGstProvider,
   type GstProvider,
 } from "../src/providers/gst.js";
 import { CANCEL_WINDOW_MS, buildEInvoicePayload } from "../src/services/compliance.js";
@@ -24,21 +23,6 @@ let app: FastifyInstance;
 const STORE_GSTIN = "27AABCU9999L1Z5";
 const CUSTOMER_GSTIN = "27ABCDE1234F1Z5";
 const INV_DATE = "2026-06-15";
-
-const GST_ENV_VARS = [
-  "EINVOICE_PROVIDER",
-  "EINVOICE_GSP_ID",
-  "EINVOICE_GSP_KEY",
-  "EINVOICE_USERNAME",
-  "EINVOICE_PASSWORD",
-  "EINVOICE_BASE_URL",
-  "EWAY_BASE_URL",
-];
-const savedEnv: Record<string, string | undefined> = {};
-
-function clearGstEnv(): void {
-  for (const key of GST_ENV_VARS) delete process.env[key];
-}
 
 // ---------------------------------------------------------------------------
 // Raw SQL helpers (assert straight from the tables)
@@ -179,8 +163,6 @@ function failingProvider(message: string): GstProvider {
 
 beforeAll(async () => {
   applySchema();
-  for (const key of GST_ENV_VARS) savedEnv[key] = process.env[key];
-  clearGstEnv();
   setStoreGstin(STORE_GSTIN);
   app = Fastify({ logger: false });
   await app.register(invoiceRoutes, { prefix: "/api/invoices" });
@@ -189,15 +171,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   __setGstProviderForTest(null);
-  clearGstEnv();
   setStoreGstin(STORE_GSTIN);
-});
-
-afterAll(() => {
-  for (const [key, value] of Object.entries(savedEnv)) {
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
 });
 
 // ---------------------------------------------------------------------------
@@ -648,42 +622,29 @@ describe("provider rejection", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Not configured (NIC + missing credentials)
+// Fake-only provider — zero configuration, no env, no 503 path
 // ---------------------------------------------------------------------------
-describe("provider not configured", () => {
-  it("503s and records a pending row with the missing env names", async () => {
+describe("provider configuration (fake-only)", () => {
+  it("generates with no provider env or credentials set", async () => {
     const ctx = seedUser();
     const med = seedMedicine(ctx.id);
     const invoiceId = await postInvoice(med, ctx);
 
-    __setGstProviderForTest(null);
-    process.env.EINVOICE_PROVIDER = "nic";
-    // Credentials deliberately absent.
-
     const res = await generateInvoice(ctx, invoiceId);
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error).toBe("E-invoice provider not configured");
-
-    const rows = submissionRows(ctx.id, invoiceId);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].status).toBe("pending");
-    expect(rows[0].error).toContain("EINVOICE_GSP_ID");
-    expect(auditCount(ctx.id, "compliance.einvoice_generated")).toBe(0);
+    expect(res.statusCode).toBe(201);
+    expect(res.json().data.status).toBe("accepted");
+    expect(res.json().data.provider).toBe("fake");
+    expect(submissionRows(ctx.id, invoiceId)[0].status).toBe("accepted");
+    expect(auditCount(ctx.id, "compliance.einvoice_generated")).toBe(1);
   });
 
-  it("NIC with full credentials resolves a provider (no env leak to clients)", () => {
-    process.env.EINVOICE_PROVIDER = "nic";
-    process.env.EINVOICE_GSP_ID = "g1";
-    process.env.EINVOICE_GSP_KEY = "k1";
-    process.env.EINVOICE_USERNAME = "u1";
-    process.env.EINVOICE_PASSWORD = "p1";
-    process.env.EINVOICE_BASE_URL = "https://nic.example/invoice";
-
-    const health = isGstProviderConfigured();
-    expect(health.provider).toBe("nic");
-    expect(health.einvoice).toBe(true);
-    expect(health.missingEinvoice).toEqual([]);
-    expect(activeProviderName()).toBe("nic");
+  it("stays on the fake provider even when a legacy EINVOICE_PROVIDER=nic var is set", () => {
+    process.env.EINVOICE_PROVIDER = "nic"; // legacy var — this build ignores it entirely
+    try {
+      expect(getGstProvider().name).toBe("fake");
+    } finally {
+      delete process.env.EINVOICE_PROVIDER;
+    }
   });
 });
 
@@ -867,10 +828,10 @@ describe("cross-tenant isolation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Providers health (booleans only — never secrets)
+// Providers health (static fake-only contract — never secrets)
 // ---------------------------------------------------------------------------
 describe("providers health", () => {
-  it("defaults to the fake provider with both capabilities enabled", async () => {
+  it("reports the fake provider with both capabilities and live:false", async () => {
     const ctx = seedUser();
     const res = await app.inject({
       method: "GET",
@@ -882,45 +843,51 @@ describe("providers health", () => {
     expect(data.provider).toBe("fake");
     expect(data.einvoice).toBe(true);
     expect(data.eway).toBe(true);
-    expect(data.baseUrlsConfigured).toBe(true);
+    expect(data.live).toBe(false);
     expect(typeof data.einvoice).toBe("boolean");
     expect(typeof data.eway).toBe("boolean");
   });
 
-  it("returns booleans and env NAMES only — no key/token/secret/password fields", async () => {
+  it("returns an honest note and no secret-shaped fields (even with legacy NIC env set)", async () => {
     const ctx = seedUser();
     process.env.EINVOICE_PROVIDER = "nic";
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/compliance/providers",
-      headers: auth(ctx.token),
-    });
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
+    process.env.EINVOICE_GSP_KEY = "super-secret";
+    try {
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/compliance/providers",
+        headers: auth(ctx.token),
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
 
-    const keys: string[] = [];
-    const walk = (value: unknown) => {
-      if (Array.isArray(value)) {
-        value.forEach(walk);
-      } else if (value && typeof value === "object") {
-        for (const [k, v] of Object.entries(value)) {
-          keys.push(k);
-          walk(v);
+      const keys: string[] = [];
+      const walk = (value: unknown) => {
+        if (Array.isArray(value)) {
+          value.forEach(walk);
+        } else if (value && typeof value === "object") {
+          for (const [k, v] of Object.entries(value)) {
+            keys.push(k);
+            walk(v);
+          }
         }
-      }
-    };
-    walk(body);
-    for (const key of keys) expect(key).not.toMatch(/token|key|secret|password/i);
+      };
+      walk(body);
+      for (const key of keys) expect(key).not.toMatch(/token|key|secret|password/i);
 
-    const data = body.data;
-    expect(data.provider).toBe("nic");
-    expect(data.einvoice).toBe(false);
-    expect(data.eway).toBe(false);
-    expect(data.missingEinvoice).toContain("EINVOICE_GSP_ID");
-    expect(data.missingEinvoice).toContain("EINVOICE_BASE_URL");
-    // Names only — the raw env values are never echoed back.
-    const serialized = JSON.stringify(body);
-    expect(serialized).not.toContain("EINVOICE_GSP_KEY=");
+      const data = body.data;
+      // Static contract: always fake, always "not live", never env surface.
+      expect(data.provider).toBe("fake");
+      expect(data.live).toBe(false);
+      expect(data.missingEinvoice).toBeUndefined();
+      expect(data.baseUrlsConfigured).toBeUndefined();
+      expect(String(data.note)).toContain("not government-issued");
+      // The env value itself never leaks into the response.
+      expect(JSON.stringify(body)).not.toContain("super-secret");
+    } finally {
+      delete process.env.EINVOICE_PROVIDER;
+      delete process.env.EINVOICE_GSP_KEY;
+    }
   });
 
   it("requires auth", async () => {
@@ -928,28 +895,32 @@ describe("providers health", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("reports partial NIC configuration as false with missing EWAY_BASE_URL", () => {
+  it("never changes provider health with env vars (no partial state exists)", async () => {
     process.env.EINVOICE_PROVIDER = "nic";
     process.env.EINVOICE_GSP_ID = "g1";
-    process.env.EINVOICE_GSP_KEY = "k1";
-    process.env.EINVOICE_USERNAME = "u1";
-    process.env.EINVOICE_PASSWORD = "p1";
     process.env.EINVOICE_BASE_URL = "https://nic.example/invoice";
-    // EWAY_BASE_URL intentionally missing.
-
-    const health = isGstProviderConfigured();
-    expect(health.einvoice).toBe(true);
-    expect(health.eway).toBe(false);
-    expect(health.missingEway).toEqual(["EWAY_BASE_URL"]);
+    try {
+      const ctx = seedUser();
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/compliance/providers",
+        headers: auth(ctx.token),
+      });
+      expect(res.json().data.provider).toBe("fake");
+      expect(res.json().data.einvoice).toBe(true);
+      expect(res.json().data.eway).toBe(true);
+    } finally {
+      delete process.env.EINVOICE_PROVIDER;
+      delete process.env.EINVOICE_GSP_ID;
+      delete process.env.EINVOICE_BASE_URL;
+    }
   });
 
-  it("defaults to fake with both capabilities when no env is set", () => {
-    const health = isGstProviderConfigured();
-    expect(health.provider).toBe("fake");
-    expect(health.einvoice).toBe(true);
-    expect(health.eway).toBe(true);
-    expect(health.missingEinvoice).toEqual([]);
-    expect(health.missingEway).toEqual([]);
+  it("the factory always resolves the fake adapter with both capabilities", () => {
+    expect(getGstProvider().name).toBe("fake");
+    expect(typeof getGstProvider().generateEInvoice).toBe("function");
+    expect(typeof getGstProvider().cancelEInvoice).toBe("function");
+    expect(typeof getGstProvider().generateEWay).toBe("function");
   });
 });
 
@@ -1082,35 +1053,32 @@ describe("auth and listing filters", () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it("surfaces a 503 on cancel when the provider is not configured", async () => {
+  it("cancels with the fake provider — no configuration state can block it", async () => {
     const ctx = seedUser();
     const med = seedMedicine(ctx.id);
     const invoiceId = await postInvoice(med, ctx);
     expect((await generateInvoice(ctx, invoiceId)).statusCode).toBe(201);
 
     __setGstProviderForTest(null);
-    process.env.EINVOICE_PROVIDER = "nic";
 
     const res = await app.inject({
       method: "POST",
       url: `/api/compliance/invoices/${invoiceId}/cancel`,
       headers: auth(ctx.token),
-      payload: { reason: "switching provider" },
+      payload: { reason: "changed my mind" },
     });
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error).toBe("E-invoice provider not configured");
-    // Row untouched by the failed cancel.
-    expect(submissionRows(ctx.id, invoiceId)[0].status).toBe("accepted");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.status).toBe("cancelled");
+    expect(submissionRows(ctx.id, invoiceId)[0].status).toBe("cancelled");
   });
 
-  it("surfaces a 503 on e-way generation when the provider is not configured", async () => {
+  it("generates an e-way bill with the fake provider — no configuration state can block it", async () => {
     const ctx = seedUser();
     const med = seedMedicine(ctx.id);
     const invoiceId = await postInvoice(med, ctx);
     expect((await generateInvoice(ctx, invoiceId)).statusCode).toBe(201);
 
     __setGstProviderForTest(null);
-    process.env.EINVOICE_PROVIDER = "nic";
 
     const res = await app.inject({
       method: "POST",
@@ -1118,9 +1086,9 @@ describe("auth and listing filters", () => {
       headers: auth(ctx.token),
       payload: { distanceKm: 8 },
     });
-    expect(res.statusCode).toBe(503);
+    expect(res.statusCode).toBe(201);
     const eway = submissionRows(ctx.id, invoiceId).find((r) => r.kind === "ewaybill");
-    expect(eway?.status).toBe("pending");
-    expect(eway?.error).toContain("EINVOICE_GSP_ID");
+    expect(eway?.status).toBe("accepted");
+    expect(eway?.ack_no).toMatch(/^EWB/);
   });
 });

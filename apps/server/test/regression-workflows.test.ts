@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+﻿import { beforeAll, describe, expect, it } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import Database from "better-sqlite3";
@@ -24,21 +24,21 @@ import expiryPolicyRoutes from "../src/routes/expiryPolicies.js";
 import { DEFAULT_POLICY } from "../src/services/expiryPolicy.js";
 
 /**
- * Task 18 — invoice lifecycle regression.
+ * Task 18 â€” invoice lifecycle regression.
  *
  * One end-to-end chain per flow, asserting that the WHOLE pipeline still holds
  * together after the Task 11-17 wiring landed:
  *
- *   1. cash sale      → invoice + stock deducted + payment-mode journal
+ *   1. cash sale      â†’ invoice + stock deducted + payment-mode journal
  *                       + loyalty disabled (no ledger row) + no prescription
  *                       required + clean audit trail
- *   2. schedule H sale→ 400 prescription enforcement (no partial writes)
- *   3. cancel         → stock restored + is_reversal journal + reversed_by set
- *   4. purchase       → batch created + INVENTORY/GST_INPUT/CASH journal
+ *   2. schedule H saleâ†’ 400 prescription enforcement (no partial writes)
+ *   3. cancel         â†’ stock restored + is_reversal journal + reversed_by set
+ *   4. purchase       â†’ batch created + INVENTORY/GST_INPUT/CASH journal
  *                       + expiry policy blocks the expired incoming batch
- *   5. payment/return → CASH-AR receipt + proportional GST reversal journal
+ *   5. payment/return â†’ CASH-AR receipt + proportional GST reversal journal
  *                       + TRIAL BALANCE DEBIT == CREDIT over the whole story
- *   6. admin expiry override → sale proceeds + invoice.expiry_override audit
+ *   6. admin expiry override â†’ sale proceeds + invoice.expiry_override audit
  */
 
 let app: FastifyInstance;
@@ -201,7 +201,7 @@ describe("chain: cash sale", () => {
     expect(res.statusCode).toBe(201);
     const inv = res.json().data;
 
-    // 1. Invoice row + batch stock deducted 30 → 29.
+    // 1. Invoice row + batch stock deducted 30 â†’ 29.
     const saved = one<{ status: string; prescription_id: string | null }>(
       "SELECT status, prescription_id FROM invoices WHERE id = ?",
       inv.id
@@ -223,12 +223,12 @@ describe("chain: cash sale", () => {
     expect(debitSum).toBeCloseTo(creditSum, 2);
     expect(debitSum).toBeCloseTo(inv.grandTotal, 2);
 
-    // 3. Loyalty is disabled by default → NO ledger row for this sale.
+    // 3. Loyalty is disabled by default â†’ NO ledger row for this sale.
     expect(
       all("SELECT id FROM loyalty_ledger WHERE created_by = ? AND customer_id = ?", u.id, cust.id)
     ).toHaveLength(0);
 
-    // 4. Non-schedule medicine → no prescription required (201 above proves it),
+    // 4. Non-schedule medicine â†’ no prescription required (201 above proves it),
     //    and nothing was linked.
     expect(inv.prescriptionId ?? null).toBeNull();
     const medRow = one<{ schedule: string | null }>("SELECT schedule FROM medicines WHERE id = ?", med.medicineId);
@@ -315,7 +315,7 @@ describe("chain: cancellation", () => {
     const [refreshed] = entriesFor(u.id, "invoice", inv.id);
     expect(refreshed.reversed_by).toBe(reversals[0].id);
 
-    // The reversal mirrors every leg → every account nets to zero.
+    // The reversal mirrors every leg â†’ every account nets to zero.
     const reversalLines = linesFor(reversals[0].id);
     expect(reversalLines.length).toBeGreaterThanOrEqual(2);
 
@@ -394,7 +394,7 @@ describe("chain: purchase", () => {
 // 5. Payment + return + the whole-story trial balance
 // ===========================================================================
 describe("chain: payment, return and trial balance", () => {
-  it("keeps the ledger balanced across sale → payment → return", async () => {
+  it("keeps the ledger balanced across sale â†’ payment â†’ return", async () => {
     const u = seedUser();
     const med = seedMedicine(u.id, { quantity: 15 });
     const cust = seedCustomer(u.id, { name: "Credit Chain Customer" });
@@ -443,7 +443,7 @@ describe("chain: payment, return and trial balance", () => {
     expect(lineFor(payEntry.id, "AR")?.credit).toBeCloseTo(50, 2);
     expect(lineFor(payEntry.id, "AR")?.party_id).toBe(cust.id);
 
-    // --- (c) Return with a proportional GST share (₹50 of a ₹95.24 bill).
+    // --- (c) Return with a proportional GST share (â‚¹50 of a â‚¹95.24 bill).
     const refund = 50;
     const ret = await app.inject({
       method: "POST",
@@ -521,7 +521,7 @@ describe("chain: payment, return and trial balance", () => {
 // ===========================================================================
 describe("chain: admin expiry override", () => {
   it("blocks first, then lets an admin sell through with an audited override", async () => {
-    const u = seedUser(); // helpers.seedUser → admin
+    const u = seedUser(); // helpers.seedUser â†’ admin
     const med = seedMedicine(u.id, { quantity: 8 });
     const expiredOn = "2026-01-01";
 
@@ -535,12 +535,12 @@ describe("chain: admin expiry override", () => {
     expect(countFor("invoices", u.id)).toBe(0);
     expect(getBatchQuantity(med.batchId)).toBe(8);
 
-    // Admin override with a reason → sale proceeds and the audit event exists.
+    // Admin override with a reason â†’ sale proceeds and the audit event exists.
     const over = await createSale(
       u,
       saleBody([PAYLOAD_ITEM(med, { expiryDate: expiredOn })], {
         overrideExpiry: true,
-        overrideReason: "Dispensed last pack offline — correcting entry",
+        overrideReason: "Dispensed last pack offline â€” correcting entry",
       })
     );
     expect(over.statusCode).toBe(201);
@@ -567,5 +567,341 @@ describe("chain: admin expiry override", () => {
 
     // Leave the install-wide policy on defaults for the rest of the run.
     await putPolicy(u, DEFAULT_POLICY);
+  });
+});
+
+
+// ===========================================================================
+// 7. Partial-payment accounting (Fix 3) â€” sale split, settlements, cancel
+// ===========================================================================
+/** Net ledger balance for one account (debit âˆ’ credit) across ALL of a tenant's entries. */
+function accountNet(userId: string, code: string): number {
+  const rows = all<{ net: number }>(
+    `SELECT coalesce(sum(jl.debit - jl.credit), 0) AS net
+     FROM journal_lines jl
+     JOIN accounts a ON a.id = jl.account_id
+     JOIN journal_entries je ON je.id = jl.entry_id
+     WHERE je.created_by = ? AND a.code = ?`,
+    userId,
+    code
+  );
+  return Math.round((rows[0]?.net ?? 0) * 100) / 100;
+}
+
+function reversalRows(userId: string) {
+  return all<{ id: string; source_id: string }>(
+    "SELECT id, source_id FROM journal_entries WHERE created_by = ? AND source_type = 'reversal'",
+    userId
+  );
+}
+
+async function partialCashSale(u: SeededUser) {
+  const med = seedMedicine(u.id, { quantity: 20 });
+  const cust = seedCustomer(u.id, { name: "Partial Customer" });
+  const res = await createSale(
+    u,
+    saleBody([PAYLOAD_ITEM(med)], { customerId: cust.id, amountPaid: 40 })
+  );
+  expect(res.statusCode).toBe(201);
+  return { med, cust, inv: res.json().data };
+}
+
+async function settle(u: SeededUser, inv: any, cust: any, amount: number) {
+  const payment = await app.inject({
+    method: "POST",
+    url: "/api/payments",
+    headers: auth(u),
+    payload: {
+      type: "received",
+      amount,
+      invoiceId: inv.id,
+      customerId: cust.id,
+      paymentMode: "cash",
+      date: "2026-06-25",
+    },
+  });
+  expect(payment.statusCode).toBe(201);
+  return payment.json().data;
+}
+
+describe("chain: partial payment accounting (Fix 3)", () => {
+  it("splits a partial cash sale: CASH = amountPaid, AR = remainder, TB balanced", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u);
+
+    const [entry] = entriesFor(u.id, "invoice", inv.id);
+    const lines = linesFor(entry.id);
+    expect(lineFor(entry.id, "CASH")?.debit).toBeCloseTo(40, 2); // only what was collected
+    expect(lineFor(entry.id, "AR")?.debit).toBeCloseTo(inv.grandTotal - 40, 2); // remainder
+    expect(lineFor(entry.id, "AR")?.party_id).toBe(cust.id);
+    expect(lineFor(entry.id, "SALES")?.credit).toBeCloseTo(inv.grandTotal - inv.totalGst, 2);
+    expect(lineFor(entry.id, "GST_OUTPUT")?.credit).toBeCloseTo(inv.totalGst, 2);
+    const debitSum = lines.reduce((s, l) => s + l.debit, 0);
+    const creditSum = lines.reduce((s, l) => s + l.credit, 0);
+    expect(debitSum).toBeCloseTo(creditSum, 2);
+
+    const tb = await app.inject({
+      method: "GET",
+      url: "/api/accounting/trial-balance",
+      headers: auth(u),
+    });
+    expect(tb.json().data.totals.totalDebit).toBeCloseTo(tb.json().data.totals.totalCredit, 2);
+  });
+
+  it("a settlement posts Dr CASH / Cr AR and AR nets to grandTotal - amountPaid - settled", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u);
+    const pay = await settle(u, inv, cust, 30);
+
+    const [payEntry] = entriesFor(u.id, "payment", pay.id);
+    expect(lineFor(payEntry.id, "CASH")?.debit).toBeCloseTo(30, 2);
+    expect(lineFor(payEntry.id, "AR")?.credit).toBeCloseTo(30, 2);
+
+    // AR = +(grandTotal - 40) (sale remainder) - 30 (settlement).
+    expect(accountNet(u.id, "AR")).toBeCloseTo(inv.grandTotal - 40 - 30, 2);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(70, 2); // 40 + 30 collected
+
+    const tb = await app.inject({
+      method: "GET",
+      url: "/api/accounting/trial-balance",
+      headers: auth(u),
+    });
+    expect(tb.json().data.totals.totalDebit).toBeCloseTo(tb.json().data.totals.totalCredit, 2);
+  });
+
+  it("cancel reverses the settlement AND the sale entry: exact final balances + audits", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u);
+    const pay = await settle(u, inv, cust, 30);
+
+    const [invoiceEntry] = entriesFor(u.id, "invoice", inv.id);
+    const [payEntry] = entriesFor(u.id, "payment", pay.id);
+
+    const cancel = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(cancel.statusCode).toBe(200);
+
+    // Two reversals: the settlement first, then the sale entry.
+    const reversals = reversalRows(u.id);
+    expect(reversals).toHaveLength(2);
+    const reversedIds = reversals.map((r) => r.source_id);
+    expect(reversedIds).toContain(invoiceEntry.id);
+    expect(reversedIds).toContain(payEntry.id);
+
+    // Exact final balances: everything nets to zero (cash 40+30 in, refund matched out
+    // modeled by the two reversals; AR cleared with the invoice).
+    expect(accountNet(u.id, "AR")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "SALES")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "GST_OUTPUT")).toBeCloseTo(0, 2);
+
+    // Both reversals audited with the invoice number + kind metadata.
+    const audits = all<{ metadata: string }>(
+      "SELECT metadata FROM audit_events WHERE actor_id = ? AND action = 'accounting.reversed'",
+      u.id
+    );
+    const kinds = audits.map((a) => JSON.parse(a.metadata ?? "{}").kind).sort();
+    expect(kinds).toEqual(["invoice", "settlement"]);
+    for (const a of audits) {
+      expect(JSON.parse(a.metadata ?? "{}").invoiceNo).toBe(inv.invoiceNo);
+    }
+
+    const tb = await app.inject({
+      method: "GET",
+      url: "/api/accounting/trial-balance",
+      headers: auth(u),
+    });
+    expect(tb.json().data.totals.totalDebit).toBeCloseTo(tb.json().data.totals.totalCredit, 2);
+  });
+
+  it("full-credit sale with no settlement cancels to AR 0 (single reversal)", async () => {
+    const u = seedUser();
+    const med = seedMedicine(u.id, { quantity: 15 });
+    const cust = seedCustomer(u.id, { name: "Credit Only" });
+    const res = await createSale(
+      u,
+      saleBody([PAYLOAD_ITEM(med)], {
+        customerId: cust.id,
+        paymentMode: "credit",
+        amountPaid: 0,
+        status: "unpaid",
+        grandTotal: 95.24,
+        subtotal: 95.24 - 4.76,
+        totalGst: 4.76,
+      })
+    );
+    expect(res.statusCode).toBe(201);
+    const inv = res.json().data;
+    expect(accountNet(u.id, "AR")).toBeCloseTo(95.24, 2);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(0, 2);
+
+    const cancel = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(cancel.statusCode).toBe(200);
+
+    expect(reversalRows(u.id)).toHaveLength(1); // nothing settled â†’ only the sale
+    expect(accountNet(u.id, "AR")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "SALES")).toBeCloseTo(0, 2);
+  });
+
+  it("double cancel is rejected and never double-reverses a settlement", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u);
+    await settle(u, inv, cust, 30);
+
+    const first = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(first.statusCode).toBe(200);
+    expect(reversalRows(u.id)).toHaveLength(2);
+
+    const second = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(second.statusCode).toBe(400);
+    expect(second.json().error).toMatch(/already cancelled|refund/i);
+    expect(reversalRows(u.id)).toHaveLength(2); // unchanged
+    expect(accountNet(u.id, "AR")).toBeCloseTo(0, 2);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(0, 2);
+  });
+
+  it("invoice-created receipt rows never produce sourceType 'payment' entries (double-post guard)", async () => {
+    const u = seedUser();
+    const { inv } = await partialCashSale(u);
+
+    // The receipt row exists in the payments table...
+    const receiptRows = all(
+      "SELECT id FROM payments WHERE created_by = ? AND invoice_id = ? AND type = 'received'",
+      u.id,
+      inv.id
+    );
+    expect(receiptRows).toHaveLength(1);
+    // ...but invoice create never passes through the payments route, so no
+    // `payment` journal entry exists for it (only the invoice entry's cash leg).
+    expect(entriesFor(u.id, "payment")).toHaveLength(0);
+
+    // After cancel the refund payout row is also unposted; still zero payment entries.
+    const cancel = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(cancel.statusCode).toBe(200);
+    expect(
+      all("SELECT id FROM payments WHERE created_by = ? AND invoice_id = ? AND type = 'paid'", u.id, inv.id)
+    ).toHaveLength(1); // refund payout, as history
+    expect(entriesFor(u.id, "payment")).toHaveLength(0);
+    expect(reversalRows(u.id)).toHaveLength(1); // only the sale entry reversed
+  });
+});
+
+describe("chain: partial payment edges (Fix 3)", () => {
+  it("a cash sale with amountPaid = 0 posts entirely to AR (no CASH leg)", async () => {
+    const u = seedUser();
+    const med = seedMedicine(u.id, { quantity: 10 });
+    const cust = seedCustomer(u.id, { name: "Unpaid Cash" });
+    const res = await createSale(
+      u,
+      saleBody([PAYLOAD_ITEM(med)], { customerId: cust.id, amountPaid: 0, status: "unpaid" })
+    );
+    expect(res.statusCode).toBe(201);
+    const inv = res.json().data;
+
+    const [entry] = entriesFor(u.id, "invoice", inv.id);
+    expect(lineFor(entry.id, "CASH")).toBeUndefined(); // truthful split: no cash moved
+    expect(lineFor(entry.id, "AR")?.debit).toBeCloseTo(inv.grandTotal, 2);
+    expect(lineFor(entry.id, "AR")?.party_id).toBe(cust.id);
+    expect(accountNet(u.id, "CASH")).toBeCloseTo(0, 2);
+  });
+
+  it("a fully-paid cash sale omits the AR leg (zero leg)", async () => {
+    const u = seedUser();
+    const med = seedMedicine(u.id, { quantity: 10 });
+    const res = await createSale(u, saleBody([PAYLOAD_ITEM(med)])); // amountPaid = grandTotal
+    expect(res.statusCode).toBe(201);
+    const inv = res.json().data;
+
+    const [entry] = entriesFor(u.id, "invoice", inv.id);
+    expect(lineFor(entry.id, "CASH")?.debit).toBeCloseTo(inv.grandTotal, 2);
+    expect(lineFor(entry.id, "AR")).toBeUndefined(); // remainder is zero → leg omitted
+    expect(accountNet(u.id, "AR")).toBeCloseTo(0, 2);
+  });
+
+  it("a partial card sale debits BANK with amountPaid only", async () => {
+    const u = seedUser();
+    const med = seedMedicine(u.id, { quantity: 10 });
+    const cust = seedCustomer(u.id, { name: "Card Partial" });
+    const res = await createSale(
+      u,
+      saleBody([PAYLOAD_ITEM(med)], { customerId: cust.id, amountPaid: 30, paymentMode: "card" })
+    );
+    expect(res.statusCode).toBe(201);
+    const inv = res.json().data;
+
+    const [entry] = entriesFor(u.id, "invoice", inv.id);
+    expect(lineFor(entry.id, "BANK")?.debit).toBeCloseTo(30, 2);
+    expect(lineFor(entry.id, "CASH")).toBeUndefined();
+    expect(lineFor(entry.id, "AR")?.debit).toBeCloseTo(inv.grandTotal - 30, 2);
+    expect(accountNet(u.id, "BANK")).toBeCloseTo(30, 2);
+  });
+
+  it("a settlement exceeding the outstanding balance is rejected with 400", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u); // amountPaid 40 → outstanding = grandTotal - 40
+    const tooMuch = await app.inject({
+      method: "POST",
+      url: "/api/payments",
+      headers: auth(u),
+      payload: {
+        type: "received",
+        amount: inv.grandTotal, // > outstanding
+        invoiceId: inv.id,
+        customerId: cust.id,
+        paymentMode: "cash",
+        date: "2026-06-25",
+      },
+    });
+    expect(tooMuch.statusCode).toBe(400);
+    expect(tooMuch.json().error).toContain("exceeds the outstanding balance");
+    expect(entriesFor(u.id, "payment")).toHaveLength(0);
+  });
+
+  it("settling a cancelled invoice is refused with 409", async () => {
+    const u = seedUser();
+    const { inv, cust } = await partialCashSale(u);
+    const cancel = await app.inject({
+      method: "POST",
+      url: `/api/invoices/${inv.id}/cancel`,
+      headers: auth(u),
+    });
+    expect(cancel.statusCode).toBe(200);
+
+    const after = await app.inject({
+      method: "POST",
+      url: "/api/payments",
+      headers: auth(u),
+      payload: {
+        type: "received",
+        amount: 10,
+        invoiceId: inv.id,
+        customerId: cust.id,
+        paymentMode: "cash",
+        date: "2026-06-26",
+      },
+    });
+    expect(after.statusCode).toBe(409);
+    expect(after.json().error).toContain("cancelled invoice");
+    expect(entriesFor(u.id, "payment")).toHaveLength(0);
   });
 });

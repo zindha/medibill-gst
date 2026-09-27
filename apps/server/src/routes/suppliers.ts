@@ -26,7 +26,7 @@ export default async function supplierRoutes(fastify: FastifyInstance) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
     const offset = (pageNum - 1) * limitNum;
 
-    const conds = [eq(suppliers.isActive, true)];
+    const conds = [eq(suppliers.createdBy, request.userId!), eq(suppliers.isActive, true)];
     if (search) {
       const pat = searchPattern(search);
       conds.push(sql`(fold(${suppliers.name}) LIKE ${pat} OR fold(${suppliers.phone}) LIKE ${pat})`);
@@ -55,7 +55,8 @@ export default async function supplierRoutes(fastify: FastifyInstance) {
   // Get single supplier
   fastify.get("/:id", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const [supplier] = await db.select().from(suppliers).where(and(eq(suppliers.id, id), eq(suppliers.isActive, true))).limit(1);
+    const [supplier] = await db.select().from(suppliers)
+      .where(and(eq(suppliers.id, id), eq(suppliers.createdBy, request.userId!), eq(suppliers.isActive, true))).limit(1);
     if (!supplier) return reply.status(404).send({ success: false, error: "Supplier not found" });
     return reply.send({ success: true, data: supplier });
   });
@@ -83,10 +84,12 @@ export default async function supplierRoutes(fastify: FastifyInstance) {
     const parsed = createSupplierSchema.partial().safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
 
-    const [existing] = await db.select().from(suppliers).where(and(eq(suppliers.id, id), eq(suppliers.isActive, true))).limit(1);
+    const [existing] = await db.select().from(suppliers)
+      .where(and(eq(suppliers.id, id), eq(suppliers.createdBy, request.userId!), eq(suppliers.isActive, true))).limit(1);
     if (!existing) return reply.status(404).send({ success: false, error: "Supplier not found" });
 
-    const [updated] = await db.update(suppliers).set({ ...parsed.data, updatedAt: new Date() }).where(eq(suppliers.id, id)).returning();
+    const [updated] = await db.update(suppliers).set({ ...parsed.data, updatedAt: new Date() })
+      .where(and(eq(suppliers.id, id), eq(suppliers.createdBy, request.userId!))).returning();
     return reply.send({ success: true, data: updated });
   });
 
@@ -103,7 +106,13 @@ export default async function supplierRoutes(fastify: FastifyInstance) {
   // Get supplier ledger
   fastify.get("/:id/ledger", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const ledger = await db.select().from(payments).where(eq(payments.supplierId, id)).orderBy(sql`${payments.date} DESC`);
+    const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
+      .where(and(eq(suppliers.id, id), eq(suppliers.createdBy, request.userId!))).limit(1);
+    if (!supplier) return reply.status(404).send({ success: false, error: "Supplier not found" });
+
+    const ledger = await db.select().from(payments)
+      .where(and(eq(payments.supplierId, id), eq(payments.createdBy, request.userId!)))
+      .orderBy(sql`${payments.date} DESC`);
     return reply.send({ success: true, data: ledger });
   });
 }

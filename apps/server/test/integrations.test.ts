@@ -34,6 +34,7 @@ import { NotConfiguredError, getProvider } from "../src/providers/messaging.js";
 import { getGstProvider } from "../src/providers/gst.js";
 import {
   buildCsv,
+  buildPdf,
   computeNextRun,
   localStamp,
   runReport,
@@ -58,13 +59,6 @@ const PROVIDER_ENV = [
   "SMS_API_KEY",
   "SMS_SENDER",
   "EMAIL_WEBHOOK_URL",
-  "EINVOICE_PROVIDER",
-  "EINVOICE_GSP_ID",
-  "EINVOICE_GSP_KEY",
-  "EINVOICE_USERNAME",
-  "EINVOICE_PASSWORD",
-  "EINVOICE_BASE_URL",
-  "EWAY_BASE_URL",
 ];
 
 const KEY_FILE = join(DATA_DIR, "integration.key");
@@ -458,24 +452,30 @@ describe("integrations registry & health", () => {
     const data = res.json().data;
     expect(data.mode).toBe("fake");
     expect(data.connected).toBe(true);
+    // Fake-only build — there is nothing to configure (no secret fields).
+    expect(data.fields).toEqual([]);
+    expect(data.missingEnv).toEqual([]);
   });
 
-  it("einvoice health switches to mode=settings when GSP credentials are stored", async () => {
+  it("einvoice stays mode=fake after a connect toggle (no credentials exist to store)", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/integrations/einvoice/connect",
       headers: auth(ctx.token),
-      payload: {
-        enabled: true,
-        config: { gspId: "GSP1", username: "user1", baseUrl: "https://nic.test/api" },
-        secrets: { gspKey: "key-1", password: "pw-1" },
-      },
+      payload: { enabled: true },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().data.mode).toBe("settings");
+    expect(res.json().data.mode).toBe("fake");
     expect(res.json().data.connected).toBe(true);
-    // Back to fake for every later test in this file.
+    // A legacy record carrying old GSP fields must not change the contract.
     await disconnect("einvoice", ctx.id);
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/integrations/einvoice",
+      headers: auth(ctx.token),
+    });
+    expect(after.json().data.mode).toBe("fake");
+    expect(after.json().data.connected).toBe(true);
   });
 
   it("payment_collect connects on a plain UPI id and disconnects cleanly", async () => {
@@ -556,17 +556,13 @@ describe("credential resolution & adapters", () => {
     expect(() => getProvider("email")).toThrow(NotConfiguredError);
   });
 
-  it("getGstProvider defaults to the fake adapter", () => {
+  it("getGstProvider is always the fake adapter (fake-only build)", () => {
     expect(getGstProvider().name).toBe("fake");
   });
 
-  it("getGstProvider returns a settings-bound NIC adapter when einvoice is connected", async () => {
-    await connect("einvoice", ctx.id, {
-      enabled: true,
-      config: { gspId: "GSP9", username: "user9", baseUrl: "https://nic-settings.test" },
-      secrets: { gspKey: "key-9", password: "pw-9" },
-    });
-    expect(getGstProvider().name).toBe("nic");
+  it("getGstProvider stays fake even when an einvoice record is connected", async () => {
+    await connect("einvoice", ctx.id, { enabled: true });
+    expect(getGstProvider().name).toBe("fake");
     await disconnect("einvoice", ctx.id);
     expect(getGstProvider().name).toBe("fake");
   });
@@ -673,7 +669,7 @@ describe("schedule presets", () => {
     expect(monthly.statusCode).toBe(400);
   });
 
-  it("rejects format=pdf with an honest 400", async () => {
+  it("accepts format=pdf and creates the report with format stored", async () => {
     const res = await app.inject({
       method: "POST",
       url: "/api/scheduled-reports",
@@ -686,8 +682,9 @@ describe("schedule presets", () => {
         format: "pdf",
       },
     });
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error).toBe("PDF export not supported yet");
+    expect(res.statusCode).toBe(201);
+    expect(res.json().data.format).toBe("pdf");
+    expect(res.json().data.nextRunAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
   });
 
   it("validates recipients (unknown channel → 400) and name (empty → 400)", async () => {
@@ -773,6 +770,51 @@ describe("buildCsv", () => {
   it("renders null/undefined as empty cells", () => {
     const csv = buildCsv([{ key: "a", header: "A" }], [{ a: null }]);
     expect(naiveParse(csv)[1]).toEqual([""]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PDF builder (server-rendered A4)
+// ---------------------------------------------------------------------------
+describe("buildPdf", () => {
+  const meta = () => ({
+    generatedAt: new Date("2026-01-05T09:00:00"),
+    reportType: "sales",
+    from: "2025-12-06",
+    to: "2026-01-05",
+  });
+
+  it("returns a real PDF buffer (A4, %PDF header, %%EOF trailer)", async () => {
+    const buf = await buildPdf(
+      [
+        { key: "a", header: "Alpha" },
+        { key: "b", header: "Beta" },
+      ],
+      [{ a: "plain", b: 42 }],
+      "My Report",
+      meta()
+    );
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(buf.toString("latin1")).toContain("%%EOF");
+    expect(buf.byteLength).toBeGreaterThan(800);
+  });
+
+  it("paginates a large table instead of overflowing the page", async () => {
+    const rows = Array.from({ length: 400 }, (_, i) => ({ a: `Row ${i}`, b: i * 1.5 }));
+    const buf = await buildPdf(
+      [
+        { key: "a", header: "Name" },
+        { key: "b", header: "Amount" },
+      ],
+      rows,
+      "Big Report",
+      meta()
+    );
+    expect(buf.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(buf.toString("latin1")).toContain("%%EOF");
+    // Well under pdfkit's per-page ceiling — multi-page, not one giant page.
+    expect(buf.byteLength).toBeLessThan(3_000_000);
   });
 });
 
@@ -990,6 +1032,58 @@ describe("scheduled report runs", () => {
     const text = bytes.toString("utf8");
     expect(text).toContain("Credited Customer");
     expect(text).not.toContain("Walk-in");
+  });
+
+  it("runs a PDF report: application/pdf file row, %PDF bytes, PDF note in the body", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/scheduled-reports",
+      headers: auth(ctx.token),
+      payload: {
+        name: "PDF Sales",
+        reportType: "sales",
+        schedule: { kind: "daily", time: "09:00" },
+        recipients: [{ channel: "email", address: "owner@example.com" }],
+        format: "pdf",
+        filters: { daysBack: 30 },
+      },
+    });
+    expect(create.statusCode).toBe(201);
+    const pdfId = create.json().data.id;
+    expect(create.json().data.format).toBe("pdf");
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/scheduled-reports/${pdfId}/run`,
+      headers: auth(ctx.token),
+    });
+    expect(res.statusCode).toBe(200);
+    const { run, rows, delivered } = res.json().data;
+    expect(run.status).toBe("done");
+    expect(run.rowCount).toBeGreaterThan(0);
+    expect(run.fileId).toBeTruthy();
+    expect(rows).toBe(run.rowCount);
+    expect(delivered).toBe(1);
+
+    // Stored file: real PDF with the right content type + filename extension.
+    const [fileRow] = await db.select().from(storedFiles).where(eq(storedFiles.id, run.fileId!));
+    expect(fileRow.contentType).toBe("application/pdf");
+    expect(fileRow.purpose).toBe("scheduled-report");
+    expect(fileRow.filename).toMatch(/\.pdf$/);
+    const { bytes } = await fileStorage.get(ctx.id, run.fileId!);
+    expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    expect(bytes.toString("latin1")).toContain("%%EOF");
+
+    // Delivery body: summary counts + the "PDF available" note, never the binary.
+    const deliveries = await db
+      .select()
+      .from(messageDeliveries)
+      .where(eq(messageDeliveries.aggregateId, run.id));
+    expect(deliveries).toHaveLength(1);
+    const body = JSON.parse(deliveries[0].variables ?? "{}").body as string;
+    expect(body).toContain("PDF available in Scheduled Reports");
+    expect(body).toContain(`${run.rowCount} rows`);
+    expect(body).not.toContain("%PDF-");
   });
 
   it("a failed run stores status=failed and rethrows a 500 for the route", async () => {

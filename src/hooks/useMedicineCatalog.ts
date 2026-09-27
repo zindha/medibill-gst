@@ -252,7 +252,6 @@ export function useMedicineCatalog(
 
   const additions = useMemo<CatalogMedicine[]>(
     () => additionsRaw.map(toAdditionMedicine),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [additionsRaw],
   );
 

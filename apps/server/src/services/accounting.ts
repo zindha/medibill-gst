@@ -1,10 +1,13 @@
-import { and, eq, gte, lte, sql, inArray, asc, desc } from "drizzle-orm";
+import { and, eq, gte, gt, lt, lte, sql, inArray, asc, desc } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
   accounts,
   journalEntries,
   journalLines,
   accountingPeriods,
+  batches,
+  customers,
+  suppliers,
   generateId,
   type Account,
   type AccountType,
@@ -469,8 +472,10 @@ interface MovementRow {
 /**
  * Per-account debit/credit movement inside [from, to] (both optional bounds).
  * Joins lines to entries so the tenant/date filter lives on the entry.
- * NOTE: opening balances are NOT carried forward — a row reflects movement
- * strictly inside the range (documented simplification for Task 11).
+ * NOTE: the movement columns of a trial balance row reflect movement strictly
+ * inside the range; opening balances (entries dated BEFORE `from`) are
+ * surfaced separately via `openingMovement` + the trial balance's
+ * opening/closing columns (opening tooling landed with the Opening tab).
  */
 function movement(userId: string, from?: string, to?: string): MovementRow[] {
   const conds = [eq(journalEntries.createdBy, userId)];
@@ -494,6 +499,27 @@ function movement(userId: string, from?: string, to?: string): MovementRow[] {
   return rows.map((row) => ({ ...row, debit: round2(row.debit), credit: round2(row.credit) }));
 }
 
+/** Per-account movement from ALL entries dated strictly before `before`. */
+function openingMovement(userId: string, before?: string): MovementRow[] {
+  if (!before) return [];
+  const rows = db
+    .select({
+      accountId: accounts.id,
+      code: accounts.code,
+      name: accounts.name,
+      type: accounts.type,
+      debit: sql<number>`coalesce(sum(${journalLines.debit}), 0)`,
+      credit: sql<number>`coalesce(sum(${journalLines.credit}), 0)`,
+    })
+    .from(journalLines)
+    .innerJoin(journalEntries, eq(journalLines.entryId, journalEntries.id))
+    .innerJoin(accounts, eq(journalLines.accountId, accounts.id))
+    .where(and(eq(journalEntries.createdBy, userId), lt(journalEntries.date, before)))
+    .groupBy(accounts.id, accounts.code, accounts.name, accounts.type)
+    .all();
+  return rows.map((row) => ({ ...row, debit: round2(row.debit), credit: round2(row.credit) }));
+}
+
 const isDebitNature = (type: AccountType) => type === "asset" || type === "expense";
 const signedBalance = (row: { type: AccountType; debit: number; credit: number }) =>
   round2(isDebitNature(row.type) ? row.debit - row.credit : row.credit - row.debit);
@@ -506,6 +532,18 @@ export interface TrialBalanceRow {
   debit: number;
   credit: number;
   balance: number;
+  /**
+   * Trial-balance-only carry-forward columns (additive — profit & loss and
+   * balance sheet rows never carry them):
+   * - openingDebit/openingCredit: one-sided opening balance from ALL entries
+   *   dated before `from` (signed by account nature; 0 when no `from` given).
+   * - closing: signed-by-nature balance of opening + in-range movement
+   *   (positive = the account's natural side: debit for asset/expense,
+   *   credit otherwise).
+   */
+  openingDebit?: number;
+  openingCredit?: number;
+  closing?: number;
 }
 
 export async function trialBalance(
@@ -521,9 +559,24 @@ export async function trialBalance(
     .orderBy(asc(accounts.code))
     .all();
   const moved = new Map(movement(userId, from, to).map((row) => [row.accountId, row]));
+  const opened = new Map(openingMovement(userId, from).map((row) => [row.accountId, row]));
+
+  // One-sided split of a signed balance: debit-nature accounts keep positive
+  // balances in the debit column, credit-nature accounts in the credit column.
+  const sides = (type: AccountType, debit: number, credit: number) => {
+    const signed = signedBalance({ type, debit, credit });
+    const debitNature = isDebitNature(type);
+    return {
+      debit: round2(debitNature ? Math.max(signed, 0) : Math.max(-signed, 0)),
+      credit: round2(debitNature ? Math.max(-signed, 0) : Math.max(signed, 0)),
+    };
+  };
 
   const rows: TrialBalanceRow[] = chart.map((account) => {
     const row = moved.get(account.id) ?? { debit: 0, credit: 0 };
+    const open = opened.get(account.id) ?? { debit: 0, credit: 0 };
+    const opening = sides(account.type, open.debit, open.credit);
+    const closing = sides(account.type, open.debit + row.debit, open.credit + row.credit);
     return {
       accountId: account.id,
       code: account.code,
@@ -532,11 +585,34 @@ export async function trialBalance(
       debit: row.debit,
       credit: row.credit,
       balance: signedBalance({ type: account.type, debit: row.debit, credit: row.credit }),
+      openingDebit: opening.debit,
+      openingCredit: opening.credit,
+      closing: round2(
+        isDebitNature(account.type)
+          ? open.debit + row.debit - (open.credit + row.credit)
+          : open.credit + row.credit - (open.debit + row.debit)
+      ),
     };
   });
 
   const totalDebit = round2(rows.reduce((sum, row) => sum + row.debit, 0));
   const totalCredit = round2(rows.reduce((sum, row) => sum + row.credit, 0));
+  const totalOpeningDebit = round2(rows.reduce((sum, row) => sum + (row.openingDebit ?? 0), 0));
+  const totalOpeningCredit = round2(rows.reduce((sum, row) => sum + (row.openingCredit ?? 0), 0));
+  const totalClosingDebit = round2(
+    rows.reduce(
+      (sum, row) =>
+        sum + Math.max(0, isDebitNature(row.type) ? (row.closing ?? 0) : -(row.closing ?? 0)),
+      0
+    )
+  );
+  const totalClosingCredit = round2(
+    rows.reduce(
+      (sum, row) =>
+        sum + Math.max(0, isDebitNature(row.type) ? -(row.closing ?? 0) : (row.closing ?? 0)),
+      0
+    )
+  );
   const income = round2(
     rows.filter((r) => r.type === "income").reduce((sum, r) => sum + (r.credit - r.debit), 0)
   );
@@ -547,7 +623,15 @@ export async function trialBalance(
     from: from ?? null,
     to: to ?? null,
     rows,
-    totals: { totalDebit, totalCredit, netIncome: round2(income - expense) },
+    totals: {
+      totalDebit,
+      totalCredit,
+      totalOpeningDebit,
+      totalOpeningCredit,
+      totalClosingDebit,
+      totalClosingCredit,
+      netIncome: round2(income - expense),
+    },
   };
 }
 
@@ -841,6 +925,116 @@ export async function listPeriods(
 }
 
 // ---------------------------------------------------------------------------
+// Opening balances (seed the ledger before real traffic; TB carries them forward)
+// ---------------------------------------------------------------------------
+
+export interface SuggestedOpeningLine {
+  code: string;
+  debit: number;
+  credit: number;
+}
+
+export interface OpeningPostInput {
+  date: string;
+  lines: JournalLineInput[];
+  description?: string;
+}
+
+/**
+ * Posting key for an opening batch: one per tenant per date. The date-keyed
+ * sourceId gives the endpoint idempotency — a second POST for the same date
+ * is rejected with 400 before touching the ledger.
+ */
+const openingSourceId = (date: string) => `opening:${date}`;
+
+/**
+ * Guarded opening-balance post (route: POST /api/accounting/opening).
+ * - rejects a duplicate date → `400 Opening balances already posted for <date>`;
+ * - rejects a date inside a closed period → `400 Period closed` (postSync's
+ *   period check, reused);
+ * - otherwise posts a normal balanced entry with `source_type = "opening"`.
+ */
+export async function postOpeningBalances(userId: string, input: OpeningPostInput): Promise<PostResult> {
+  ensureChartOn(db, userId);
+  const sourceId = openingSourceId(input.date);
+  const existing = db
+    .select({ id: journalEntries.id })
+    .from(journalEntries)
+    .where(
+      and(
+        eq(journalEntries.createdBy, userId),
+        eq(journalEntries.sourceType, "opening"),
+        eq(journalEntries.sourceId, sourceId)
+      )
+    )
+    .limit(1)
+    .all();
+  if (existing.length > 0) {
+    throw new AccountingError(400, `Opening balances already posted for ${input.date}`);
+  }
+  return postSync(db, userId, {
+    date: input.date,
+    sourceType: "opening",
+    sourceId,
+    description: input.description ?? `Opening balances ${input.date}`,
+    lines: input.lines,
+  });
+}
+
+/**
+ * Prefill for the Opening tab: current values straight from stock + ledgers.
+ *
+ * Format — every row is one-sided `{ code, debit, credit }` (exactly one side
+ * carries the amount, the other is 0; a zero-amount row is still returned so
+ * the UI can show it, filter those before posting):
+ * - INVENTORY = Σ batches `purchasePrice × quantity` (tenant)
+ * - AR        = Σ customer balances that are > 0 (what customers owe us)
+ * - AP        = Σ supplier balances that are > 0 (what we owe suppliers)
+ * - CASH      = 0 — till/drawer cash cannot be inferred, the UI leaves it editable
+ * - CAPITAL   = balancing figure `(INVENTORY + AR + CASH − AP)` so total
+ *   debits equal total credits when the suggestion is posted as-is.
+ */
+export async function suggestOpeningLines(userId: string): Promise<SuggestedOpeningLine[]> {
+  ensureChartOn(db, userId);
+
+  const inventoryRows = db
+    .select({
+      value: sql<number>`coalesce(sum(coalesce(${batches.purchasePrice}, 0) * coalesce(${batches.quantity}, 0)), 0)`,
+    })
+    .from(batches)
+    .where(eq(batches.createdBy, userId))
+    .all();
+  const inventory = round2(inventoryRows[0]?.value ?? 0);
+
+  const arRows = db
+    .select({ value: sql<number>`coalesce(sum(${customers.balance}), 0)` })
+    .from(customers)
+    .where(and(eq(customers.createdBy, userId), gt(customers.balance, 0)))
+    .all();
+  const ar = round2(arRows[0]?.value ?? 0);
+
+  const apRows = db
+    .select({ value: sql<number>`coalesce(sum(${suppliers.balance}), 0)` })
+    .from(suppliers)
+    .where(and(eq(suppliers.createdBy, userId), gt(suppliers.balance, 0)))
+    .all();
+  const ap = round2(apRows[0]?.value ?? 0);
+
+  const cash = 0;
+  const capital = round2(inventory + ar + cash - ap);
+
+  return [
+    { code: "INVENTORY", debit: inventory, credit: 0 },
+    { code: "AR", debit: ar, credit: 0 },
+    { code: "AP", debit: 0, credit: ap },
+    { code: "CASH", debit: 0, credit: 0 },
+    capital >= 0
+      ? { code: "CAPITAL", debit: 0, credit: capital }
+      : { code: "CAPITAL", debit: round2(-capital), credit: 0 },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Flow wiring helpers (used by invoice/purchase/payment/return routes)
 // ---------------------------------------------------------------------------
 
@@ -860,22 +1054,31 @@ export interface SalePostingInput {
   totalGst: number;
   paymentMode?: string | null;
   customerId?: string | null;
+  /** Actually collected on the bill — drives the cash/bank leg (Fix 3). */
+  amountPaid?: number;
 }
 
 /**
- * Sale entry: Dr CASH|BANK|AR grandTotal (credit sales hit AR with the
- * customer party) / Cr SALES (grandTotal - totalGst) / Cr GST_OUTPUT totalGst.
+ * Sale entry: the debit side is split by what was actually collected —
+ * - non-credit mode: Dr CASH|BANK `amountPaid` (only when > 0) plus
+ *   Dr AR `grandTotal − amountPaid` (only when a remainder > 0);
+ * - credit mode: Dr AR `grandTotal` (the party's full outstanding);
+ * - `amountPaid = 0` in cash mode posts the whole bill to AR — the truthful
+ *   split of an unpaid "cash" sale instead of overstating cash.
+ * Cr SALES (`grandTotal − totalGst`) / Cr GST_OUTPUT `totalGst`.
  * Zero-value legs are omitted so the entry still balances.
  */
 export function saleJournalLines(input: SalePostingInput): JournalLineInput[] {
-  const debitAccount = input.paymentMode === "credit" ? "AR" : cashOrBankAccount(input.paymentMode);
-  const lines: JournalLineInput[] = [
-    {
-      code: debitAccount,
-      debit: round2(input.grandTotal),
-      ...(input.customerId ? { partyType: "customer" as const, partyId: input.customerId } : {}),
-    },
-  ];
+  const creditMode = input.paymentMode === "credit";
+  const cashLeg = creditMode ? 0 : round2(Math.min(Math.max(input.amountPaid ?? 0, 0), input.grandTotal));
+  const arLeg = round2(input.grandTotal - cashLeg);
+  const party = input.customerId
+    ? { partyType: "customer" as const, partyId: input.customerId }
+    : {};
+
+  const lines: JournalLineInput[] = [];
+  if (cashLeg > 0) lines.push({ code: cashOrBankAccount(input.paymentMode), debit: cashLeg });
+  if (arLeg > 0) lines.push({ code: "AR", debit: arLeg, ...party });
   const sales = round2(input.grandTotal - input.totalGst);
   if (sales > 0) lines.push({ code: "SALES", credit: sales });
   if (input.totalGst > 0) lines.push({ code: "GST_OUTPUT", credit: round2(input.totalGst) });
@@ -936,6 +1139,41 @@ export function salesReturnJournalLines(input: SalesReturnPostingInput): Journal
     credit: round2(input.refundAmount),
     ...(input.refundMode === "credit" && input.customerId
       ? { partyType: "customer" as const, partyId: input.customerId }
+      : {}),
+  });
+  return lines;
+}
+
+export interface PurchaseReturnPostingInput {
+  refundAmount: number;
+  totalGst: number;
+  grandTotal: number;
+  refundMode?: string | null;
+  supplierId?: string | null;
+}
+
+/**
+ * Purchase-return entry (mirror of `salesReturnJournalLines`, Task 11 spec):
+ * Dr AP (refundMode "credit", party = supplier) | Dr CASH|BANK (cash-like
+ * refund) refundAmount / Cr PURCHASE_RETURNS taxable portion + Cr GST_INPUT
+ * the proportional GST share. The GST split uses the same math as sales
+ * returns: `gstShare = round(refundAmount × totalGst / grandTotal, 2)` and
+ * `taxable = refundAmount − gstShare`, so the two credits always sum back to
+ * the refund. Zero legs are omitted.
+ */
+export function purchaseReturnJournalLines(input: PurchaseReturnPostingInput): JournalLineInput[] {
+  const gstShare =
+    input.grandTotal > 0 ? round2((input.refundAmount * input.totalGst) / input.grandTotal) : 0;
+  const taxable = round2(input.refundAmount - gstShare);
+  const debitAccount = input.refundMode === "credit" ? "AP" : cashOrBankAccount(input.refundMode);
+  const lines: JournalLineInput[] = [];
+  if (taxable > 0) lines.push({ code: "PURCHASE_RETURNS", credit: taxable });
+  if (gstShare > 0) lines.push({ code: "GST_INPUT", credit: gstShare });
+  lines.push({
+    code: debitAccount,
+    debit: round2(input.refundAmount),
+    ...(input.refundMode === "credit" && input.supplierId
+      ? { partyType: "supplier" as const, partyId: input.supplierId }
       : {}),
   });
   return lines;

@@ -44,6 +44,24 @@ await fastify.register(formbody);
 // Cast: @fastify/cookie's plugin types don't match fastify v5's register
 // overloads (known typing drift); runtime behavior is unaffected.
 await fastify.register(cookie as any, { parseOptions: {} });
+// Empty JSON bodies are legitimate (bodyless POSTs like logout / hold / retry).
+// Fastify's built-in parser rejects them with FST_ERR_CTP_EMPTY_JSON_BODY, so
+// swap in a parser that treats an empty payload as {} and keeps normal JSON
+// parsing (including error reporting) for everything else.
+fastify.removeContentTypeParser("application/json");
+fastify.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  (_req, body, done) => {
+    const raw = typeof body === "string" ? body.trim() : "";
+    if (!raw) return done(null, {});
+    try {
+      done(null, JSON.parse(raw));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  }
+);
 // Rate limiting.
 //
 // MediBill is a local-first, single-user app that binds to 127.0.0.1, but the
@@ -89,6 +107,7 @@ import customerRoutes from "./routes/customers.js";
 import supplierRoutes from "./routes/suppliers.js";
 import invoiceRoutes from "./routes/invoices.js";
 import purchaseRoutes from "./routes/purchases.js";
+import purchaseReturnRoutes from "./routes/purchaseReturns.js";
 import inventoryRoutes from "./routes/inventory.js";
 import paymentRoutes from "./routes/payments.js";
 import reportRoutes from "./routes/reports.js";
@@ -136,6 +155,7 @@ const apiRoutes: [any, string][] = [
   [supplierRoutes, "/api/suppliers"],
   [invoiceRoutes, "/api/invoices"],
   [purchaseRoutes, "/api/purchases"],
+  [purchaseReturnRoutes, "/api/purchase-returns"],
   [inventoryRoutes, "/api/inventory"],
   [paymentRoutes, "/api/payments"],
   [reportRoutes, "/api/reports"],

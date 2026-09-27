@@ -1,6 +1,7 @@
 /**
  * Scheduled Reports delivery (Task 17) — report data builders, RFC-4180 CSV,
- * file storage, outbox-backed delivery and the due-report tick.
+ * server-rendered A4 PDF (pdfkit), file storage, outbox-backed delivery and
+ * the due-report tick.
  *
  * Timezone (documented): `next_run_at` / `last_run_at` are SERVER-LOCAL
  * wall-clock strings `YYYY-MM-DDTHH:mm` (no zone). computeNextRun and the
@@ -10,18 +11,22 @@
  * Periods are period-RELATIVE: `filters.daysBack` (default 30) counted back
  * from the run date, so one definition produces a rolling window per run.
  *
- * Delivery semantics: the CSV is always stored as a `stored_files` row
- * (purpose "scheduled-report"); recipients then get a `custom` message whose
- * body inlines the CSV when it is ≤ 100 KB (else a "(file saved)" note).
- * Queueing is provider-agnostic — a delivery row + pending outbox event are
- * created even when no messaging provider is configured; the messaging worker
- * decides whether it can actually send. A messaging failure NEVER fails the
- * run (status stays `done`, `message_status` records the best effort).
+ * Delivery semantics (documented): the generated file (CSV or PDF) is always
+ * stored as a `stored_files` row (purpose "scheduled-report"); recipients then
+ * get a `custom` message whose body carries summary counts plus either an
+ * inline CSV (when ≤ 100 KB) or a "PDF available in Scheduled Reports" note —
+ * PDF bytes are NEVER inlined in a channel message; they are downloaded from
+ * the run row via `GET /api/files/:id`. Queueing is provider-agnostic — a
+ * delivery row + pending outbox event are created even when no messaging
+ * provider is configured; the messaging worker decides whether it can
+ * actually send. A messaging failure NEVER fails the run (status stays
+ * `done`, `message_status` records the best effort).
  *
  * Failures during generation store a `failed` run row and rethrow a
  * ComplianceError-shaped error (statusCode) for the route.
  */
 
+import PDFDocument from "pdfkit";
 import { and, asc, desc, eq, gt, gte, isNotNull, lte } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
@@ -151,6 +156,164 @@ export function buildCsv(columns: ReportColumn[], rows: Record<string, unknown>[
   }
   // BOM so Excel detects UTF-8; CRLF line endings per RFC 4180.
   return "\uFEFF" + lines.join("\r\n") + "\r\n";
+}
+
+// ---------------------------------------------------------------------------
+// PDF (server-rendered A4 — pdfkit, no attachments in channel messages)
+// ---------------------------------------------------------------------------
+
+/** A4 portrait side margins in points. */
+export const PDF_MARGIN = 36;
+
+export interface PdfMeta {
+  generatedAt: Date;
+  reportType: string;
+  from: string;
+  to: string;
+}
+
+/** Right-align only for real numbers / plain decimal strings (not dates/ids). */
+function isNumericCell(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value !== "string") return false;
+  const s = value.trim();
+  return s.length > 0 && /^[+-]?[\d,]*\.?\d+$/.test(s);
+}
+
+/** Trim `text` with an ellipsis until it fits `maxWidth` on the current font. */
+function fitText(doc: PDFKit.PDFDocument, text: string, maxWidth: number): string {
+  if (doc.widthOfString(text) <= maxWidth) return text;
+  let out = text;
+  while (out.length > 0 && doc.widthOfString(`${out}…`) > maxWidth) out = out.slice(0, -1);
+  return out.length === 0 ? "" : `${out}…`;
+}
+
+/**
+ * Render a report table to an A4 portrait PDF buffer:
+ * title + generated date + report type + period, a gray header row, equal
+ * column widths capped to the printable width, ellipsis-truncated cells,
+ * right-aligned numeric cells, automatic row pagination and a centered
+ * "Page N of M" footer (pdfkit buffered-page-range trick).
+ */
+export function buildPdf(
+  columns: ReportColumn[],
+  rows: Record<string, unknown>[],
+  title: string,
+  meta: PdfMeta
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: PDF_MARGIN,
+      bufferPages: true,
+      autoFirstPage: true,
+    });
+    const chunks: Buffer[] = [];
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const usable = doc.page.width - PDF_MARGIN * 2;
+    const pad = 4;
+    const colCount = Math.max(1, columns.length);
+    const colW = usable / colCount;
+    const headerH = 16;
+    const rowH = 14;
+
+    // --- title block -------------------------------------------------------
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(14)
+      .fillColor("#111111")
+      .text(title || "Report", PDF_MARGIN, PDF_MARGIN, { width: usable, lineBreak: false });
+    doc
+      .font("Helvetica")
+      .fontSize(8.5)
+      .fillColor("#444444")
+      .text(
+        `Generated ${meta.generatedAt.toISOString()}  ·  ${meta.reportType} report  ·  ` +
+          `${meta.from} to ${meta.to}`,
+        PDF_MARGIN,
+        PDF_MARGIN + 22,
+        { width: usable, lineBreak: false }
+      );
+
+    let y = PDF_MARGIN + 42;
+
+    const drawHeader = () => {
+      doc.save().rect(PDF_MARGIN, y, usable, headerH).fill("#e5e7eb").restore();
+      doc.font("Helvetica-Bold").fontSize(8).fillColor("#111111");
+      columns.forEach((c, i) => {
+        const x = PDF_MARGIN + i * colW;
+        doc.text(fitText(doc, c.header, colW - pad * 2), x + pad, y + 4, {
+          width: colW - pad * 2,
+          align: "left",
+          lineBreak: false,
+        });
+      });
+      y += headerH;
+    };
+
+    drawHeader();
+
+    const contentBottom = () => doc.page.height - PDF_MARGIN;
+
+    for (const row of rows) {
+      if (y + rowH > contentBottom()) {
+        doc.addPage();
+        y = PDF_MARGIN;
+        drawHeader();
+      }
+      doc.font("Helvetica").fontSize(8).fillColor("#222222");
+      columns.forEach((c, i) => {
+        const value = row[c.key];
+        const raw = value === null || value === undefined ? "" : String(value);
+        const text = fitText(doc, raw, colW - pad * 2);
+        doc.text(text, PDF_MARGIN + i * colW + pad, y + 3, {
+          width: colW - pad * 2,
+          align: isNumericCell(value) ? "right" : "left",
+          lineBreak: false,
+        });
+      });
+      y += rowH;
+      doc
+        .save()
+        .moveTo(PDF_MARGIN, y)
+        .lineTo(PDF_MARGIN + usable, y)
+        .lineWidth(0.4)
+        .strokeColor("#eeeeee")
+        .stroke()
+        .restore();
+    }
+
+    if (rows.length === 0) {
+      doc
+        .font("Helvetica")
+        .fontSize(8.5)
+        .fillColor("#666666")
+        .text("No rows for this period.", PDF_MARGIN, y + 6, {
+          width: usable,
+          lineBreak: false,
+        });
+    }
+
+    // --- footer page numbers (buffered pages) ------------------------------
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc
+        .font("Helvetica")
+        .fontSize(8)
+        .fillColor("#666666")
+        .text(`Page ${i - range.start + 1} of ${range.count}`, PDF_MARGIN, doc.page.height - PDF_MARGIN - 14, {
+          width: usable,
+          align: "center",
+          lineBreak: false,
+        });
+    }
+
+    doc.end();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -427,9 +590,9 @@ function parseJson<T>(raw: string | null | undefined, fallback: T): T {
   }
 }
 
-function safeFilename(name: string, runDate: Date): string {
+function safeFilename(name: string, runDate: Date, ext: "csv" | "pdf" = "csv"): string {
   const base = (name || "report").replace(/[^a-zA-Z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
-  return `${base || "report"}_${localDate(runDate)}.csv`;
+  return `${base || "report"}_${localDate(runDate)}.${ext}`;
 }
 
 function summaryLine(data: ReportData): string {
@@ -439,10 +602,10 @@ function summaryLine(data: ReportData): string {
 
 /**
  * Execute one scheduled report for `userId`:
- * generate CSV → store file → record run (running → done) → queue one message
- * per recipient → advance `next_run_at` when triggered by the schedule → audit.
- * A 404 is thrown for a foreign/unknown report; generation failures store a
- * `failed` run and rethrow with a statusCode for the route.
+ * generate CSV/PDF → store file → record run (running → done) → queue one
+ * message per recipient → advance `next_run_at` when triggered by the
+ * schedule → audit. A 404 is thrown for a foreign/unknown report; generation
+ * failures store a `failed` run and rethrow with a statusCode for the route.
  */
 export async function runReport(
   userId: string,
@@ -476,24 +639,45 @@ export async function runReport(
 
   try {
     const data = await buildReportData(userId, report.reportType, now, daysBack);
-    const csv = buildCsv(data.columns, data.rows);
+    // format: "csv" (inline-able) | "pdf" (server-rendered A4, download only).
+    const isPdf = report.format === "pdf";
+    let bytes: Buffer;
+    let contentType: string;
+    if (isPdf) {
+      bytes = await buildPdf(data.columns, data.rows, report.name, {
+        generatedAt: now,
+        reportType: report.reportType,
+        from: data.from,
+        to: data.to,
+      });
+      contentType = "application/pdf";
+    } else {
+      bytes = Buffer.from(buildCsv(data.columns, data.rows), "utf8");
+      contentType = "text/csv";
+    }
     const file = await fileStorage.put({
       ownerId: userId,
       purpose: "scheduled-report",
-      filename: safeFilename(report.name, now),
-      contentType: "text/csv",
-      bytes: Buffer.from(csv, "utf8"),
+      filename: safeFilename(report.name, now, isPdf ? "pdf" : "csv"),
+      contentType,
+      bytes,
     });
 
     // --- delivery (best effort; messaging failures never fail the run) ---
     let delivered = 0;
     let deliveryFailed = 0;
     let firstEventId: string | null = null;
-    const inline = Buffer.byteLength(csv, "utf8") <= INLINE_CSV_LIMIT;
+    const csvInline = !isPdf ? bytes.toString("utf8") : null;
+    const inline = csvInline !== null && Buffer.byteLength(csvInline, "utf8") <= INLINE_CSV_LIMIT;
+    const tail = isPdf
+      ? "PDF available in Scheduled Reports (download it from the run history)."
+      : inline
+        ? csvInline
+        : "(CSV saved — open Scheduled Reports to download the file)";
     const body =
       `${report.name} — ${report.reportType} report, ${data.from} to ${data.to} ` +
       `(${data.rows.length} rows). ${summaryLine(data)}.\n\n` +
-      (inline ? csv : "(CSV saved — open Scheduled Reports to download the file)");
+      tail;
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
@@ -570,6 +754,7 @@ export async function runReport(
         runId,
         trigger,
         reportType: report.reportType,
+        format: report.format,
         rows: data.rows.length,
         delivered,
         deliveryFailed,
