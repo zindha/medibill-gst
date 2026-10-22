@@ -38,7 +38,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -67,12 +67,38 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+const VALID_TABS: ReportTab[] = ["sales", "stock", "purchase", "payments", "profit", "inventory", "tax", "party", "order"];
+
+function tabFromSearch(search: string): ReportTab | null {
+  const t = new URLSearchParams(search).get("tab");
+  return t && (VALID_TABS as string[]).includes(t) ? (t as ReportTab) : null;
+}
+
 export default function ReportsPage() {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<ReportTab>("sales");
+  // Honor ?tab= deep-links (dashboard "View entire list" buttons) on entry
+  // and on back/forward navigation — previously the param was ignored and
+  // every link landed on Sales, looking like "clicking does nothing".
+  const [activeTab, setActiveTab] = useState<ReportTab>(() => tabFromSearch(window.location.search) ?? "sales");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const t = tabFromSearch(`?${searchParams.toString()}`);
+    if (t && t !== activeTab) setActiveTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const selectTab = (v: ReportTab) => {
+    setActiveTab(v);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", v);
+      return next;
+    }, { replace: true });
+  };
 
   // Date range
   const [fromDate, setFromDate] = useState(() => {
@@ -375,7 +401,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as ReportTab)}>
+      <Tabs value={activeTab} onValueChange={v => selectTab(v as ReportTab)}>
         <TabsList className="grid grid-cols-9 w-full">
           {tabs.map(tab => (
             <TabsTrigger key={tab.value} value={tab.value} className="text-xs gap-1">

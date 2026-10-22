@@ -39,8 +39,8 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 interface NavItem {
   to: string;
@@ -152,6 +152,13 @@ function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
 export default function DashboardLayout() {
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset the content scroll on route change so tall pages start at the top.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname]);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // Server capability map (GET /api/devices/me). `null` = unknown/failed →
   // show every item (fail-open) so a missing capability never hides the app.
@@ -352,9 +359,9 @@ export default function DashboardLayout() {
         </div>
       </nav>
 
-      {/* Main Content — viewport-fit; pages own their internal region scroll */}
-      <main className="min-w-0 h-dvh flex-1 overflow-hidden pb-20 md:pb-0">
-        <div className="mx-auto flex h-full w-full max-w-7xl flex-col overflow-hidden px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
+      {/* Main Content — single scroll region; tall pages scroll, fit-pages keep inner scroll */}
+      <main className="min-w-0 h-dvh min-h-0 flex-1 overflow-hidden pb-20 md:pb-0">
+        <div ref={scrollRef} className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-y-auto px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <Outlet />
         </div>
         <p className="sr-only">Press Ctrl+K for the command palette, ? for all shortcuts.</p>
