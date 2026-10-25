@@ -26,6 +26,12 @@ const createMedicineSchema = z.object({
   rackLocation: z.string().optional(),
   minQuantity: z.number().int().min(0).default(10),
   reorderLevel: z.number().int().min(0).default(20),
+  // Reorder policy: stock ceiling, supplier lead time (days), demand
+  // averaging window (days) and a seasonal-demand flag.
+  maxQuantity: z.number().int().min(0).default(0),
+  reorderPointDays: z.number().int().min(0).default(0),
+  demandPeriodDays: z.number().int().min(0).default(30),
+  seasonal: z.boolean().optional().default(false),
   purchasePrice: z.number().min(0).default(0),
   sellingPrice: z.number().min(0).default(0),
   mrp: z.number().min(0).optional(),

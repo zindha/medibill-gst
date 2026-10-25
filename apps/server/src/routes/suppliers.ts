@@ -16,6 +16,9 @@ const createSupplierSchema = z.object({
   paymentTerms: z.string().optional(),
   creditLimit: z.number().min(0).optional(),
   openingBalance: z.number().min(0).default(0),
+  // The supplier's drug licence number and GSTIN verification state.
+  drugLicenseNo: z.string().optional(),
+  gstinVerified: z.boolean().optional().default(false),
 });
 
 export default async function supplierRoutes(fastify: FastifyInstance) {

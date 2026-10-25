@@ -4,8 +4,8 @@ import { authGuard, requireRole } from "../plugins/auth.js";
 import { getUserRole } from "../services/expiryPolicy.js";
 import { deleteSession } from "../lib/auth.js";
 import { db } from "../db/index.js";
-import { sessions, userDevices } from "../db/schema/index.js";
-import { eq } from "drizzle-orm";
+import { sessions, userDevices, users } from "../db/schema/index.js";
+import { eq, sql } from "drizzle-orm";
 import { auditEvents } from "../services/audit.js";
 import {
   activityFeed,
@@ -21,7 +21,7 @@ import {
  *
  * Guards:
  *  - `authGuard`            → register / list / capabilities (any role)
- *  - `requireRole("admin")` → revoke / restore / sessions / activity.
+ *  - `requireRole("admin")` → revoke / restore / revoke-all / sessions / activity.
  *    requireRole also runs the X-Device-Token revocation check, so a revoked
  *    device receives 401 before the role 403.
  *  - Device tokens are returned ONLY by POST /register; every list/monitoring
@@ -88,6 +88,45 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     });
     return reply.send({ success: true, data: device });
   });
+
+  // Revoke every device of one user and kill all of their sessions (admin).
+  // The user's device tokens keep failing authGuard/requireRole with 401
+  // "This device has been revoked"; their Bearer/cookie tokens die with the
+  // session rows.
+  fastify.post(
+    "/users/:userId/revoke-all",
+    { preHandler: [requireRole("admin")] },
+    async (request, reply) => {
+      const { userId } = request.params as { userId: string };
+      const existing = await db.query.users.findFirst({ where: eq(users.id, userId) });
+      if (!existing) return reply.status(404).send({ success: false, error: "User not found" });
+
+      const [deviceRow] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(userDevices)
+        .where(eq(userDevices.userId, userId));
+      const [sessionRow] = await db
+        .select({ total: sql<number>`COUNT(*)` })
+        .from(sessions)
+        .where(eq(sessions.userId, userId));
+
+      const devicesRevoked = Number(deviceRow.total);
+      const sessionsRevoked = Number(sessionRow.total);
+
+      await db.update(userDevices).set({ revoked: true }).where(eq(userDevices.userId, userId));
+      await db.delete(sessions).where(eq(sessions.userId, userId));
+
+      await auditEvents.record({
+        actorId: request.userId!,
+        action: "device.revoke_all",
+        entity: "user",
+        entityId: userId,
+        metadata: { devicesRevoked, sessionsRevoked },
+      });
+
+      return reply.send({ success: true, devicesRevoked, sessionsRevoked });
+    }
+  );
 
   // Remote session management (admin): every active session on this install.
   fastify.get("/sessions", { preHandler: [requireRole("admin")] }, async (_request, reply) => {

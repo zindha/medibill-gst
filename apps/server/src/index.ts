@@ -142,6 +142,9 @@ import dataMigrationRoutes from "./routes/dataMigrations.js";
 import bulkBillRoutes from "./routes/bulkBills.js";
 import integrationRoutes from "./routes/integrations.js";
 import scheduledReportRoutes from "./routes/scheduledReports.js";
+import expenseRoutes from "./routes/expenses.js";
+import staffRoutes from "./routes/staff.js";
+import orderbookRoutes from "./routes/orderbook.js";
 import { warmCatalog } from "./catalog/db.js";
 
 // Health check
@@ -198,6 +201,12 @@ const apiRoutes: [any, string][] = [
   [integrationRoutes, "/api/integrations"],
   // Task 17 — scheduled reports (CSV generation + outbox-backed delivery)
   [scheduledReportRoutes, "/api/scheduled-reports"],
+  // Business expenses (expense register with payees, item lines and GST split)
+  [expenseRoutes, "/api/expenses"],
+  // Staff & Access — the roster of the caller's store (admin-only)
+  [staffRoutes, "/api/staff"],
+  // Orderbook — distributor ordering workspace (POs, cart, shortbook)
+  [orderbookRoutes, "/api/orderbook"],
 ];
 
 for (const [routes, prefix] of apiRoutes) {

@@ -5,7 +5,7 @@ import {
   invoices, invoiceItems, invoiceBatchAllocations, customers, inventoryTransactions, batches, activityLog, payments, users,
   medicines, prescriptions, MESSAGE_CHANNELS, type Prescription,
 } from "../db/schema/index.js";
-import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 import { authGuard } from "../plugins/auth.js";
 import { generateId, INVENTORY_TRANSACTION_TYPES } from "../db/schema/index.js";
 import { selectBatchesFEFO, selectBatchesFIFO } from "./inventory.js";
@@ -21,6 +21,7 @@ import {
   loyaltyRedeem,
 } from "../services/customerEngagement.js";
 import { postSync, reverseSafely, saleJournalLines } from "../services/accounting.js";
+import { nextDocumentNumber } from "../services/numbering.js";
 
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 const normalizePaymentMode = (value?: string) => value?.toLowerCase() as "cash" | "card" | "upi" | "credit" | "other" | undefined;
@@ -88,25 +89,6 @@ const shareSchema = z.object({
   channels: z.array(z.enum(MESSAGE_CHANNELS)).min(1),
   customerId: z.string().min(1).optional(),
 });
-
-async function generateInvoiceNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `MB-${year}-`;
-
-  const lastInvoice = await db
-    .select({ invoiceNo: invoices.invoiceNo })
-    .from(invoices)
-    .where(sql`${invoices.invoiceNo} LIKE ${prefix + "%"}`)
-    .orderBy(desc(invoices.invoiceNo))
-    .limit(1);
-
-  let nextNum = 1;
-  if (lastInvoice.length > 0) {
-    const lastNum = parseInt(lastInvoice[0].invoiceNo.replace(prefix, ""), 10);
-    nextNum = lastNum + 1;
-  }
-  return `${prefix}${String(nextNum).padStart(6, "0")}`;
-}
 
 export default async function invoiceRoutes(fastify: FastifyInstance) {
   // List/search invoices
@@ -192,7 +174,8 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
   // exists so the header preview matches what the server will actually assign
   // instead of guessing from the tenant's own list.
   fastify.get("/next-number", { preHandler: [authGuard] }, async (_request, reply) => {
-    return reply.send({ success: true, data: { invoiceNo: await generateInvoiceNumber() } });
+    const { number: invoiceNo } = await nextDocumentNumber("invoice");
+    return reply.send({ success: true, data: { invoiceNo } });
   });
 
   // Create invoice (complete sale)
@@ -209,7 +192,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
     const data = parsed.data;
     const now = new Date();
     const invoiceDate = data.date ?? now.toISOString().split("T")[0];
-    const invoiceNo = await generateInvoiceNumber();
+    const invoiceNo = (await nextDocumentNumber("invoice")).number;
 
     // Recompute totals on the server; client totals are display hints only.
     const calculatedItems = data.items.map((item) => {

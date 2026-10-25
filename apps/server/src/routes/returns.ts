@@ -10,11 +10,56 @@ import {
   batches,
   inventoryTransactions,
   activityLog,
+  creditAccounts,
 } from "../db/schema/index.js";
-import { eq, and, desc, like } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { authGuard } from "../plugins/auth.js";
 import { generateId, INVENTORY_TRANSACTION_TYPES } from "../db/schema/index.js";
 import { postSafely, salesReturnJournalLines } from "../services/accounting.js";
+import { nextDocumentNumber } from "../services/numbering.js";
+
+/**
+ * Adds money the store owes the customer onto their running credit balance,
+ * creating the credit account row on first use.
+ */
+async function upsertCustomerCredit(
+  customerId: string,
+  amount: number,
+  date: string,
+  userId: string
+): Promise<void> {
+  if (!(amount > 0)) return;
+  const now = new Date();
+  const [existing] = await db
+    .select()
+    .from(creditAccounts)
+    .where(and(eq(creditAccounts.customerId, customerId), eq(creditAccounts.type, "customer")))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(creditAccounts)
+      .set({
+        balance: (existing.balance ?? 0) + amount,
+        lastTransactionDate: date,
+        updatedAt: now,
+      })
+      .where(eq(creditAccounts.id, existing.id));
+    return;
+  }
+
+  await db.insert(creditAccounts).values({
+    id: generateId(),
+    customerId,
+    supplierId: null,
+    type: "customer",
+    balance: amount,
+    lastTransactionDate: date,
+    createdBy: userId,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
 
 const returnItemSchema = z.object({
   invoiceItemId: z.string().optional(),
@@ -51,25 +96,6 @@ const createReturnSchema = z.object({
   grandTotal: z.number().min(0),
   refundAmount: z.number().min(0).default(0),
 });
-
-async function generateReturnNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `RET-${year}-`;
-
-  const last = await db
-    .select({ returnNo: salesReturns.returnNo })
-    .from(salesReturns)
-    .where(like(salesReturns.returnNo, prefix + "%"))
-    .orderBy(desc(salesReturns.returnNo))
-    .limit(1);
-
-  let nextNum = 1;
-  if (last.length > 0) {
-    const num = parseInt(last[0].returnNo.replace(prefix, ""), 10);
-    nextNum = num + 1;
-  }
-  return `${prefix}${String(nextNum).padStart(6, "0")}`;
-}
 
 export default async function returnsRoutes(fastify: FastifyInstance) {
   // List returns
@@ -139,7 +165,7 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
 
     try {
       // Generate return number
-      const returnNo = await generateReturnNumber();
+      const returnNo = (await nextDocumentNumber("saleReturn")).number;
 
       // Create return record
       const [ret] = await db
@@ -223,25 +249,13 @@ export default async function returnsRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // If invoice was paid or partially paid, add to customer credit
+      // A refund is money the store now OWES the customer, so it is tracked as
+      // a customer credit (credit_accounts.balance), never added to
+      // customers.balance — that column is what the customer owes us, and the
+      // journal above already credits accounts receivable for this amount.
+      // Adding both places credited the customer twice for one return.
       if (invoice.customerId && data.refundMode === "credit") {
-        const [customer] = await db
-          .select()
-          .from(customers)
-          .where(and(eq(customers.id, invoice.customerId), eq(customers.createdBy, request.userId!)))
-          .limit(1);
-
-        if (customer) {
-          await db
-            .update(customers)
-            .set(
-              {
-                balance: (customer.balance ?? 0) + data.refundAmount,
-                updatedAt: now,
-              }
-            )
-            .where(eq(customers.id, invoice.customerId));
-        }
+        await upsertCustomerCredit(invoice.customerId, data.refundAmount, ret.date, request.userId!);
       }
 
       // Log activity

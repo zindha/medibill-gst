@@ -11,12 +11,13 @@ import {
   inventoryTransactions,
   activityLog,
 } from "../db/schema/index.js";
-import { eq, and, desc, like, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { authGuard } from "../plugins/auth.js";
 import { generateId, INVENTORY_TRANSACTION_TYPES } from "../db/schema/index.js";
 import { getUserRole } from "../services/expiryPolicy.js";
 import { auditEvents } from "../services/audit.js";
 import { postSync, purchaseReturnJournalLines } from "../services/accounting.js";
+import { nextDocumentNumber } from "../services/numbering.js";
 
 const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
@@ -42,26 +43,6 @@ const createReturnSchema = z.object({
   refundMode: z.enum(["cash", "card", "upi", "credit", "other"]).optional(),
   items: z.array(returnItemSchema).min(1),
 });
-
-/** PR-YYYY-NNNNNN — distinct from the sales-return RET-YYYY-NNNNNN series. */
-async function generatePurchaseReturnNumber(): Promise<string> {
-  const year = new Date().getFullYear();
-  const prefix = `PR-${year}-`;
-
-  const last = await db
-    .select({ returnNo: purchaseReturns.returnNo })
-    .from(purchaseReturns)
-    .where(like(purchaseReturns.returnNo, prefix + "%"))
-    .orderBy(desc(purchaseReturns.returnNo))
-    .limit(1);
-
-  let nextNum = 1;
-  if (last.length > 0) {
-    const num = parseInt(last[0].returnNo.replace(prefix, ""), 10);
-    nextNum = num + 1;
-  }
-  return `${prefix}${String(nextNum).padStart(6, "0")}`;
-}
 
 export default async function purchaseReturnRoutes(fastify: FastifyInstance) {
   // List purchase returns (tenant-scoped, date/supplier filters, paginated)
@@ -283,7 +264,7 @@ export default async function purchaseReturnRoutes(fastify: FastifyInstance) {
     const grandTotal = round2(resolved.reduce((sum, r) => sum + r.amount, 0));
     const subtotal = round2(grandTotal - totalGst);
     const refundAmount = round2(data.refundAmount ?? grandTotal);
-    const returnNo = await generatePurchaseReturnNumber();
+    const returnNo = (await nextDocumentNumber("purchaseReturn")).number;
 
     // ── ONE transaction: return + items + stock out + balance + journal. ───
     let accountingFailure: unknown = null;

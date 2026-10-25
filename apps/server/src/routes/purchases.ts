@@ -22,8 +22,13 @@ const purchaseItemSchema = z.object({
   freeQuantity: z.number().int().min(0).default(0),
   unit: z.string().optional(),
   rate: z.number().min(0),
-  amount: z.number().min(0),
-  gstRate: z.enum(["0", "5", "12", "18", "28"]).default("12"),
+  // The line amount is derived server-side (quantity × rate × markup −
+  // discount), so a client-supplied amount is informational only.
+  amount: z.number().min(0).optional(),
+  // Percentage uplift on the unit rate (e.g. 10 → +10 %).
+  markup: z.number().min(0).default(0),
+  // Omitted → taken from the medicine master.
+  gstRate: z.enum(["0", "5", "12", "18", "28"]).optional(),
   gstAmount: z.number().min(0).default(0),
   cgst: z.number().min(0).default(0),
   sgst: z.number().min(0).default(0),
@@ -34,22 +39,35 @@ const purchaseItemSchema = z.object({
 const createPurchaseSchema = z.object({
   supplierId: z.string().optional(),
   supplierName: z.string().optional(),
+  // The supplier's own invoice number — unique per supplier.
+  supplierInvoiceNo: z.string().min(1).max(64).optional(),
   billNo: z.string().min(1),
   billDate: z.string().optional(),
   dueDate: z.string().optional(),
   items: z.array(purchaseItemSchema).min(1),
-  subtotal: z.number().min(0),
-  totalGst: z.number().min(0),
+  // Totals are recomputed server-side from the lines; client values are ignored.
+  subtotal: z.number().min(0).optional(),
+  totalGst: z.number().min(0).optional(),
   discountAmount: z.number().min(0).default(0),
-  grandTotal: z.number().min(0),
+  grandTotal: z.number().min(0).optional(),
   amountPaid: z.number().min(0).default(0),
-  paymentMode: z.enum(["cash", "card", "upi", "credit", "other"]).optional(),
+  paymentMode: z.enum(["cash", "card", "upi", "credit", "other", "bank_transfer", "cheque"]).optional(),
+  // Goods outside the GST regime (exempt / non-GST supply): every line's
+  // tax is zeroed and the bill total carries no GST.
+  outsideGst: z.boolean().optional().default(false),
   notes: z.string().optional(),
   // Expiry Safety Policy (Task 5): blocked incoming expiry may be overridden
   // by an allowed role with an explicit reason (audited).
   overrideExpiry: z.boolean().optional().default(false),
   overrideReason: z.string().optional(),
 });
+
+const settleSchema = z.object({
+  amount: z.number().positive(),
+  mode: z.enum(["cash", "card", "upi", "credit", "other", "bank_transfer", "cheque"]).optional(),
+});
+
+const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export default async function purchaseRoutes(fastify: FastifyInstance) {
   // List purchase bills
@@ -147,13 +165,16 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       }
     }
 
+    // Medicine ownership + master data (HSN, GST rate) in one query.
     const medicineIds = [...new Set(data.items.map((i) => i.medicineId).filter(Boolean))] as string[];
+    const masterById = new Map<string, { id: string; hsnCode: string | null; gstRate: string | null }>();
     if (medicineIds.length > 0) {
-      const owned = await db.select({ id: medicines.id }).from(medicines)
+      const owned = await db.select({ id: medicines.id, hsnCode: medicines.hsnCode, gstRate: medicines.gstRate }).from(medicines)
         .where(and(inArray(medicines.id, medicineIds), eq(medicines.createdBy, request.userId!)));
       if (owned.length !== medicineIds.length) {
         return reply.status(400).send({ success: false, error: "Medicine not found" });
       }
+      for (const m of owned) masterById.set(m.id, m);
     }
     if (data.supplierId) {
       const [supplier] = await db.select({ id: suppliers.id }).from(suppliers)
@@ -161,27 +182,80 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       if (!supplier) return reply.status(400).send({ success: false, error: "Supplier not found" });
     }
 
+    // A supplier invoice may be booked once per supplier (partial unique index
+    // `purchase_bills_supplier_invoice_unique` enforces the same rule).
+    if (data.supplierId && data.supplierInvoiceNo) {
+      const [duplicate] = await db.select({ id: purchaseBills.id }).from(purchaseBills)
+        .where(and(
+          eq(purchaseBills.supplierId, data.supplierId),
+          eq(purchaseBills.supplierInvoiceNo, data.supplierInvoiceNo),
+        ))
+        .limit(1);
+      if (duplicate) {
+        return reply.status(409).send({
+          success: false,
+          error: `A purchase bill with supplier invoice number ${data.supplierInvoiceNo} already exists for this supplier`,
+        });
+      }
+    }
+
+    // Line math: markup lifts the unit cost, the line discount comes off the
+    // line total. HSN / GST rate fall back to the medicine master, and a bill
+    // outside the GST regime zeroes every tax amount.
+    const outsideGst = data.outsideGst === true;
+    const lines = data.items.map((item) => {
+      const master = item.medicineId ? masterById.get(item.medicineId) : undefined;
+      const markup = item.markup ?? 0;
+      const unitCost = round2(item.rate * (1 + markup / 100));
+      const lineAmount = Math.max(0, round2(item.quantity * unitCost) - (item.discountAmount ?? 0));
+      return {
+        ...item,
+        hsnCode: item.hsnCode ?? master?.hsnCode ?? null,
+        gstRate: outsideGst ? "0" : (item.gstRate ?? master?.gstRate ?? "12"),
+        markup,
+        unitCost,
+        lineAmount,
+        gstAmount: outsideGst ? 0 : (item.gstAmount ?? 0),
+        cgst: outsideGst ? 0 : (item.cgst ?? 0),
+        sgst: outsideGst ? 0 : (item.sgst ?? 0),
+      };
+    });
+
+    const subtotal = round2(lines.reduce((sum, line) => sum + line.lineAmount, 0));
+    const totalGst = round2(lines.reduce((sum, line) => sum + line.gstAmount, 0));
+    const grandTotal = round2(Math.max(0, subtotal + totalGst - (data.discountAmount ?? 0)));
+    const amountPaid = round2(data.amountPaid);
+    if (amountPaid > grandTotal + 0.001) {
+      return reply.status(400).send({
+        success: false,
+        error: `amountPaid cannot be greater than the bill total (${grandTotal})`,
+      });
+    }
+    const paymentStatus = amountPaid >= grandTotal ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
+
     try {
       const [bill] = await db.insert(purchaseBills).values({
         billNo: data.billNo,
         supplierId: data.supplierId,
         supplierName: data.supplierName,
+        supplierInvoiceNo: data.supplierInvoiceNo ?? null,
+        outsideGst,
         billDate,
         dueDate: data.dueDate,
-        subtotal: data.subtotal,
-        totalGst: data.totalGst,
+        subtotal,
+        totalGst,
         discountAmount: data.discountAmount,
-        grandTotal: data.grandTotal,
-        amountPaid: data.amountPaid,
+        grandTotal,
+        amountPaid,
         paymentMode: data.paymentMode,
-        paymentStatus: data.amountPaid >= data.grandTotal ? "paid" : data.amountPaid > 0 ? "partial" : "unpaid",
+        paymentStatus,
         notes: data.notes,
         createdBy: request.userId!,
         createdAt: now,
         updatedAt: now,
       }).returning();
 
-      for (const item of data.items) {
+      for (const item of lines) {
         await db.insert(purchaseBillItems).values({
           purchaseBillId: bill.id,
           medicineId: item.medicineId,
@@ -194,7 +268,8 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
           freeQuantity: item.freeQuantity,
           unit: item.unit,
           rate: item.rate,
-          amount: item.amount,
+          amount: item.lineAmount,
+          markup: item.markup,
           gstRate: item.gstRate as any,
           gstAmount: item.gstAmount,
           cgst: item.cgst,
@@ -220,7 +295,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
               type: INVENTORY_TRANSACTION_TYPES.PURCHASE,
               quantity: item.quantity + item.freeQuantity,
               balanceAfter: newQty,
-              rate: item.rate,
+              rate: item.unitCost,
               reference: data.billNo,
               createdBy: request.userId!,
               createdAt: now,
@@ -231,9 +306,9 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
             medicineId: item.medicineId,
             batchNo: item.batchNo,
             expiryDate: item.expiryDate,
-            mrp: item.mrp ?? item.rate * 2,
-            purchasePrice: item.rate,
-            sellingPrice: item.mrp ?? item.rate * 2,
+            mrp: item.mrp ?? item.unitCost * 2,
+            purchasePrice: item.unitCost,
+            sellingPrice: item.mrp ?? item.unitCost * 2,
             quantity: item.quantity + item.freeQuantity,
             initialQuantity: item.quantity + item.freeQuantity,
             freeQuantity: item.freeQuantity,
@@ -251,7 +326,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
             type: INVENTORY_TRANSACTION_TYPES.PURCHASE,
             quantity: item.quantity + item.freeQuantity,
             balanceAfter: item.quantity + item.freeQuantity,
-            rate: item.rate,
+            rate: item.unitCost,
             reference: data.billNo,
             createdBy: request.userId!,
             createdAt: now,
@@ -259,12 +334,12 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
         }
       }
 
-      if (data.amountPaid > 0) {
+      if (amountPaid > 0) {
         await db.insert(payments).values({
           id: generateId(),
           date: billDate,
           type: "paid",
-          amount: data.amountPaid,
+          amount: amountPaid,
           supplierId: data.supplierId,
           reference: data.billNo,
           description: `Payment for purchase bill ${data.billNo}`,
@@ -279,7 +354,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
           .where(and(eq(suppliers.id, data.supplierId), eq(suppliers.createdBy, request.userId!))).limit(1);
         if (supplier) {
           await db.update(suppliers).set({
-            balance: (supplier.balance ?? 0) + (data.grandTotal - data.amountPaid),
+            balance: (supplier.balance ?? 0) + (grandTotal - amountPaid),
             updatedAt: now,
           }).where(and(eq(suppliers.id, data.supplierId), eq(suppliers.createdBy, request.userId!)));
         }
@@ -291,7 +366,7 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
         action: "CREATE",
         entity: "purchase_bill",
         entityId: bill.id,
-        details: `Purchase bill ${data.billNo} created for ₹${data.grandTotal}`,
+        details: `Purchase bill ${data.billNo} created for ₹${grandTotal}`,
         createdAt: now,
       });
 
@@ -305,8 +380,8 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
           sourceId: bill.id,
           description: data.billNo,
           lines: purchaseJournalLines({
-            grandTotal: data.grandTotal,
-            totalGst: data.totalGst,
+            grandTotal,
+            totalGst,
             paymentMode: data.paymentMode,
             supplierId: data.supplierId,
           }),
@@ -317,7 +392,88 @@ export default async function purchaseRoutes(fastify: FastifyInstance) {
       return reply.status(201).send({ success: true, data: bill, warnings: evaluation.warnings });
     } catch (error: any) {
       fastify.log.error(error);
+      const message = String(error?.message ?? "");
+      // The partial unique index is the race-safe backstop for the duplicate
+      // check above.
+      if (message.includes("purchase_bills.supplier_invoice_no")) {
+        return reply.status(409).send({
+          success: false,
+          error: `A purchase bill with supplier invoice number ${data.supplierInvoiceNo} already exists for this supplier`,
+        });
+      }
+      if (message.includes("purchase_bills.bill_no")) {
+        return reply.status(409).send({
+          success: false,
+          error: `A purchase bill with bill number ${data.billNo} already exists`,
+        });
+      }
       return reply.status(500).send({ success: false, error: `Unable to create purchase bill: ${error.message}` });
     }
+  });
+
+  // Settle a purchase bill: record a payment against the outstanding amount.
+  fastify.post("/:id/settle", { preHandler: [authGuard] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = settleSchema.safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ success: false, error: "Validation error", details: parsed.error.flatten() });
+
+    const [bill] = await db.select().from(purchaseBills)
+      .where(and(eq(purchaseBills.id, id), eq(purchaseBills.createdBy, request.userId!))).limit(1);
+    if (!bill) return reply.status(404).send({ success: false, error: "Purchase bill not found" });
+
+    const now = new Date();
+    const amount = round2(parsed.data.amount);
+    const grandTotal = round2(bill.grandTotal ?? 0);
+    const alreadyPaid = round2(bill.amountPaid ?? 0);
+    const outstanding = round2(Math.max(0, grandTotal - alreadyPaid));
+    if (amount > outstanding + 0.001) {
+      return reply.status(400).send({
+        success: false,
+        error: `Settlement amount exceeds the outstanding balance of ${outstanding}`,
+        outstanding,
+      });
+    }
+
+    const amountPaid = round2(alreadyPaid + amount);
+    const paymentStatus = amountPaid >= grandTotal ? "paid" : amountPaid > 0 ? "partial" : "unpaid";
+    const [updated] = await db.update(purchaseBills)
+      .set({ amountPaid, paymentStatus, updatedAt: now })
+      .where(and(eq(purchaseBills.id, id), eq(purchaseBills.createdBy, request.userId!)))
+      .returning();
+
+    await db.insert(payments).values({
+      id: generateId(),
+      date: now.toISOString().split("T")[0],
+      type: "paid",
+      amount,
+      supplierId: bill.supplierId,
+      reference: bill.billNo,
+      description: `Settlement for purchase bill ${bill.billNo}`,
+      paymentMode: parsed.data.mode ?? bill.paymentMode ?? "cash",
+      createdBy: request.userId!,
+      createdAt: now,
+    });
+
+    if (bill.supplierId) {
+      const [supplier] = await db.select().from(suppliers)
+        .where(and(eq(suppliers.id, bill.supplierId), eq(suppliers.createdBy, request.userId!))).limit(1);
+      if (supplier) {
+        await db.update(suppliers)
+          .set({ balance: Math.max(0, round2((supplier.balance ?? 0) - amount)), updatedAt: now })
+          .where(and(eq(suppliers.id, bill.supplierId), eq(suppliers.createdBy, request.userId!)));
+      }
+    }
+
+    await db.insert(activityLog).values({
+      id: generateId(),
+      userId: request.userId!,
+      action: "UPDATE",
+      entity: "purchase_bill",
+      entityId: bill.id,
+      details: `Purchase bill ${bill.billNo} settled by ₹${amount}`,
+      createdAt: now,
+    });
+
+    return reply.send({ success: true, data: updated });
   });
 }

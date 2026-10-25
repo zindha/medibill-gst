@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db } from "../db/index.js";
-import { customers, payments } from "../db/schema/index.js";
+import { customers, payments, invoices, salesReturns, creditAccounts } from "../db/schema/index.js";
 import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { authGuard } from "../plugins/auth.js";
 import { foldText, searchPattern } from "../lib/normalizeSearch.js";
@@ -106,19 +106,107 @@ export default async function customerRoutes(fastify: FastifyInstance) {
     return reply.send({ success: true, data: { message: "Customer removed" } });
   });
 
-  // Get customer ledger
+  // Customer ledger — every movement that affects what this customer owes.
   fastify.get("/:id/ledger", { preHandler: [authGuard] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { from, to } = request.query as { from?: string; to?: string };
-    const [customer] = await db.select({ id: customers.id }).from(customers)
+    const [customer] = await db.select().from(customers)
       .where(and(eq(customers.id, id), eq(customers.createdBy, request.userId!))).limit(1);
     if (!customer) return reply.status(404).send({ success: false, error: "Customer not found" });
 
-    let ledger = await db.select().from(payments)
-      .where(and(eq(payments.customerId, id), eq(payments.createdBy, request.userId!)))
-      .orderBy(sql`${payments.date} DESC`);
-    if (from) ledger = ledger.filter(p => p.date >= from);
-    if (to) ledger = ledger.filter(p => p.date <= to);
-    return reply.send({ success: true, data: ledger });
+    const within = (date: string) => (!from || date >= from) && (!to || date <= to);
+
+    const invoiceRows = await db.select().from(invoices)
+      .where(and(eq(invoices.customerId, id), eq(invoices.createdBy, request.userId!),
+        sql`${invoices.cancelledAt} IS NULL`));
+    const returnRows = await db.select().from(salesReturns)
+      .where(and(eq(salesReturns.createdBy, request.userId!),
+        // returns are linked to this customer through their invoice
+        sql`${salesReturns.invoiceId} IN (SELECT id FROM invoices WHERE customer_id = ${id})`));
+    const paymentRows = await db.select().from(payments)
+      .where(and(eq(payments.customerId, id), eq(payments.createdBy, request.userId!),
+        sql`${payments.voided} IS NOT TRUE`));
+
+    type Entry = {
+      date: string;
+      type: string;
+      documentNumber: string;
+      reference: string;
+      debit: number;
+      credit: number;
+      amount: number;
+      balance: number;
+    };
+
+    const raw: Omit<Entry, "balance">[] = [];
+    let openingDebits = 0;
+    let openingCredits = 0;
+
+    for (const inv of invoiceRows) {
+      if (!within(inv.date)) continue;
+      const amount = inv.grandTotal ?? 0;
+      openingDebits += amount;
+      raw.push({
+        date: inv.date, type: "invoice", documentNumber: inv.invoiceNo,
+        reference: inv.paymentMode ?? "", debit: amount, credit: 0, amount,
+      });
+    }
+
+    for (const ret of returnRows) {
+      if (!within(ret.date)) continue;
+      const amount = ret.grandTotal ?? 0;
+      openingCredits += amount;
+      raw.push({
+        date: ret.date, type: "sales_return", documentNumber: ret.returnNo,
+        reference: ret.reason ?? "", debit: 0, credit: amount, amount,
+      });
+    }
+
+    for (const pay of paymentRows) {
+      if (!within(pay.date)) continue;
+      // Only money received against what the customer owes reduces the balance.
+      if (pay.type !== "received") continue;
+      const amount = pay.amount ?? 0;
+      openingCredits += amount;
+      raw.push({
+        date: pay.date, type: "payment", documentNumber: pay.reference ?? "—",
+        reference: pay.description ?? "", debit: 0, credit: amount, amount,
+      });
+    }
+
+    raw.sort((a, b) => (a.date === b.date ? a.documentNumber.localeCompare(b.documentNumber) : a.date.localeCompare(b.date)));
+
+    let running = 0;
+    const entries: Entry[] = raw.map((e) => {
+      running += e.debit - e.credit;
+      return { ...e, balance: running };
+    });
+
+    const [creditRow] = await db.select().from(creditAccounts)
+      .where(and(eq(creditAccounts.customerId, id), eq(creditAccounts.type, "customer"))).limit(1);
+
+    const totalDebits = raw.reduce((s, e) => s + e.debit, 0);
+    const totalCredits = raw.reduce((s, e) => s + e.credit, 0);
+    const outstandingInvoices = invoiceRows.reduce(
+      (s, inv) => s + Math.max(0, (inv.grandTotal ?? 0) - (inv.amountPaid ?? 0)), 0
+    );
+
+    return reply.send({
+      success: true,
+      data: {
+        customer: { id: customer.id, name: customer.name, phone: customer.phone },
+        entries,
+        totals: {
+          openingBalance: 0,
+          totalDebits,
+          totalCredits,
+          closingBalance: totalDebits - totalCredits,
+          creditBalance: creditRow?.balance ?? 0,
+          outstandingInvoices,
+        },
+        note: "Quotations are not part of this ledger because they are not payable; only invoices, sale returns and payments move the balance.",
+        range: { from: from ?? null, to: to ?? null },
+      },
+    });
   });
 }

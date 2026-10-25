@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 // ---------------------------------------------------------------------------
@@ -170,6 +171,10 @@ export const suppliers = sqliteTable(
     creditLimit: real("credit_limit"),
     openingBalance: real("opening_balance").default(0),
     balance: real("balance").default(0), // positive = we owe supplier
+    // Drug licence number of the supplier (state licence / dealer licence).
+    drugLicenseNo: text("drug_license_no"),
+    // The supplier's GSTIN was verified against the portal.
+    gstinVerified: integer("gstin_verified", { mode: "boolean" }).notNull().default(false),
     isActive: integer("is_active", { mode: "boolean" }).default(true),
     createdBy: text("created_by")
       .notNull()
@@ -278,6 +283,12 @@ export const medicines = sqliteTable(
     rackLocation: text("rack_location"),
     minQuantity: integer("min_quantity").default(10),
     reorderLevel: integer("reorder_level").default(20),
+    // Reorder policy: stock ceiling, supplier lead time in days, demand
+    // averaging window and a seasonal-demand flag.
+    maxQuantity: integer("max_quantity").notNull().default(0),
+    reorderPointDays: integer("reorder_point_days").notNull().default(0),
+    demandPeriodDays: integer("demand_period_days").notNull().default(30),
+    seasonal: integer("seasonal", { mode: "boolean" }).notNull().default(false),
     purchasePrice: real("purchase_price").default(0),
     sellingPrice: real("selling_price").default(0),
     mrp: real("mrp"),
@@ -313,6 +324,8 @@ export const batches = sqliteTable(
       .notNull()
       .references(() => medicines.id),
     batchNo: text("batch_no").notNull(),
+    // Batch-level barcode (printed on the lot label) — scan-to-increment counting.
+    barcode: text("barcode"),
     expiryDate: text("expiry_date").notNull(), // ISO date string YYYY-MM-DD
     mrp: real("mrp").notNull(),
     purchasePrice: real("purchase_price").notNull(),
@@ -634,6 +647,10 @@ export const purchaseBills = sqliteTable(
     billNo: text("bill_no").notNull().unique(),
     supplierId: text("supplier_id").references(() => suppliers.id),
     supplierName: text("supplier_name"),
+    // The supplier's own invoice number — unique per supplier (partial index).
+    supplierInvoiceNo: text("supplier_invoice_no"),
+    // Goods outside the GST regime: every line's tax is zeroed.
+    outsideGst: integer("outside_gst", { mode: "boolean" }).notNull().default(false),
     billDate: text("bill_date").notNull(),
     dueDate: text("due_date"),
     subtotal: real("subtotal").notNull().default(0),
@@ -661,6 +678,11 @@ export const purchaseBills = sqliteTable(
     index("purchase_bills_supplier_idx").on(table.supplierId),
     index("purchase_bills_date_idx").on(table.billDate),
     index("purchase_bills_created_by_idx").on(table.createdBy),
+    // A supplier invoice may be booked once per supplier. Partial: rows
+    // without an invoice number keep a NULL and stay valid.
+    uniqueIndex("purchase_bills_supplier_invoice_unique")
+      .on(table.supplierId, table.supplierInvoiceNo)
+      .where(sql`${table.supplierInvoiceNo} IS NOT NULL`),
   ]
 );
 
@@ -685,6 +707,8 @@ export const purchaseBillItems = sqliteTable(
     unit: text("unit"),
     rate: real("rate").notNull(),
     amount: real("amount").notNull(),
+    // Percentage uplift applied to the unit rate before the line discount.
+    markup: real("markup").notNull().default(0),
     gstRate: text("gst_rate").$type<GstRate>().default("12"),
     gstAmount: real("gst_amount").notNull().default(0),
     cgst: real("cgst").notNull().default(0),
@@ -1415,6 +1439,8 @@ export const stockAuditCounts = sqliteTable(
     expectedQuantity: real("expected_quantity").notNull(),
     countedQuantity: real("counted_quantity").notNull(),
     recount: real("recount"),
+    // Counter's per-batch remark (damaged, expired on shelf…).
+    reason: text("reason"),
     countedAt: integer("counted_at", { mode: "timestamp" }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .$defaultFn(() => new Date())
@@ -2081,3 +2107,559 @@ export const scheduledReportRuns = sqliteTable(
 
 export type ScheduledReportRun = typeof scheduledReportRuns.$inferSelect;
 export type NewScheduledReportRun = typeof scheduledReportRuns.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Business Expenses
+// ---------------------------------------------------------------------------
+
+/** Categories offered by the Business Expenses screen. */
+export const EXPENSE_CATEGORIES = [
+  "Rent",
+  "Salaries",
+  "Electricity",
+  "Maintenance",
+  "Transport",
+  "Packaging",
+  "Marketing",
+  "Professional Fees",
+  "Office Supplies",
+  "Bank Charges",
+  "Other",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/** Reusable payee of a business expense (landlord, vendor, staff payer…). */
+export const expenseParties = sqliteTable(
+  "expense_parties",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    name: text("name").notNull(),
+    gstin: text("gstin"),
+    address: text("address"),
+    district: text("district"),
+    state: text("state"),
+    // Two-digit GST state code (first two digits of the GSTIN) — drives the
+    // CGST+SGST vs IGST split of the expense.
+    stateCode: text("state_code"),
+    phone: text("phone"),
+    email: text("email"),
+    isCompositionDealer: integer("is_composition_dealer", { mode: "boolean" })
+      .notNull()
+      .default(false),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("expense_parties_owner_idx").on(table.createdBy, table.isActive),
+    index("expense_parties_name_idx").on(table.name),
+  ]
+);
+
+export type ExpenseParty = typeof expenseParties.$inferSelect;
+export type NewExpenseParty = typeof expenseParties.$inferInsert;
+
+/** A business expense — its own record, not a payment row. */
+export const expenses = sqliteTable(
+  "expenses",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    // Server-generated, per owner and per month: EXP-YYYYMM-NNNN.
+    number: text("number").notNull(),
+    date: text("date").notNull(), // ISO date string
+    category: text("category").notNull(),
+    description: text("description"),
+    partyId: text("party_id").references(() => expenseParties.id),
+    invoiceNo: text("invoice_no"),
+    isGst: integer("is_gst", { mode: "boolean" }).notNull().default(false),
+    subtotal: real("subtotal").notNull().default(0),
+    taxAmount: real("tax_amount").notNull().default(0),
+    roundOff: real("round_off").notNull().default(0),
+    total: real("total").notNull().default(0),
+    paymentMode: text("payment_mode").$type<PaymentMode>(),
+    paymentRef: text("payment_ref"),
+    paymentDate: text("payment_date"),
+    notes: text("notes"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("expenses_date_idx").on(table.date),
+    index("expenses_owner_idx").on(table.createdBy),
+    index("expenses_party_idx").on(table.partyId),
+  ]
+);
+
+export type Expense = typeof expenses.$inferSelect;
+export type NewExpense = typeof expenses.$inferInsert;
+
+/** One spend line of an expense (own GST rate, HSN and amount). */
+export const expenseItems = sqliteTable(
+  "expense_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    expenseId: text("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    hsn: text("hsn"),
+    gstRate: real("gst_rate").notNull().default(0),
+    quantity: real("quantity").notNull().default(1),
+    unit: text("unit"),
+    unitRate: real("unit_rate").notNull().default(0),
+    taxAmount: real("tax_amount").notNull().default(0),
+    amount: real("amount").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [index("expense_items_expense_idx").on(table.expenseId)]
+);
+
+export type ExpenseItem = typeof expenseItems.$inferSelect;
+export type NewExpenseItem = typeof expenseItems.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Orderbook — distributor ordering workspace
+// ---------------------------------------------------------------------------
+export const ORDERBOOK_PO_STATUSES = {
+  DRAFT: "draft",
+  SENT: "sent",
+  CONFIRMED: "confirmed",
+  PARTIAL: "partial",
+  RECEIVED: "received",
+  CANCELLED: "cancelled",
+} as const;
+export type OrderbookPoStatus =
+  (typeof ORDERBOOK_PO_STATUSES)[keyof typeof ORDERBOOK_PO_STATUSES];
+
+/** A distributor the pharmacy orders from (optionally linked to a supplier master row). */
+export const orderbookDistributors = sqliteTable(
+  "orderbook_distributors",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    supplierId: text("supplier_id").references(() => suppliers.id),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    city: text("city"),
+    pincode: text("pincode"),
+    connectionStatus: text("connection_status").notNull().default("offline"), // connected | pending | offline
+    creditTerms: text("credit_terms"),
+    creditLimit: real("credit_limit").default(0),
+    outstanding: real("outstanding").default(0), // positive = we owe the distributor
+    priceListVersion: text("price_list_version"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("orderbook_distributors_owner_idx").on(table.createdBy)]
+);
+
+export type OrderbookDistributor = typeof orderbookDistributors.$inferSelect;
+export type NewOrderbookDistributor = typeof orderbookDistributors.$inferInsert;
+
+/** Purchase order raised against a distributor from the orderbook workspace. */
+export const orderbookPurchaseOrders = sqliteTable(
+  "orderbook_purchase_orders",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    distributorId: text("distributor_id")
+      .notNull()
+      .references(() => orderbookDistributors.id, { onDelete: "cascade" }),
+    number: text("number").notNull(), // OB-YYYYMM-NNNN
+    status: text("status").$type<OrderbookPoStatus>().notNull().default("draft"),
+    orderDate: text("order_date").notNull(), // ISO date
+    expectedDate: text("expected_date"),
+    total: real("total").notNull().default(0),
+    notes: text("notes"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("orderbook_po_owner_idx").on(table.createdBy),
+    index("orderbook_po_distributor_idx").on(table.distributorId),
+    index("orderbook_po_status_idx").on(table.status),
+  ]
+);
+
+export type OrderbookPurchaseOrder = typeof orderbookPurchaseOrders.$inferSelect;
+export type NewOrderbookPurchaseOrder = typeof orderbookPurchaseOrders.$inferInsert;
+
+/** Line item of an orderbook purchase order. */
+export const orderbookPoItems = sqliteTable(
+  "orderbook_po_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    poId: text("po_id")
+      .notNull()
+      .references(() => orderbookPurchaseOrders.id, { onDelete: "cascade" }),
+    medicineId: text("medicine_id").references(() => medicines.id),
+    name: text("name").notNull(),
+    pack: text("pack"),
+    quantity: real("quantity").notNull().default(1),
+    freeQuantity: real("free_quantity").notNull().default(0),
+    rate: real("rate").notNull().default(0),
+    receivedQuantity: real("received_quantity").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [index("orderbook_po_items_po_idx").on(table.poId)]
+);
+
+export type OrderbookPoItem = typeof orderbookPoItems.$inferSelect;
+export type NewOrderbookPoItem = typeof orderbookPoItems.$inferInsert;
+
+/** An item that was demanded but not (fully) supplied by the distributor. */
+export const orderbookShortbookItems = sqliteTable(
+  "orderbook_shortbook_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    poId: text("po_id").references(() => orderbookPurchaseOrders.id, {
+      onDelete: "set null",
+    }),
+    poItemId: text("po_item_id").references(() => orderbookPoItems.id, {
+      onDelete: "set null",
+    }),
+    medicineId: text("medicine_id").references(() => medicines.id),
+    name: text("name").notNull(),
+    pack: text("pack"),
+    demandedQuantity: real("demanded_quantity").notNull().default(0),
+    suppliedQuantity: real("supplied_quantity").notNull().default(0),
+    status: text("status").notNull().default("open"), // open | carried | supplied | cancelled
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("orderbook_short_owner_idx").on(table.createdBy),
+    index("orderbook_short_status_idx").on(table.status),
+  ]
+);
+
+export type OrderbookShortbookItem = typeof orderbookShortbookItems.$inferSelect;
+export type NewOrderbookShortbookItem = typeof orderbookShortbookItems.$inferInsert;
+
+/** Active cart lines (no orderId) and immutable snapshots of placed orders. */
+export const orderbookCartItems = sqliteTable(
+  "orderbook_cart_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    orderId: text("order_id"), // null = active cart line
+    distributorId: text("distributor_id")
+      .notNull()
+      .references(() => orderbookDistributors.id, { onDelete: "cascade" }),
+    medicineId: text("medicine_id").references(() => medicines.id),
+    name: text("name").notNull(),
+    pack: text("pack"),
+    quantity: real("quantity").notNull().default(1),
+    rate: real("rate").notNull().default(0),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("orderbook_cart_owner_idx").on(table.createdBy),
+    index("orderbook_cart_order_idx").on(table.orderId),
+  ]
+);
+
+export type OrderbookCartItem = typeof orderbookCartItems.$inferSelect;
+export type NewOrderbookCartItem = typeof orderbookCartItems.$inferInsert;
+
+/** Snapshot of a placed cart order. */
+export const orderbookOrders = sqliteTable(
+  "orderbook_orders",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    distributorId: text("distributor_id")
+      .notNull()
+      .references(() => orderbookDistributors.id, { onDelete: "cascade" }),
+    poId: text("po_id").references(() => orderbookPurchaseOrders.id, {
+      onDelete: "set null",
+    }),
+    status: text("status").notNull().default("placed"),
+    total: real("total").notNull().default(0),
+    snapshot: text("snapshot").notNull(), // JSON: items + totals at placement time
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("orderbook_orders_owner_idx").on(table.createdBy),
+    index("orderbook_orders_distributor_idx").on(table.distributorId),
+  ]
+);
+
+export type OrderbookOrder = typeof orderbookOrders.$inferSelect;
+export type NewOrderbookOrder = typeof orderbookOrders.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Stock Picklists (G3a-07 — batch picking worksheet from invoice/order/manual)
+// ---------------------------------------------------------------------------
+export const PICKLIST_STATUSES = ["draft", "in_progress", "completed"] as const;
+export type PicklistStatus = (typeof PICKLIST_STATUSES)[number];
+
+export const PICKLIST_SOURCE_TYPES = ["invoice", "order", "manual"] as const;
+export type PicklistSourceType = (typeof PICKLIST_SOURCE_TYPES)[number];
+
+export const stockPicklists = sqliteTable(
+  "stock_picklists",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    status: text("status").$type<PicklistStatus>().default("draft"),
+    sourceType: text("source_type").$type<PicklistSourceType>().default("manual"),
+    sourceId: text("source_id"),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("stock_picklists_created_by_idx").on(table.createdBy),
+    index("stock_picklists_status_idx").on(table.status),
+  ]
+);
+
+export type StockPicklist = typeof stockPicklists.$inferSelect;
+export type NewStockPicklist = typeof stockPicklists.$inferInsert;
+
+export const stockPicklistItems = sqliteTable(
+  "stock_picklist_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    picklistId: text("picklist_id")
+      .notNull()
+      .references(() => stockPicklists.id),
+    medicineId: text("medicine_id")
+      .notNull()
+      .references(() => medicines.id),
+    batchId: text("batch_id").references(() => batches.id),
+    qty: real("qty").notNull(),
+    pickedQty: real("picked_qty").default(0),
+    rack: text("rack"),
+    picked: integer("picked", { mode: "boolean" }).default(false),
+  },
+  (table) => [index("stock_picklist_items_picklist_idx").on(table.picklistId)]
+);
+
+export type StockPicklistItem = typeof stockPicklistItems.$inferSelect;
+export type NewStockPicklistItem = typeof stockPicklistItems.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Stock Transfers (move quantities between stores the caller controls)
+// ---------------------------------------------------------------------------
+export const TRANSFER_STATUSES = ["pending", "completed", "cancelled"] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+
+export const stockTransfers = sqliteTable(
+  "stock_transfers",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    fromStoreId: text("from_store_id")
+      .notNull()
+      .references(() => stores.id),
+    toStoreId: text("to_store_id")
+      .notNull()
+      .references(() => stores.id),
+    status: text("status").$type<TransferStatus>().default("pending"),
+    notes: text("notes"),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("stock_transfers_from_store_idx").on(table.fromStoreId),
+    index("stock_transfers_to_store_idx").on(table.toStoreId),
+    index("stock_transfers_status_idx").on(table.status),
+  ]
+);
+
+export type StockTransfer = typeof stockTransfers.$inferSelect;
+export type NewStockTransfer = typeof stockTransfers.$inferInsert;
+
+export const stockTransferItems = sqliteTable(
+  "stock_transfer_items",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    transferId: text("transfer_id")
+      .notNull()
+      .references(() => stockTransfers.id),
+    medicineId: text("medicine_id")
+      .notNull()
+      .references(() => medicines.id),
+    batchId: text("batch_id")
+      .notNull()
+      .references(() => batches.id),
+    qty: real("qty").notNull(),
+  },
+  (table) => [index("stock_transfer_items_transfer_idx").on(table.transferId)]
+);
+
+export type StockTransferItem = typeof stockTransferItems.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Payment Accounts (named money-in-hand masters: cash drawer, bank, UPI, card)
+// ---------------------------------------------------------------------------
+export const PAYMENT_ACCOUNT_TYPES = ["cash", "bank", "upi", "card"] as const;
+export type PaymentAccountType = (typeof PAYMENT_ACCOUNT_TYPES)[number];
+
+export const PAYMENT_TX_DIRECTIONS = ["in", "out"] as const;
+export type PaymentTxDirection = (typeof PAYMENT_TX_DIRECTIONS)[number];
+
+/**
+ * A named pocket of money with its own running balance. Amounts are minor
+ * units (paise) as integers; balance = openingBalanceMinor + SUM(in) − SUM(out).
+ */
+export const paymentAccounts = sqliteTable(
+  "payment_accounts",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    storeId: text("store_id").references(() => stores.id),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    name: text("name").notNull(),
+    type: text("type").$type<PaymentAccountType>().notNull(),
+    bankName: text("bank_name"),
+    ifsc: text("ifsc"),
+    // Display form only (e.g. "**** 4821") — full numbers are never stored.
+    accountNumberMasked: text("account_number_masked"),
+    accountHolder: text("account_holder"),
+    upiId: text("upi_id"),
+    openingBalanceMinor: integer("opening_balance_minor").notNull().default(0),
+    currency: text("currency").notNull().default("INR"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("payment_accounts_owner_idx").on(table.createdBy),
+    index("payment_accounts_store_idx").on(table.storeId),
+  ]
+);
+
+export type PaymentAccount = typeof paymentAccounts.$inferSelect;
+export type NewPaymentAccount = typeof paymentAccounts.$inferInsert;
+
+/** One movement on a payment account. refType/refId point at the source (e.g. a cleared cheque). */
+export const paymentAccountTransactions = sqliteTable(
+  "payment_account_transactions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => paymentAccounts.id, { onDelete: "cascade" }),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    direction: text("direction").$type<PaymentTxDirection>().notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    reason: text("reason"),
+    refType: text("ref_type"),
+    refId: text("ref_id"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("payment_account_tx_account_idx").on(table.accountId, table.createdAt),
+    index("payment_account_tx_ref_idx").on(table.refType, table.refId),
+  ]
+);
+
+export type PaymentAccountTransaction = typeof paymentAccountTransactions.$inferSelect;
+export type NewPaymentAccountTransaction = typeof paymentAccountTransactions.$inferInsert;
+
+// ---------------------------------------------------------------------------
+// Cheques (register of issued and received post-dated cheques)
+// ---------------------------------------------------------------------------
+export const CHEQUE_DIRECTIONS = ["issued", "received"] as const;
+export type ChequeDirection = (typeof CHEQUE_DIRECTIONS)[number];
+
+export const CHEQUE_PARTY_TYPES = ["customer", "supplier", "other"] as const;
+export type ChequePartyType = (typeof CHEQUE_PARTY_TYPES)[number];
+
+export const CHEQUE_STATUSES = ["pending", "cleared", "bounced", "cancelled"] as const;
+export type ChequeStatus = (typeof CHEQUE_STATUSES)[number];
+
+/**
+ * One cheque in the register. Clearing a cheque linked to a payment account
+ * posts the matching movement on that account (issued → money out, received →
+ * money in); bounced and cancelled leave the account untouched. A cheque can
+ * only leave `pending` once.
+ */
+export const cheques = sqliteTable(
+  "cheques",
+  {
+    id: text("id").primaryKey().$defaultFn(() => generateId()),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => users.id),
+    direction: text("direction").$type<ChequeDirection>().notNull(),
+    partyType: text("party_type").$type<ChequePartyType>().notNull(),
+    partyName: text("party_name").notNull(),
+    accountId: text("account_id").references(() => paymentAccounts.id),
+    chequeNo: text("cheque_no").notNull(),
+    bankName: text("bank_name"),
+    amountMinor: integer("amount_minor").notNull(),
+    issueDate: text("issue_date").notNull(), // YYYY-MM-DD
+    dueDate: text("due_date").notNull(), // YYYY-MM-DD
+    status: text("status").$type<ChequeStatus>().notNull().default("pending"),
+    clearedAt: integer("cleared_at", { mode: "timestamp" }),
+    notes: text("notes"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("cheques_owner_idx").on(table.createdBy),
+    index("cheques_owner_status_idx").on(table.createdBy, table.status),
+    index("cheques_owner_due_date_idx").on(table.createdBy, table.dueDate),
+    index("cheques_account_idx").on(table.accountId),
+  ]
+);
+
+export type Cheque = typeof cheques.$inferSelect;
+export type NewCheque = typeof cheques.$inferInsert;
+export type NewStockTransferItem = typeof stockTransferItems.$inferInsert;
