@@ -328,7 +328,7 @@ export default function InvoicesPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Sales Transactions</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Invoices · LocalWell parity — header KPIs from sales register</p>
+          <p className="text-sm text-muted-foreground mt-0.5">View List of all your Sales Transactions here</p>
         </div>
       </div>
 

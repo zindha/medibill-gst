@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
+import { useHotkeys } from "@/hooks/useHotkeys";
 import {
   paymentAccountsApi,
   type PaymentAccount,
@@ -202,6 +203,11 @@ export default function PaymentAccountsPage() {
     setFormOpen(true);
   };
 
+  // LocalWell's payment-accounts shortcut: F4 opens the Add Account form.
+  useHotkeys([
+    { key: "f4", label: "Add New Acc", handler: () => { if (canManage && !formOpen) openForm(); } },
+  ]);
+
   const saveForm = async () => {
     if (!form.name.trim()) {
       toast.error("Account name is required");
@@ -282,13 +288,13 @@ export default function PaymentAccountsPage() {
             <Wallet className="h-5 w-5" /> Payment Accounts
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Cash drawers, bank accounts, UPI handles and card settlements — each with its own
-            balance and statement
+            Never loose track of your Cash Flow & Accounts
           </p>
         </div>
         {canManage && (
-          <Button size="sm" onClick={() => openForm()}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add account
+          <Button size="sm" onClick={() => openForm()} title="Add New Acc (F4)">
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add New Acc
+            <kbd className="ml-1.5 rounded border border-border bg-background px-1 font-mono text-[9px]">F4</kbd>
           </Button>
         )}
       </div>

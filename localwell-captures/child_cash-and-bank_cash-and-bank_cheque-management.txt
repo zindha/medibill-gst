@@ -1,0 +1,99 @@
+URL: https://pharmacy.localwell.in/cash-and-bank/cheque-management
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Payment Accounts
+
+Manage Cheques
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Manage Cheques
+Never loose track of your Cheque Payments
+Paid-In Chqs
+Amount Received
+Paid-Out Chqs
+Amount Paid
+Clearing Status:
+OPEN CHEQUES
+CLEARED CHEQUES
++ ADD OPEN CHEQUE (F2)
+
+SEARCH CHEQUES
+
+-
+  
+FILTER BY
+SORT BY
+CHEQUE
+NO/MICR
+CHEQUE ISSUED
+AMT / ISSUED
+ISSUED FOR
+INVOICE NO
+TXN ADDED BY
+ 
+GO BACK (CTRL+LEFT)
+GO FRONT (CTRL+RIGHT)
+Add New Cheque -  
+F2
+  | Select a Card -  
+Up or Down Key
+  | Open a Card -  
+Enter
+ | Scroll to Top -  
+Alt + Up Key

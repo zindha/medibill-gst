@@ -1,0 +1,105 @@
+URL: https://pharmacy.localwell.in/cash-and-bank
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Payment Accounts
+
+Manage Cheques
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Payment Accounts
+Never loose track of your Cash Flow & Accounts
+
+Watch Tutorial
+
+Add New Txn (F2)
+
+Add New Acc (F4)
+
+SEARCH ACCOUNTS
+
+  
+FILTER BY
+SORT BY
+ACCOUNT NAME / BRANCH
+TYPE
+ACC HOLDER NAME / UPI
+IFSC CODE
+BALANCE
+LATEST TXN
+ 
+Cash On Hand
+-
+CASH
+-
+-
+-
+-
+₹0.00
+01-May-26
+at 11:52 am
+Add Txn -  
+F2
+  | Add Acc -  
+F4
+  | Select a Card -  
+Up or Down Key
+  | Open a Card -  
+Enter
+ | Scroll to Top -  
+Alt + Up Key

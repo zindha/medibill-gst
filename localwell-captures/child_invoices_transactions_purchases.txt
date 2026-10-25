@@ -1,0 +1,121 @@
+URL: https://pharmacy.localwell.in/transactions/purchases
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Sales
+
+Purchases
+
+Sale Returns
+
+Purchase Returns
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Purchases Transactions
+View List of all your Purchases Transactions here
+1
+Purc Count
+₹957
+Purc Amt Sum
+₹957
+Payable Sum
+₹0
+Amt Paid Sum
+₹957
+You'll Pay
+Search | Filter | Sort
+INVOICE NO
+APR 26, 2026
+-
+OCT 26, 2026
+  
+FILTER BY
+SORT BY
+INVOICE NO
+DISTRIBUTOR / GSTIN
+GRN NO
+GST
+BILLED ON
+INV AMT
+ADJ AMT
+PAYABLE
+BALANCE
+PAID / DUE
+ 
+Sample_Invoice
+Sample Distributor
+24ABCDE1234F1ZK
+0
+Intrastate
+01 May 26
+at 11:52 am
+₹956.57
+₹0.43
+₹957.00
+08-May-26
+₹957.00
+Overdue
+By 171 days
+Create New Purchases -
+ F2 
+| Move Up or Down - 
+Arrow Keys
+ | To Open - 
+Enter
+Add Purchase Invoice
+View Distributors

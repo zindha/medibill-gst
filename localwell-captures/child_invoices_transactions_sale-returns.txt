@@ -1,0 +1,127 @@
+URL: https://pharmacy.localwell.in/transactions/sale-returns
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Sales
+
+Purchases
+
+Sale Returns
+
+Purchase Returns
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Sale Returns Transactions
+View List of all your Sale Returns Transactions here
+-
+Returns Count
+-
+Return Amt Sum
+-
+Profit Lost
+-
+Refundable Sum
+0
+Balance Sum
+Search | Filter | Sort
+INVOICE NO
+APR 26, 2026
+-
+OCT 26, 2026
+  
+FILTER BY
+SORT BY
+INVOICE NO
+CUSTOMER / CONTACT
+BILLED ON
+RET AMT
+ADJ AMT
+REFUND
+BALANCE
+PAID / DUE
+ 
+Create New Sale Returns -
+ F2 
+| Move Up or Down - 
+Arrow Keys
+ | To Open - 
+Enter
+Add Sales Return
+View Customers
+Wow! You have discovered a Premium Feature
+Subscribe to a Plan Below to Unlock
+12 Months Premium
+₹4,999
+₹5,988
+17% off
+₹417 per month*
+24 Months Premium
+₹8,999
+₹11,976
+25% off
+₹375 per month*
+Customer Sales Billing
+Business Expenses
+Purchase Import via CSV
+Stock Audit & Reports
+Sale & Purchase Returns
+Patient Medicine Follow-ups
+Upgrade to Premium
+Or
+Activate 7-days Free Trial
+*All Prices are Exclusive of GST. Installation & Setup Cost may be Extra

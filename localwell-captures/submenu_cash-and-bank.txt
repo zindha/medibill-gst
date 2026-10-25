@@ -1,0 +1,94 @@
+URL: https://pharmacy.localwell.in/stocks/view-stocks
+ROUTES: ['/cash-and-bank', '/cash-and-bank/cheque-management', '/control-center/business-profile', '/customer-orders', '/dashboard/view-dashboard', '/expenses/view-expenses', '/orderbook/dashboard', '/reminders/view-reminders', '/reports/business-reports', '/stock-audit', '/stocks/stock-transfer/view-transfers', '/support/account-manager']
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Payment Accounts
+
+Manage Cheques
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Stock on hand
+SKU: 0
+-
+Stock Value
+Search | Filter | Sort
+  
+FILTER BY
+SORT BY
+PRODUCT
++ Add New Item
+
+Order Now (F2)
+
+Settings (F4)
+
+Add Composition
+Show Zero Qty Batches
+BATCH NO
+PACK
+EXPIRY
+STATUS
+MRP
+PURC RATE
+NET RATE
+SALE RATE
+STOCK QTY
+ 
+Order Now - F2 |  Settings - F4 
++ Add New Batch
+
+View Stocks

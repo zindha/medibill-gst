@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/EmptyState";
+import ChequesPanel from "@/components/ChequesPanel";
 import { useAuth } from "@/hooks/use-auth";
 import { reconciliationApi } from "@/lib/api";
 import { chequesApi, type Cheque, type ChequeDirection, type ChequeStatus } from "@/lib/chequesApi";

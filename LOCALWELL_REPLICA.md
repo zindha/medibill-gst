@@ -153,8 +153,29 @@ Real sidebar routes extracted from the live app (screenshots + text under
 | Branch Transfer | `/stocks/stock-transfer/view-transfers` | ✓ (list route) |
 | Stock Audit | `/stock-audit` | ✓ |
 | Control Center | `/control-center/business-profile` | ✓ |
-| Invoices | submenu (child route unknown) | — |
-| Cash and Bank | submenu (child route unknown) | — |
+| Support | `/support/account-manager` | ✓ (list route) |
+
+Submenu children (discovered by expanding the sidebar, batch 3):
+
+| Parent | Children (verified) | MediBillGST mapping |
+|---|---|---|
+| Invoices | `/transactions/sales`, `/transactions/purchases`, `/transactions/sale-returns`, `/transactions/purchase-returns` | InvoicesPage, PurchasesPage, SalesReturnsPage, purchase returns |
+| Cash and Bank | `/cash-and-bank` (Payment Accounts), `/cash-and-bank/cheque-management` | PaymentAccountsPage, CashBankPage → ChequesPanel |
+
+Screen notes from child captures:
+- **Sales Transactions** (`/transactions/sales`): KPI strip Sales Count · Sales Amt Sum ·
+  Sales Net Profit · Payable Sum · Balance Sum; columns INVOICE NO · CUSTOMER NAME /
+  INFO · BILLED ON · INV AMT · NET PROFIT · ADJ AMT · PAYABLE · BALANCE · PAID / DUE ·
+  USERNAME; "Create New Sales - F2".
+- **Payment Accounts** (`/cash-and-bank`): subtitle "Never loose track of your Cash Flow
+  & Accounts"; actions Add New Txn (F2) / Add New Acc (F4); columns ACCOUNT NAME /
+  BRANCH · TYPE · ACC HOLDER NAME / UPI · IFSC CODE · BALANCE · LATEST TXN.
+
+Deliberate deviation (ponytail): Customer Orders keeps MediBill's interactive card list
+instead of LocalWell's flat 11-column table — the cards carry the same data (patient,
+order no, created, status, SKUs, amount, billed badge) **plus** per-status actions and an
+insufficient-stock alert panel that a table row cannot hold. Convert only if shortage
+moves to a detail view.
 
 Header center tabs: **Purchases | Stock | Sales** (Sales premium-locked).
 
