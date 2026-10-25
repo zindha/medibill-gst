@@ -24,6 +24,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/EmptyState";
 import { useAuth } from "@/hooks/use-auth";
 import { reconciliationApi } from "@/lib/api";
+import { chequesApi, type Cheque, type ChequeDirection, type ChequeStatus } from "@/lib/chequesApi";
+import { paymentAccountsApi, type PaymentAccount } from "@/lib/paymentAccountsApi";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -32,18 +34,22 @@ import {
   CheckCircle2,
   Download,
   FileUp,
+  Landmark,
   Link2,
   Loader2,
   Lock,
+  Plus,
   RefreshCcw,
   Search,
   Unlink,
+  Wallet,
+  XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
-type TabKey = "cash" | "bank";
+type TabKey = "cash" | "bank" | "cheques";
 
 const money = (value?: number | null) =>
   `₹${(Number(value) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -483,6 +489,13 @@ export default function CashBankPage() {
               <Lock className="h-3 w-3" /> Read-only role
             </span>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/dashboard/payment-accounts")}
+          >
+            <Wallet className="h-3.5 w-3.5 mr-1.5" /> Payment accounts
+          </Button>
           {canManage && (
             <>
               <input
@@ -515,6 +528,7 @@ export default function CashBankPage() {
         <TabsList>
           <TabsTrigger value="cash">Cash Book</TabsTrigger>
           <TabsTrigger value="bank">Bank Book</TabsTrigger>
+          <TabsTrigger value="cheques">Cheques</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cash" className="space-y-4">
@@ -618,6 +632,10 @@ export default function CashBankPage() {
             {statusCards()}
             {statementTable()}
           </div>
+        </TabsContent>
+
+        <TabsContent value="cheques" className="space-y-4">
+          <ChequesPanel canManage={canManage} />
         </TabsContent>
       </Tabs>
 

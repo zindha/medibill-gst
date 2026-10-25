@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowRight, Loader2, Eye, EyeOff, Cross } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -13,175 +12,169 @@ interface AuthProps {
 function Auth({ redirectAfterAuth }: AuthProps) {
   const { isLoading: authLoading, isAuthenticated, user, signIn } = useAuth();
   const navigate = useNavigate();
+
+  // LocalWell-style two-step flow: mobile number → welcome → password.
+  const [step, setStep] = useState<"mobile" | "password">("mobile");
+  const [mobile, setMobile] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [showPassword, setShowPassword] = useState(false);
-
-  // Form fields
-  const [name, setName] = useState("");
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      const redirect = redirectAfterAuth || "/dashboard";
-      navigate(redirect);
+      navigate(redirectAfterAuth || "/dashboard");
     }
   }, [authLoading, isAuthenticated, navigate, redirectAfterAuth]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  // MediBill keeps its own branding; user is matched against their number.
+  const displayName = user?.name || mobile || "your pharmacy";
+
+  const handleMobileSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError(null);
+    if (!/^[0-9]{10}$/.test(mobile)) {
+      setError("Enter a valid 10-digit mobile number");
+      return;
+    }
+    setStep("password");
+  };
+
+  const handlePasswordSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!password) {
+      setError("Enter your password");
+      return;
+    }
     setIsLoading(true);
     setError(null);
-
     try {
-      if (mode === "register") {
-        // Call register API
-        const { authApi } = await import("@/lib/api");
-        const result = await authApi.register({ name, email: identifier, password });
-        const { setAuthToken } = await import("@/lib/api");
-        setAuthToken(result.token);
-        // Force reload to pick up new auth state
-        window.location.reload();
-      } else {
-        await signIn(identifier, password);
-        const redirect = redirectAfterAuth || "/dashboard";
-        navigate(redirect);
-      }
-    } catch (err: any) {
-      setError(err.message ?? "Authentication failed. Please try again.");
+      // MediBill's signIn takes (identifier, password); the mobile number is the identifier.
+      await signIn(mobile, password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Incorrect password. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-8 sm:px-6">
-      <div className="pointer-events-none absolute -top-32 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center">
-        <Card className="w-full max-w-[420px] gap-5 border-border/70 bg-card/95 pb-0">
-            <CardHeader className="text-center">
-              <button type="button" className="mx-auto mb-2 flex h-12 w-12 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground" onClick={() => navigate("/")} aria-label="Go to MediBill home">
-                <Cross className="h-6 w-6" strokeWidth={2.5} />
-              </button>
-              <p className="text-center text-xs font-medium uppercase tracking-[0.18em] text-primary">MediBill</p>
-              <CardTitle className="text-xl">
-                {mode === "login" ? "Welcome Back" : "Create Account"}
-              </CardTitle>
-              <CardDescription>
-                {mode === "login"
-                  ? "Sign in to your MediBill account"
-                  : "Set up your pharmacy account"}
-              </CardDescription>
-            </CardHeader>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 px-4 py-8 sm:px-6">
+      {/* Hero glow behind the card, echoing LocalWell's login hero image */}
+      <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
 
-            <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
-                {mode === "register" && (
-                  <div className="relative">
-                    <Input
-                      name="name"
-                      autoComplete="name"
-                      placeholder="Full Name…"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
-                  </div>
-                )}
+      <div className="relative w-full max-w-[420px]">
+        {/* Card */}
+        <div className="rounded-2xl border border-white/10 bg-white p-7 shadow-2xl">
+          {/* Logo */}
+          <div className="flex justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <span className="text-lg font-bold">M</span>
+            </div>
+          </div>
 
+          {/* Title */}
+          <div className="mt-5 text-center">
+            <h1 className="text-xl font-semibold text-slate-900">Login or Sign Up</h1>
+            <p className="mt-1 text-sm text-slate-500">GST Billing for Pharmacies</p>
+          </div>
+
+          {/* Mobile step */}
+          {step === "mobile" && (
+            <form onSubmit={handleMobileSubmit} className="mt-6">
+              <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+                Sign In to Continue
+              </p>
+              <div className="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-primary/40">
+                <span className="pl-3 text-sm font-semibold text-slate-700">+91</span>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  maxLength={10}
+                  placeholder="Enter 10-digit mobile number"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                  className="border-0 bg-transparent text-center shadow-none focus-visible:ring-0"
+                  aria-label="Mobile number"
+                />
+                <span className="pr-3 text-xs tabular-nums text-slate-400">{mobile.length}/10</span>
+              </div>
+              <p className="mt-2 min-h-5 text-center text-sm text-red-500">{error}</p>
+              <Button type="submit" className="mt-3 w-full rounded-full" disabled={isLoading}>
+                Submit to Login
+              </Button>
+            </form>
+          )}
+
+          {/* Password step */}
+          {step === "password" && (
+            <>
+              <div className="mt-6 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setStep("mobile"); setError(null); }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back
+                </button>
+              </div>
+              <div className="mt-3 text-center">
+                <p className="text-lg font-medium text-slate-900">Welcome, {displayName}!</p>
+                <p className="text-sm text-slate-500">Login as a different User</p>
+              </div>
+              <form onSubmit={handlePasswordSubmit} className="mt-5">
+                <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Enter Password to Login
+                </p>
                 <div className="relative">
                   <Input
-                    name="email"
-                    type="email"
-                    autoComplete={mode === "login" ? "username" : "email"}
-                    spellCheck={false}
-                    placeholder="Email address…"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
-
-                <div className="relative">
-                  <Input
-                    name="password"
                     type={showPassword ? "text" : "password"}
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    placeholder="Password…"
+                    autoComplete="current-password"
+                    placeholder="Enter your Password here"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    minLength={6}
+                    className="rounded-lg border-slate-300 text-center"
+                    aria-label="Password"
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => setShowPassword((s) => !s)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-
-                {error && (
-                  <p className="text-sm text-red-500 mt-2" role="alert" aria-live="polite">{error}</p>
-                )}
-              </CardContent>
-
-              <CardFooter className="flex-col gap-2">
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <p className="mt-2 min-h-5 text-center text-sm text-red-500">{error}</p>
+                <Button type="submit" className="mt-3 w-full rounded-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {mode === "login" ? "Signing in…" : "Creating account…"}
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validating…
                     </>
                   ) : (
-                    <>
-                      {mode === "login" ? "Sign In" : "Create Account"}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
+                    "Validate Now"
                   )}
                 </Button>
+                <p className="mt-2 text-center text-xs font-medium text-slate-500">Forgot Password?</p>
+              </form>
+            </>
+          )}
 
-                {mode === "login" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => {
-                      setMode("register");
-                      setError(null);
-                    }}
-                  >
-                    Create a new account
-                  </Button>
-                )}
+          {/* Footer */}
+          <div className="mt-8 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
+            <p>By continuing, you are agreeing to our</p>
+            <p className="mt-0.5">
+              <a href="#" className="font-medium text-primary hover:underline">Terms of Service</a>
+              {" & "}
+              <a href="#" className="font-medium text-primary hover:underline">Privacy Policy</a>
+            </p>
+          </div>
+        </div>
 
-                {mode === "register" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => {
-                      setMode("login");
-                      setError(null);
-                    }}
-                  >
-                    Already have an account? Sign in
-                  </Button>
-                )}
-              </CardFooter>
-            </form>
-
-            <div className="border-t border-border bg-secondary/40 px-6 py-4 text-center text-xs text-muted-foreground">
-              Pharmacy billing, made calm and simple.
-            </div>
-          </Card>
+        <p className="mt-4 text-center text-xs text-white/60">
+          MediBill · Enabling Pharmacies Since 2019
+        </p>
       </div>
     </div>
   );

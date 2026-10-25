@@ -19,6 +19,8 @@ const DashboardPage = lazy(() => import("./pages/DashboardPage.tsx"));
 const BillingPage = lazy(() => import("./pages/BillingPage.tsx"));
 const InvoicesPage = lazy(() => import("./pages/InvoicesPage.tsx"));
 const PaymentsPage = lazy(() => import("./pages/PaymentsPage.tsx"));
+const ExpensesPage = lazy(() => import("./pages/ExpensesPage.tsx"));
+const ExpenseFormPage = lazy(() => import("./pages/ExpenseFormPage.tsx"));
 const CashBankPage = lazy(() => import("./pages/CashBankPage.tsx"));
 const PurchasesPage = lazy(() => import("./pages/PurchasesPage.tsx"));
 const PurchaseImportPage = lazy(() => import("./pages/PurchaseImportPage.tsx"));
@@ -41,6 +43,7 @@ const RefillsPage = lazy(() => import("./pages/RefillsPage.tsx"));
 const CommunicationsPage = lazy(() => import("./pages/CommunicationsPage.tsx"));
 const CampaignsPage = lazy(() => import("./pages/CampaignsPage.tsx"));
 const DevicesPage = lazy(() => import("./pages/DevicesPage.tsx"));
+const StaffPage = lazy(() => import("./pages/StaffPage.tsx"));
 const CompliancePage = lazy(() => import("./pages/CompliancePage.tsx"));
 const OrdersPage = lazy(() => import("./pages/OrdersPage.tsx"));
 const OrderPortalPage = lazy(() => import("./pages/OrderPortalPage.tsx"));
@@ -48,6 +51,23 @@ const MigrationPage = lazy(() => import("./pages/MigrationPage.tsx"));
 const BulkBillsPage = lazy(() => import("./pages/BulkBillsPage.tsx"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage.tsx"));
 const ScheduledReportsPage = lazy(() => import("./pages/ScheduledReportsPage.tsx"));
+const OrderbookDashboardPage = lazy(() => import("./pages/orderbook/OrderbookDashboardPage.tsx"));
+const OrderbookDistributorsPage = lazy(() => import("./pages/orderbook/OrderbookDistributorsPage.tsx"));
+const OrderbookDistributorDetailPage = lazy(
+  () => import("./pages/orderbook/OrderbookDistributorDetailPage.tsx")
+);
+const OrderbookProductListPage = lazy(() => import("./pages/orderbook/OrderbookProductListPage.tsx"));
+const OrderbookAlreadyToOrderPage = lazy(
+  () => import("./pages/orderbook/OrderbookAlreadyToOrderPage.tsx")
+);
+const OrderbookPurchaseOrdersPage = lazy(
+  () => import("./pages/orderbook/OrderbookPurchaseOrdersPage.tsx")
+);
+const OrderbookPoDetailPage = lazy(() => import("./pages/orderbook/OrderbookPoDetailPage.tsx"));
+const OrderbookShortbookPage = lazy(() => import("./pages/orderbook/OrderbookShortbookPage.tsx"));
+const OrderbookCartPage = lazy(() => import("./pages/orderbook/OrderbookCartPage.tsx"));
+const OrderbookOrderDetailPage = lazy(() => import("./pages/orderbook/OrderbookOrderDetailPage.tsx"));
+const OrderbookAnalysisPage = lazy(() => import("./pages/orderbook/OrderbookAnalysisPage.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -105,6 +125,8 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="bulk-bills" element={<BulkBillsPage />} />
                 <Route path="orders" element={<OrdersPage />} />
                 <Route path="payments" element={<PaymentsPage />} />
+                <Route path="expenses" element={<ExpensesPage />} />
+                <Route path="expenses/:expenseId" element={<ExpenseFormPage />} />
                 <Route path="cash-bank" element={<CashBankPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="stock-audit" element={<StockAuditPage />} />
@@ -112,6 +134,20 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="purchases" element={<PurchasesPage />} />
                 <Route path="purchase-import" element={<PurchaseImportPage />} />
                 <Route path="procurement" element={<ProcurementPage />} />
+                <Route path="orderbook" element={<OrderbookDashboardPage />} />
+                <Route path="orderbook/distributors" element={<OrderbookDistributorsPage />} />
+                <Route
+                  path="orderbook/distributors/:distributorId"
+                  element={<OrderbookDistributorDetailPage />}
+                />
+                <Route path="orderbook/products" element={<OrderbookProductListPage />} />
+                <Route path="orderbook/already-to-order" element={<OrderbookAlreadyToOrderPage />} />
+                <Route path="orderbook/purchase-orders" element={<OrderbookPurchaseOrdersPage />} />
+                <Route path="orderbook/pos/:poId" element={<OrderbookPoDetailPage />} />
+                <Route path="orderbook/shortbook" element={<OrderbookShortbookPage />} />
+                <Route path="orderbook/cart" element={<OrderbookCartPage />} />
+                <Route path="orderbook/orders/:orderId" element={<OrderbookOrderDetailPage />} />
+                <Route path="orderbook/analysis" element={<OrderbookAnalysisPage />} />
                 <Route path="customers" element={<CustomersPage />} />
                 <Route path="doctors" element={<DoctorsPage />} />
                 <Route path="prescriptions" element={<PrescriptionsPage />} />
@@ -128,6 +164,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="communications" element={<CommunicationsPage />} />
                 <Route path="campaigns" element={<CampaignsPage />} />
                 <Route path="devices" element={<DevicesPage />} />
+                <Route path="staff" element={<StaffPage />} />
                 <Route path="migration" element={<MigrationPage />} />
                 <Route path="integrations" element={<IntegrationsPage />} />
               </Route>

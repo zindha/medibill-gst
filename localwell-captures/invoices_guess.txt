@@ -1,0 +1,6 @@
+URL: https://pharmacy.localwell.in/invoices/view-invoices
+HTTP: 404
+404: True
+
+404
+This page could not be found.

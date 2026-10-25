@@ -31,6 +31,7 @@ import {
   RefreshCcw,
   RotateCcw,
   ShieldCheck,
+  ShieldOff,
   Smartphone,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -63,6 +64,7 @@ export default function DevicesPage() {
   const [devicesLoading, setDevicesLoading] = useState(true);
   const [devicesError, setDevicesError] = useState<string | null>(null);
   const [deviceBusy, setDeviceBusy] = useState<string | null>(null);
+  const [allBusy, setAllBusy] = useState<string | null>(null);
 
   // ── Sessions (admin) ─────────────────────────────────────────
   const [sessions, setSessions] = useState<DeviceSessionView[]>([]);
@@ -192,6 +194,30 @@ export default function DevicesPage() {
     }
   };
 
+  /** Revokes every device + session of the device's owner. */
+  const revokeAllForOwner = async (device: DeviceView) => {
+    const owner = device.userName ?? device.userId;
+    if (
+      !confirm(
+        `Revoke every device and session of ${owner}? They will be signed out everywhere.`,
+      )
+    ) {
+      return;
+    }
+    setAllBusy(device.id);
+    try {
+      const res = await devicesApi.revokeAll(device.userId);
+      toast.success(
+        `Revoked ${res?.devicesRevoked ?? 0} device(s) and ${res?.sessionsRevoked ?? 0} session(s)`,
+      );
+      await loadDevices();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not revoke devices");
+    } finally {
+      setAllBusy(null);
+    }
+  };
+
   const revokeSession = async (session: DeviceSessionView) => {
     setSessionBusy(session.id);
     try {
@@ -219,6 +245,12 @@ export default function DevicesPage() {
       setPulling(false);
     }
   };
+
+  // "Revoke all" acts on the owner — show it once per owner (first row).
+  const firstDeviceByOwner = new Map<string, string>();
+  for (const d of devices) {
+    if (!firstDeviceByOwner.has(d.userId)) firstDeviceByOwner.set(d.userId, d.id);
+  }
 
   if (meLoading) {
     return (
@@ -330,21 +362,38 @@ export default function DevicesPage() {
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant={d.revoked ? "outline" : "destructive"}
-                            disabled={deviceBusy === d.id}
-                            onClick={() => void toggleRevoke(d)}
-                          >
-                            {deviceBusy === d.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : d.revoked ? (
-                              <RotateCcw className="h-3.5 w-3.5" />
-                            ) : (
-                              <Ban className="h-3.5 w-3.5" />
+                          <div className="flex justify-end gap-1.5">
+                            {firstDeviceByOwner.get(d.userId) === d.id && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={deviceBusy === d.id || allBusy === d.id}
+                                onClick={() => void revokeAllForOwner(d)}
+                              >
+                                {allBusy === d.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <ShieldOff className="h-3.5 w-3.5" />
+                                )}
+                                Revoke all
+                              </Button>
                             )}
-                            {d.revoked ? "Restore" : "Revoke"}
-                          </Button>
+                            <Button
+                              size="sm"
+                              variant={d.revoked ? "outline" : "destructive"}
+                              disabled={deviceBusy === d.id || allBusy === d.id}
+                              onClick={() => void toggleRevoke(d)}
+                            >
+                              {deviceBusy === d.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : d.revoked ? (
+                                <RotateCcw className="h-3.5 w-3.5" />
+                              ) : (
+                                <Ban className="h-3.5 w-3.5" />
+                              )}
+                              {d.revoked ? "Restore" : "Revoke"}
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -356,7 +405,8 @@ export default function DevicesPage() {
           <p className="text-xs text-muted-foreground">
             Revoking a device blocks every request it makes with a{" "}
             <code className="font-mono">X-Device-Token</code> header (401) until it is restored.
-            Per-user cap: 10 active devices — the oldest are revoked automatically.
+            Per-user cap: 10 active devices — the oldest are revoked automatically. "Revoke all"
+            signs the owner out of every device and session they hold.
           </p>
         </TabsContent>
 

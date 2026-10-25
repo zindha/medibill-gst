@@ -1,0 +1,147 @@
+URL: https://pharmacy.localwell.in/dashboard/view-dashboard
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+LA
+Lakshmi
+-
+Net Sales
+-
+₹0.00
+from ₹0.00
+5
+4
+3
+2
+1
+0
+No Sales Added!
+Stock Value
+No Stock Value!
+Customers
+View entire list
+-
+Total Customers
+Avg Order Value
+₹0
+New Customers
+ 
+-
+Repeat Customers
+ 
+-
+Net Purchase
+-
+₹0.00
+from ₹0.00
+5
+4
+3
+2
+1
+0
+No Purchases Added!
+Net Payment Collection
+-
+₹0.00
+No Cash In Hand Added!
+Profit
+-
+₹0.00
+from ₹0.00
+No Profits Added!
+Slow Moving
+Fast Moving
+View entire list
+PRODUCT NAME
+COMPANY
+QTY SOLD
+STOCK
+LAST SOLD
+No Products Found!
+Due Payments
+-
+Customer
+Distributor
+No Due Payments Found
+Refill Reminders
+View entire list
+No Followups Found!
+Wow! You have discovered a Premium Feature
+Subscribe to a Plan Below to Unlock
+12 Months Premium
+₹4,999
+₹5,988
+17% off
+₹417 per month*
+24 Months Premium
+₹8,999
+₹11,976
+25% off
+₹375 per month*
+Customer Sales Billing
+Business Expenses
+Purchase Import via CSV
+Stock Audit & Reports
+Sale & Purchase Returns
+Patient Medicine Follow-ups
+Upgrade to Premium
+Or
+Activate 7-days Free Trial
+*All Prices are Exclusive of GST. Installation & Setup Cost may be Extra

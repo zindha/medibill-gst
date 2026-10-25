@@ -366,10 +366,10 @@ export default function OrdersPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-            <ShoppingBag className="h-4 w-4" /> Online Orders
+            <ShoppingBag className="h-4 w-4" /> Customer Orders
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Customer orders from the public order page — accept, pack, bill and deliver.
+            List of Online & Offline Customer Orders
           </p>
         </div>
         <Button size="sm" variant="outline" className="h-8" onClick={() => void load()} disabled={loading}>

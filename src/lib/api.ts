@@ -86,6 +86,9 @@ async function request<T>(
   return data;
 }
 
+/** Lower-level typed request for modules that need verbs beyond the `api` helper. */
+export { request };
+
 export class ApiError extends Error {
   status: number;
   details?: any;
@@ -487,6 +490,57 @@ export const suppliersApi = {
   update: (id: string, data: any) => request<any>(`/suppliers/${id}`, "PUT", data),
 
   delete: (id: string) => request<any>(`/suppliers/${id}`, "DELETE"),
+};
+
+// ---------------------------------------------------------------------------
+// Business Expenses
+// ---------------------------------------------------------------------------
+export const expensesApi = {
+  list: (params?: {
+    q?: string;
+    from?: string;
+    to?: string;
+    gstOnly?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.q) query.set("q", params.q);
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    if (params?.gstOnly) query.set("gstOnly", "true");
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.pageSize) query.set("pageSize", String(params.pageSize));
+    return request<any>(`/expenses?${query}`, "GET");
+  },
+
+  get: (id: string) => request<any>(`/expenses/${id}`, "GET"),
+
+  create: (data: any) => request<any>("/expenses", "POST", data),
+
+  update: (id: string, data: any) => request<any>(`/expenses/${id}`, "PUT", data),
+
+  delete: (id: string) => request<any>(`/expenses/${id}`, "DELETE"),
+
+  metadata: () => request<any>("/expenses/metadata", "GET"),
+
+  products: (q?: string) => {
+    const query = new URLSearchParams();
+    if (q) query.set("q", q);
+    return request<any[]>(`/expenses/products?${query}`, "GET");
+  },
+
+  parties: (q?: string) => {
+    const query = new URLSearchParams();
+    if (q) query.set("q", q);
+    return request<any[]>(`/expenses/parties?${query}`, "GET");
+  },
+
+  createParty: (data: any) => request<any>("/expenses/parties", "POST", data),
+
+  updateParty: (id: string, data: any) => request<any>(`/expenses/parties/${id}`, "PUT", data),
+
+  deleteParty: (id: string) => request<any>(`/expenses/parties/${id}`, "DELETE"),
 };
 
 // ---------------------------------------------------------------------------
@@ -2462,6 +2516,14 @@ export const devicesApi = {
   /** Admin — clears the revoked flag. */
   restore: (id: string) => request<DeviceView>(`/devices/${id}/restore`, "POST", {}),
 
+  /** Admin — kills every device + session of one user in one shot. */
+  revokeAll: (userId: string) =>
+    request<{ devicesRevoked: number; sessionsRevoked: number }>(
+      `/devices/users/${userId}/revoke-all`,
+      "POST",
+      {}
+    ),
+
   /** Admin — every active session on this install (tokens never exposed). */
   sessions: () => request<DeviceSessionView[]>("/devices/sessions", "GET"),
 
@@ -2538,6 +2600,48 @@ export const syncApi = {
 
   /** Ops journal size + db size + newest backup + server time. */
   status: () => request<SyncStatusInfo>("/sync/status", "GET"),
+};
+
+// ---------------------------------------------------------------------------
+// Staff & Access — roster management (admin only)
+// ---------------------------------------------------------------------------
+export type StaffRole = "admin" | "pharmacist" | "cashier";
+
+/**
+ * Roster row. `status` is the member status ("active" | "inactive"),
+ * `isActive` the account flag the login check reads.
+ */
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: StaffRole;
+  status: string;
+  isActive: boolean;
+  createdAt: string;
+  deviceCount: number;
+  sessionCount: number;
+}
+
+export const staffApi = {
+  /** Admin — the roster with device/session counts per member. */
+  list: () => request<{ items: StaffMember[] }>("/staff", "GET"),
+
+  /** Admin — creates a login with a temporary password. */
+  create: (data: { name: string; email: string; phone: string; password: string; role: StaffRole }) =>
+    request<{ user: StaffMember }>("/staff", "POST", data),
+
+  /** Admin — role and/or status change. */
+  update: (id: string, data: { role?: StaffRole; status?: string }) =>
+    request<{ ok: true }>(`/staff/${id}`, "PATCH", data),
+
+  /** Admin — sets a new password for a member. */
+  resetPassword: (id: string, newPassword: string) =>
+    request<{ ok: true }>(`/staff/${id}/reset-password`, "POST", { newPassword }),
+
+  /** Admin — signs a member out everywhere (every device + session). */
+  revokeAllDevices: (userId: string) => devicesApi.revokeAll(userId),
 };
 
 // ---------------------------------------------------------------------------

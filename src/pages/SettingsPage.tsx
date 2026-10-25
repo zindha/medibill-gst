@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { usePrintPrefs, type PrintPaper, type PrintLayout } from "@/hooks/usePrintPrefs";
-import { Building2, Clock3, Cloud, CloudOff, Copy, Database, Download, FileBadge, ImagePlus, Loader2, MapPin, MessageSquare, Printer, RefreshCw, Save, ShieldAlert, ShoppingBag, Upload, X } from "lucide-react";
+import { Building2, Clock3, Cloud, CloudOff, Copy, Database, Download, FileBadge, ImagePlus, KeyRound, Loader2, MapPin, MessageSquare, Printer, RefreshCw, Save, ShieldAlert, ShoppingBag, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +56,12 @@ export default function SettingsPage() {
   const [refillMode, setRefillMode] = useState<"off" | "queue">("off");
   const [appBaseUrl, setAppBaseUrl] = useState("");
   const [savingMessaging, setSavingMessaging] = useState(false);
+
+  // Account — change the password of the signed-in user
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Backup schedule
   const [dailyHour, setDailyHour] = useState(2);
@@ -482,6 +488,34 @@ export default function SettingsPage() {
       toast.error(err.message ?? "Upload failed — check your cloud credentials");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      toast.error("Enter your current password");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      const { authApi } = await import("@/lib/api");
+      await authApi.changePassword(currentPassword, newPassword);
+      toast.success("Password changed");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Could not change password");
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -1156,6 +1190,61 @@ export default function SettingsPage() {
             <Button variant="outline" onClick={() => void handleSaveMessaging()} disabled={savingMessaging}>
               {savingMessaging ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
               Save Messaging Settings
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Account — change own password */}
+      <Card className="border-border/60">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
+            Change Password
+          </CardTitle>
+          <CardDescription>
+            Update the password of the account you are signed in with. Minimum 6 characters — an
+            administrator can also reset it for you from Staff.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Current password</Label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">New password</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Confirm new password</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => void handleChangePassword()} disabled={savingPassword}>
+              {savingPassword ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+              ) : (
+                <KeyRound className="h-3.5 w-3.5 mr-2" />
+              )}
+              Change Password
             </Button>
           </div>
         </CardContent>

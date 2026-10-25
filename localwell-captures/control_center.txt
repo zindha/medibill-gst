@@ -1,0 +1,127 @@
+URL: https://pharmacy.localwell.in/control-center/business-profile
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Control Centre
+Select an option below to edit
+BUSINESS
+
+Business Profile
+
+Users & Devices
+
+SETTINGS
+
+Product Settings
+
+Sale Settings
+
+Order Settings
+
+Prefix & Sequences
+
+PLANS & BILLING
+
+Plans & Pricing
+
+Refer & Earn ₹1000
+
+UTILITIES
+
+Integrations
+
+Data Migration
+
+Bulk Edit Bills
+
+Print Barcode Labels
+
+Business Profile
+
+View or Update the details below
+
+Save (Ctrl+S)
+
+BASIC
+LICENSE
+TAXATION
+LOCATION
+TIMINGS
+
+BUSINESS NAME
+
+*
+
+*Required
+
+AYUSHMAN HFR ID
+
+Optional
+
+0
+
+/12
+
+STORE FRONT PICTURE
+
+Drag and Drop or Browse to Upload
+Note: Store nameboard should be clearly visible in the picture
+PREV (CTRL+LEFT)
+To Save -  Ctrl+S | Dismiss -  Esc  
+NEXT (CTRL+RIGHT)

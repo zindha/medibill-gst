@@ -41,7 +41,6 @@ import {
   Barcode,
   BookOpen,
   CheckCircle2,
-  ClipboardCheck,
   Clock,
   Edit2,
   Eye,
@@ -124,6 +123,8 @@ export default function InventoryPage() {
   const debouncedSearch = useDebouncedValue(search, 300);
   const [stockSearching, setStockSearching] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"name" | "mrp" | "stock">("name");
+  const [showZeroBatches, setShowZeroBatches] = useState(true);
   const [expiryStatus, setExpiryStatus] = useState<"expired" | "30" | "60" | "90">("90");
 
   // ─── Medicine Form Dialog ─────────────────────────────────────
@@ -200,6 +201,9 @@ export default function InventoryPage() {
     { key: "n", label: "Add medicine", handler: () => { setEditingMed(null); resetMedForm(); setMedDialogOpen(true); } },
     { key: "b", label: "Scan barcode", handler: () => { setScanBarcode(""); setScanError(""); setScanOpen(true); } },
     { key: "m", label: "Open Medicine Database", handler: () => { setCatalogSearch(""); setCatalogActiveIdx(0); setCatalogOpen(true); } },
+    // LocalWell's F2 / F4 shortcuts on the Stock screen.
+    { key: "f2", label: "Order Now", handler: () => navigate("/dashboard/orderbook") },
+    { key: "f4", label: "Settings", handler: () => navigate("/dashboard/settings") },
   ]);
 
   // Reset pagination + catalog cursor when the query changes.
@@ -597,15 +601,23 @@ export default function InventoryPage() {
   // ─── Helpers ──────────────────────────────────────────────────
   const categories = [...new Set(medicines.map(m => m.category).filter((c): c is string => Boolean(c)))];
 
-  const filteredMeds = medicines.filter(m => {
-    const matchSearch = !search ||
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      (m.brand ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (m.hsnCode ?? "").includes(search) ||
-      (m.barcode ?? "").includes(search);
-    const matchCat = !categoryFilter || m.category === categoryFilter;
-    return matchSearch && matchCat;
-  });
+  const filteredMeds = medicines
+    .filter(m => {
+      const matchSearch = !search ||
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        (m.brand ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (m.hsnCode ?? "").includes(search) ||
+        (m.barcode ?? "").includes(search);
+      const matchCat = !categoryFilter || m.category === categoryFilter;
+      return matchSearch && matchCat;
+    })
+    .sort((a, b) =>
+      sortOrder === "mrp"
+        ? (b.mrp ?? 0) - (a.mrp ?? 0)
+        : sortOrder === "stock"
+          ? (a.availableStock ?? 0) - (b.availableStock ?? 0)
+          : a.name.localeCompare(b.name),
+    );
 
   const today = new Date();
   const daysUntilExpiry = (dateStr: string) => {
@@ -646,12 +658,12 @@ export default function InventoryPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-      {/* Header */}
+      {/* Header — mirrors LocalWell "Stock on hand" */}
       <div className="flex shrink-0 flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Inventory</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Stock on hand</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {totalSKUs} medicines · ₹{stockValue.toFixed(2)} stock value
+            SKU: <span className="tabular-nums text-foreground">{totalSKUs}</span> · Stock Value ₹{stockValue.toFixed(2)}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -668,8 +680,8 @@ export default function InventoryPage() {
               value={search}
               data-inventory-search
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search medicines…  ( / )"
-              className={"pl-9 h-9 w-48 text-sm" + (stockSearching ? " pr-8" : "")}
+              placeholder="Search | Filter | Sort…"
+              className={"pl-9 h-9 w-56 text-sm" + (stockSearching ? " pr-8" : "")}
             />
             {stockSearching && <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />}
           </div>
@@ -679,12 +691,18 @@ export default function InventoryPage() {
           <Button variant="outline" size="sm" onClick={() => { setCatalogSearch(""); setCatalogOpen(true); }}>
             <BookOpen className="h-3.5 w-3.5 mr-1.5" />Medicine DB
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/stock-audit")}>
-            <ClipboardCheck className="h-3.5 w-3.5 mr-1.5" />Start stock audit
-          </Button>
+          {/* LocalWell's stock actions */}
+          <Select value={sortOrder} onValueChange={(v) => setSortOrder(v === "mrp" || v === "stock" ? v : "name")}>
+            <SelectTrigger className="h-9 w-32 text-xs"><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Sort: Name</SelectItem>
+              <SelectItem value="mrp">Sort: MRP</SelectItem>
+              <SelectItem value="stock">Sort: Stock</SelectItem>
+            </SelectContent>
+          </Select>
           <Dialog open={medDialogOpen} onOpenChange={open => { setMedDialogOpen(open); if (!open) resetMedForm(); }}>
             <DialogTrigger asChild>
-              <Button size="sm"><PackagePlus className="h-3.5 w-3.5 mr-1.5" />Add Medicine</Button>
+              <Button size="sm"><PackagePlus className="h-3.5 w-3.5 mr-1.5" />Add New Item</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
@@ -760,13 +778,31 @@ export default function InventoryPage() {
               </Button>
             </DialogContent>
           </Dialog>
+          {/* LocalWell's stock toolbar actions */}
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/catalog")}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />Add Composition
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/orderbook")} title="Order Now (F2)">
+            Order Now <kbd className="ml-1.5 rounded border border-border bg-background px-1 font-mono text-[9px]">F2</kbd>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate("/dashboard/settings")} title="Settings (F4)">
+            Settings <kbd className="ml-1.5 rounded border border-border bg-background px-1 font-mono text-[9px]">F4</kbd>
+          </Button>
+          <Button
+            variant={showZeroBatches ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowZeroBatches(v => !v)}
+            aria-pressed={showZeroBatches}
+          >
+            Show Zero Qty Batches
+          </Button>
         </div>
       </div>
 
       {/* Tabs — fills the viewport; each tab owns its internal region scroll */}
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabValue)} className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <TabsList className="grid w-full shrink-0 grid-cols-4 sm:w-auto">
-          <TabsTrigger value="stock" className="text-xs gap-1"><PackagePlus className="h-3 w-3" />Stock</TabsTrigger>
+          <TabsTrigger value="stock" className="text-xs gap-1">Stock</TabsTrigger>
           <TabsTrigger value="expiry" className="text-xs gap-1"><Clock className="h-3 w-3" />Expiry</TabsTrigger>
           <TabsTrigger value="low" className="text-xs gap-1"><TrendingDown className="h-3 w-3" />Low Stock</TabsTrigger>
           <TabsTrigger value="history" className="text-xs gap-1"><ArrowDownUp className="h-3 w-3" />History</TabsTrigger>
@@ -860,35 +896,36 @@ export default function InventoryPage() {
                     </div>
                   </div>
 
-                  {/* Batch list — expanded view */}
-                  {med.batches && med.batches.length > 0 && (
+                  {/* Batch list — expanded view; columns mirror LocalWell's view-stocks table */}
+                  {med.batches && med.batches.filter(b => showZeroBatches || b.quantity > 0).length > 0 && (
                     <div className="mt-3 border-t border-border/40 pt-3">
                       <div className="hidden sm:grid grid-cols-12 gap-1 text-[10px] text-muted-foreground uppercase tracking-wider px-1 mb-1">
-                        <div className="col-span-2">Batch No.</div>
+                        <div className="col-span-2">Batch No</div>
+                        <div className="col-span-1">Pack</div>
                         <div className="col-span-2">Expiry</div>
-                        <div className="col-span-1 text-right">Qty</div>
                         <div className="col-span-1 text-right">MRP</div>
-                        <div className="col-span-1 text-right">Pur. ₹</div>
-                        <div className="col-span-1 text-right">Sell ₹</div>
-                        <div className="col-span-2 text-center">Status</div>
+                        <div className="col-span-1 text-right">Purc Rate</div>
+                        <div className="col-span-1 text-right">Sale Rate</div>
+                        <div className="col-span-1 text-center">Status</div>
+                        <div className="col-span-1 text-right">Stock Qty</div>
                         <div className="col-span-2 text-right">Actions</div>
                       </div>
                       <div className="space-y-1">
-                        {med.batches.map(batch => {
+                        {med.batches.filter(b => showZeroBatches || b.quantity > 0).map(batch => {
                           const days = daysUntilExpiry(batch.expiryDate);
                           const isLow = batch.quantity <= 5;
                           const isExpired = days <= 0;
                           return (
                             <div key={batch.id} className={`grid grid-cols-2 sm:grid-cols-12 gap-1 sm:gap-2 items-center px-2 py-1.5 rounded-sm text-xs ${expiryColor(batch.expiryDate)} ${isLow && !isExpired ? "bg-orange-50" : ""}`}>
                               <div className="col-span-2 font-mono text-xs">{batch.batchNo}</div>
+                              <div className="hidden sm:block sm:col-span-1 text-muted-foreground">{med.packSize ?? "—"}</div>
                               <div className="col-span-1 sm:col-span-2 text-muted-foreground">
                                 <span className="font-mono">{formatExpiryMY(batch.expiryDate)}</span>
                                 <span className="ml-1 text-[10px]">{days > 0 ? `${days}d` : "Exp"}</span>
                               </div>
-                              <div className="col-span-1 text-right font-semibold tabular-nums" title={`${batch.quantity} tabs`}>{formatPackQty(batch.quantity, (med as any).unitsPerPack)}</div>
                               <div className="hidden sm:block sm:col-span-1 text-right tabular-nums">{batch.mrp > 0 ? `₹${batch.mrp.toFixed(0)}` : "—"}</div>
-                              <div className="hidden sm:block sm:col-span-1 text-right tabular-nums text-muted-foreground">{batch.purchasePrice > 0 ? `₹${batch.purchasePrice.toFixed(2)}` : "—"}</div>
-                              <div className="hidden sm:block sm:col-span-1 text-right tabular-nums text-muted-foreground">{batch.sellingPrice > 0 ? `₹${batch.sellingPrice.toFixed(2)}` : "—"}</div>
+                              <div className="col-span-1 text-right tabular-nums text-muted-foreground">{batch.purchasePrice > 0 ? `₹${batch.purchasePrice.toFixed(2)}` : "—"}</div>
+                              <div className="col-span-1 text-right tabular-nums">{batch.sellingPrice > 0 ? `₹${batch.sellingPrice.toFixed(2)}` : "—"}</div>
                               <div className="col-span-1 text-center">
                                 {isExpired ? (
                                   <Badge variant="destructive" className="text-[10px]">Expired</Badge>
@@ -900,6 +937,7 @@ export default function InventoryPage() {
                                   <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700 border-green-200">OK</Badge>
                                 )}
                               </div>
+                              <div className="col-span-1 text-right font-semibold tabular-nums" title={`${batch.quantity} tabs`}>{formatPackQty(batch.quantity, (med as any).unitsPerPack)}</div>
                               <div className="col-span-2 flex items-center gap-1 justify-end">
                                 <Button size="icon" variant="ghost" className="h-6 w-6" title="Adjust stock" onClick={() => openAdjustDialog(batch)}><ArrowDownUp className="h-3 w-3" /></Button>
                                 <Button size="icon" variant="ghost" className="h-6 w-6" title="Edit batch" onClick={() => openBatchDialog(med.id, batch)}><Edit2 className="h-3 w-3" /></Button>
@@ -911,7 +949,7 @@ export default function InventoryPage() {
                     </div>
                   )}
 
-                  {(!med.batches || med.batches.length === 0) && (
+                  {(!med.batches || med.batches.filter(b => showZeroBatches || b.quantity > 0).length === 0) && (
                     <button
                       onClick={() => openBatchDialog(med.id)}
                       className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"

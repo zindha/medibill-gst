@@ -364,9 +364,9 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Reports</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Business Reports</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Sales, purchase, profit, inventory and GST reports
+            View & Download Reports in CSV, PDF or XLS
           </p>
         </div>
       </div>

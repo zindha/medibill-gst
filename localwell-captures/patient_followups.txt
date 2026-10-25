@@ -1,0 +1,104 @@
+URL: https://pharmacy.localwell.in/reminders/view-reminders
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+PATIENT FOLLOW-UPS
+Start building relationship with your customers
+Arriving
+Expired
+Search | Filter | Sort
+  
+FILTER BY
+SORT BY
+SEARCH
+No Followups Found!
+Load More
+-
+First Sale
+-
+Contact
+Address
+-
+View Sales History
+
+Edit Customer
+
+No Entries Found!
+Wow! You have discovered a Premium Feature
+Subscribe to a Plan Below to Unlock
+12 Months Premium
+₹4,999
+₹5,988
+17% off
+₹417 per month*
+24 Months Premium
+₹8,999
+₹11,976
+25% off
+₹375 per month*
+Customer Sales Billing
+Business Expenses
+Purchase Import via CSV
+Stock Audit & Reports
+Sale & Purchase Returns
+Patient Medicine Follow-ups
+Upgrade to Premium
+Or
+Activate 7-days Free Trial
+*All Prices are Exclusive of GST. Installation & Setup Cost may be Extra

@@ -1,0 +1,176 @@
+URL: https://pharmacy.localwell.in/orderbook/dashboard
+HTTP: 200
+404: False
+
+LA
+
+RETAILER
+
+LAKSHMI
+, Kanchipuram, Tamil Nadu - 600070
+
+Purchases
+
+Stock
+
+Sales
+
+Activate Free Trial
+You’re Now Eligible!
+
+SEARCH
+
+ALERT
+
+SHORTCUT
+
+MA
+
+USER
+
+Ctrl + F to Search All
+
+Dashboard
+
+Invoices
+
+Customer Orders
+
+Orderbook
+
+Business Reports
+
+Patient Followups
+
+Expenses
+
+Cash and Bank
+
+Branch Transfer
+
+Stock Audit
+
+Control Center
+
+Support
+
+Install on Desktop
+
+Collapse Sidebar
+
+Orderbook Dashboard
+List of Stock Products which are in Shortage
+How to Use Orderbook?
+
+Shortbook Settings (F2)
+
+-
+Shortbook Items
+Stock Items in Shortage
+359
+Distributors
+Whom to Order from
+0
+Items in Cart
+Items finalized for Order
+0
+Ordered Items
+Items that are in Order
+0
+Order Analysis
+Analyze fulfilment status
+Local Distributors
+List of All Distributors from your locality
+View All
+ES
+Eswar Medical Agencies
+No 2a Govindhan Street, Venkateswara Nagar, Ambattur,Chennai, Tamil Nadu
+Order Now
+KA
+Kanagavalli Pharma
+6-A Vaikundaperumal Sannathi Street, Kanchipuram, Kanchipuram, Tamil Nadu, 631502
+Order Now
+SR
+Sree Sathiya Pharma
+41 A/B 1st Floor Vallal Pachaiyappan Street, Kancheepuram, Kanchipuram, Tamil Nadu, 631501
+Order Now
+FR
+French Carre Formulations
+2/95 E V R Periyar Road, Palavakkam Chennai, Tamil Nadu
+Order Now
+NE
+Newtrimed Healthcare Private Limited
+72 And 73 Judges Colony, Nehru Nagar, Kottivakkam, Kanchipuram, Tamil Nadu, 600041
+Order Now
+JA
+Jaya Distributors Private Limited
+73b/2 Pallikudathan Street, Kanchipuram, Kanchipuram, Tamil Nadu, 631501
+Order Now
+GA
+Galaxy Pharmaceuticals
+1st Floor No.22 Inex House, Rajiv Street, Kamaraj Nagar, Keelkattalai
+Order Now
+WI
+Win Pharma
+3/41 Kakanji Street, Sathyamoorthy Nagar, Thiruvanchery, Kanchipuram, Tamil Nadu, 600126
+Order Now
+AD
+Aditti Agency
+New No. 2 Plot No 7 Immanuel Street, Mahalakshmi Nagar, Chennai Selaiyur, Kanchipuram, Tamil Nadu, 600073
+Order Now
+NA
+Nalam Agencies
+13 A, Thirupur Kumaran Street,, Kanchipuram, Kanchipuram, Tamil Nadu, 631501
+Order Now
+AF
+Afthar Enterprise
+No 20/108 4th Cross Street, Eswari Nagar, Pallavaram, Tamil Nadu
+Order Now
+RS
+Rsg Pharma And Welness Centre
+154-B Gst Road,Chrompet, Chennai, Tamil Nadu
+Order Now
+G
+G G Phaarma
+B-72 7th Cross Circle Street,Anna Nagar, Chengalpattu, Tamil Nadu
+Order Now
+KM
+Kms Pharmaceuticals
+6/24 Kayalar Lane, C.Pallavaram, Tamil Nadu
+Order Now
+JO
+Jothi Agencies
+No. 5/65 Chinna Vinjiyam Pakkam, G.S.T. Road, Singaperumal Koil, Kanchipuram, Tamil Nadu, 603204
+Order Now
+PH
+Phyton Pharma
+13/L-359, 14th Cross Street,Thiruvalluvar Nagar, Chennai
+Order Now
+SR
+Sri Sabari Enterprises
+No.33/6 Chittibabu Apartment Ragavanar Street, Chengalpattu, Kanchipuram, Tamil Nadu, 603001
+Order Now
+V.
+V.S. Biotech
+No.53/45 Anna Street,, Chitlapakkam, Kanchipuram District., Kanchipuram, Tamil Nadu, 600064
+Order Now
+M
+M D Pharmaceuticals
+9 Shoba Nagar, Ambattur, Tamil Nadu
+Order Now
+SR
+Sri Meenakshi Agency
+5/170 5th Main Road, Otteri Extension Vandalur Chennai, Tamil Nadu
+Order Now
+Popular Brands
+List of Products from the Powerhouses
+Categories
+List of Products from your Stock Categories
+Medication
+Ayurvedic Care
+Personal Care & Hygiene
+Mother & Baby Care
+Sexual Wellness
+Surgicals & Medical Devices
+Food & Nutrition
+Beauty & Skin Care

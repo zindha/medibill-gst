@@ -28,3 +28,5 @@ isolate/
 .impeccable/
 *.tsbuildinfo
 .vitest-reports/
+
+.tmp-ref-chunks/

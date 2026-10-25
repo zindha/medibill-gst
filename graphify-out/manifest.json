@@ -30,13 +30,13 @@
     "semantic_hash": ""
   },
   "apps/server/src/db/schema/index.ts": {
-    "mtime": 1790448581.6686926,
-    "ast_hash": "1428735719b8efeb5cce9eaf9c3ba4ea",
+    "mtime": 1792895249.312805,
+    "ast_hash": "3c96b8702ed7b44fb7163937cc991c9b",
     "semantic_hash": ""
   },
   "apps/server/src/index.ts": {
-    "mtime": 1790479701.7832725,
-    "ast_hash": "fcb2fb4d22ca41defe5d88d9be5e25d2",
+    "mtime": 1792895334.6162045,
+    "ast_hash": "2b754952e596ec99bf77b86d3b129d14",
     "semantic_hash": ""
   },
   "apps/server/src/lib/auth.ts": {
@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/customers.ts": {
-    "mtime": 1790477679.6880796,
-    "ast_hash": "06c471f14620a1bf017263ac2d1acc40",
+    "mtime": 1792682462.9445603,
+    "ast_hash": "c0eff2589d693b4892d32a5ecf7f2260",
     "semantic_hash": ""
   },
   "apps/server/src/routes/dashboard.ts": {
@@ -85,13 +85,13 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/invoices.ts": {
-    "mtime": 1790480750.4897377,
-    "ast_hash": "cfefa1110d1a0e0e36cacf91322066ff",
+    "mtime": 1792680338.2942717,
+    "ast_hash": "2408f24070aba419fe5a5fdc26371a6c",
     "semantic_hash": ""
   },
   "apps/server/src/routes/medicines.ts": {
-    "mtime": 1790477702.2660637,
-    "ast_hash": "97e6d2781f410948d337673f1389ee63",
+    "mtime": 1792680759.972309,
+    "ast_hash": "6405a3392502e2a2624eece04b3ee073",
     "semantic_hash": ""
   },
   "apps/server/src/routes/payments.ts": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/purchases.ts": {
-    "mtime": 1790478302.539253,
-    "ast_hash": "a07da9e013b46e183147dfeb81cbbf7a",
+    "mtime": 1792680738.33271,
+    "ast_hash": "7664060a696c13b52acf4e6db1854a41",
     "semantic_hash": ""
   },
   "apps/server/src/routes/reports.ts": {
@@ -110,18 +110,18 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/returns.ts": {
-    "mtime": 1790477742.5483968,
-    "ast_hash": "bf0e3f67347fa64b6df331d015a94a13",
+    "mtime": 1792682356.538244,
+    "ast_hash": "0efdd281d1ea9fbe2f7f67a7c645b0d7",
     "semantic_hash": ""
   },
   "apps/server/src/routes/settings.ts": {
-    "mtime": 1790479720.1667233,
-    "ast_hash": "72c485ba916c9f414708ef457f54f615",
+    "mtime": 1792680776.3714795,
+    "ast_hash": "cb1f9c6ef762dbbf87d9ef2d1dc63f8c",
     "semantic_hash": ""
   },
   "apps/server/src/routes/suppliers.ts": {
-    "mtime": 1790477668.4826548,
-    "ast_hash": "cfe81e8ab67050316c829280c339ca0a",
+    "mtime": 1792680759.0037014,
+    "ast_hash": "6d86581206f14d00808475c3ace1a6ab",
     "semantic_hash": ""
   },
   "apps/server/tsconfig.json": {
@@ -200,8 +200,8 @@
     "semantic_hash": "89ca36055fba4f7a4235400dd0af8ba5"
   },
   "src/components/DashboardLayout.tsx": {
-    "mtime": 1790449996.4099696,
-    "ast_hash": "70e1da84659ca35340e446ec49dcea4a",
+    "mtime": 1792943991.5924308,
+    "ast_hash": "616cdd07bd980358852745d5ce206075",
     "semantic_hash": ""
   },
   "src/components/EmptyState.tsx": {
@@ -655,8 +655,8 @@
     "semantic_hash": "c6ff8351fc09d7d7a0e8576344fe05d6"
   },
   "src/lib/api.ts": {
-    "mtime": 1790480768.1951687,
-    "ast_hash": "8436f54504df3fa85df29df4f9a410a8",
+    "mtime": 1792896104.0429347,
+    "ast_hash": "6cbae11cdc1e748b379aea795f391994",
     "semantic_hash": ""
   },
   "src/lib/utils.ts": {
@@ -670,13 +670,13 @@
     "semantic_hash": "c51b1ead2ac09a78c7f3a1b2b94067e7"
   },
   "src/main.tsx": {
-    "mtime": 1790449980.733654,
-    "ast_hash": "de37a915354121e4b4d607c7bc0360db",
+    "mtime": 1792896594.8256085,
+    "ast_hash": "42ababc7d7385bd5362a473f5644826b",
     "semantic_hash": ""
   },
   "src/pages/Auth.tsx": {
-    "mtime": 1788108119.1371698,
-    "ast_hash": "0518a63a20e9fdad2e25cb9c3f28bb1d",
+    "mtime": 1792948550.573763,
+    "ast_hash": "8bfd239772b472da96fa12d6cf9ea3c9",
     "semantic_hash": ""
   },
   "src/pages/BillingPage.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "src/pages/DashboardPage.tsx": {
-    "mtime": 1790355826.7522414,
-    "ast_hash": "745cdde2ea3ff2dc1d8da45d44efb1f8",
+    "mtime": 1790639178.2548769,
+    "ast_hash": "db36a441cb1ffd53b56e985e15ba1ffa",
     "semantic_hash": ""
   },
   "src/pages/DoctorsPage.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": "a0d4930cf7aca6858c990534e91ba021"
   },
   "src/pages/InventoryPage.tsx": {
-    "mtime": 1790397826.0133066,
-    "ast_hash": "c5e6b38c6e690da28418fe84d059013e",
+    "mtime": 1792948772.121825,
+    "ast_hash": "a279fdbe4dad466426e8c6b2a9cc49a4",
     "semantic_hash": ""
   },
   "src/pages/InvoicesPage.tsx": {
@@ -735,8 +735,8 @@
     "semantic_hash": ""
   },
   "src/pages/ReportsPage.tsx": {
-    "mtime": 1790354901.5857332,
-    "ast_hash": "49b56ecc77975e59de5d75a45709c49d",
+    "mtime": 1792957350.4246025,
+    "ast_hash": "beb45504853a0f247946538d8c66b491",
     "semantic_hash": ""
   },
   "src/pages/SalesReturnsPage.tsx": {
@@ -750,8 +750,8 @@
     "semantic_hash": ""
   },
   "src/pages/SettingsPage.tsx": {
-    "mtime": 1790475697.3870294,
-    "ast_hash": "a7968a5a2f4642a84c671553ef77e612",
+    "mtime": 1792680380.652139,
+    "ast_hash": "7e92046786347ab1b5b5a36815365178",
     "semantic_hash": ""
   },
   "src/pages/SuppliersPage.tsx": {
@@ -1615,8 +1615,8 @@
     "semantic_hash": ""
   },
   "src/pages/CashBankPage.tsx": {
-    "mtime": 1790407461.5861366,
-    "ast_hash": "bf51e53173bd12e9f38a41c6dff3f2dd",
+    "mtime": 1792907427.7550633,
+    "ast_hash": "fdc8eaf41cbe2af0930a6306b23cdcc6",
     "semantic_hash": ""
   },
   "apps/server/src/db/migrations/0012_compliance.sql": {
@@ -1680,8 +1680,8 @@
     "semantic_hash": ""
   },
   "src/pages/OrdersPage.tsx": {
-    "mtime": 1790475262.3212197,
-    "ast_hash": "88ab7439277b745572a6d75a9a6f1438",
+    "mtime": 1792957318.5496228,
+    "ast_hash": "972c8991c57f00be7be75138558c282a",
     "semantic_hash": ""
   },
   "apps/server/src/db/migrations/0014_sync_devices.sql": {
@@ -1690,8 +1690,8 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/devices.ts": {
-    "mtime": 1790416124.2672753,
-    "ast_hash": "3899467019ad796bdd248bf2b0162670",
+    "mtime": 1792680200.9710166,
+    "ast_hash": "7d2c09847db9282611355ec8fb59e212",
     "semantic_hash": ""
   },
   "apps/server/src/routes/sync.ts": {
@@ -1705,8 +1705,8 @@
     "semantic_hash": ""
   },
   "apps/server/src/services/sync.ts": {
-    "mtime": 1790443757.4690552,
-    "ast_hash": "d0e9dfa779b44239b0b5e9942998d393",
+    "mtime": 1792680773.72357,
+    "ast_hash": "49afa10270602364e63d6148693c30da",
     "semantic_hash": ""
   },
   "apps/server/test/devices-sync.test.ts": {
@@ -1715,8 +1715,8 @@
     "semantic_hash": ""
   },
   "src/pages/DevicesPage.tsx": {
-    "mtime": 1790444710.8355277,
-    "ast_hash": "620b28b01dc64dc2de9bcd84a9ceebe7",
+    "mtime": 1792680262.4968135,
+    "ast_hash": "1de95456985ec044f7fff5a731941417",
     "semantic_hash": ""
   },
   "apps/server/src/db/migrations/0015_data_migration.sql": {
@@ -1810,8 +1810,8 @@
     "semantic_hash": ""
   },
   "apps/server/src/routes/purchaseReturns.ts": {
-    "mtime": 1790470584.086256,
-    "ast_hash": "d3f84beb975e0b79e5c83dd4739df01e",
+    "mtime": 1792680615.9328482,
+    "ast_hash": "c4c8dcc7819c5382612eb2aa8cb5eaa4",
     "semantic_hash": ""
   },
   "apps/server/test/opening-balances.test.ts": {
@@ -1827,6 +1827,986 @@
   "docs/INTEGRATIONS.md": {
     "mtime": 1790475075.4491963,
     "ast_hash": "dd19b1090934854bf5b8d2cdd423123e",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0017_business_expenses.sql": {
+    "mtime": 1792677517.6426768,
+    "ast_hash": "9eeb95073ee72200fbc0b8db6c6fd33a",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0018_purchase_correctness.sql": {
+    "mtime": 1792680571.300243,
+    "ast_hash": "185c61ba66416c6bdde32d33d23b10de",
+    "semantic_hash": ""
+  },
+  "apps/server/src/routes/expenses.ts": {
+    "mtime": 1792680436.742922,
+    "ast_hash": "7144f98ed5c8e2a3fa885ed346edf9fb",
+    "semantic_hash": ""
+  },
+  "apps/server/src/routes/staff.ts": {
+    "mtime": 1792681272.8109534,
+    "ast_hash": "e60fdb0212fba5d54b2d1a2ec0c84ea4",
+    "semantic_hash": ""
+  },
+  "apps/server/src/services/numbering.ts": {
+    "mtime": 1792681321.4742417,
+    "ast_hash": "dfbb568fcff2639c8151989aff54e9b7",
+    "semantic_hash": ""
+  },
+  "apps/server/test/expenses.test.ts": {
+    "mtime": 1792678463.6216147,
+    "ast_hash": "1a44dc135bece424c5efb74e2c116d60",
+    "semantic_hash": ""
+  },
+  "apps/server/test/staff.test.ts": {
+    "mtime": 1792680561.931909,
+    "ast_hash": "3476a17b66845a32d373867d6770fcb6",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_caps.py": {
+    "mtime": 1792676494.4906538,
+    "ast_hash": "1266c2d835168394ea632ee490d3ad19",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_consolidate.py": {
+    "mtime": 1792676367.8776114,
+    "ast_hash": "28bd93777931a7abe6ebe70e6a48234a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages___error-c045b1966ba31c39.js": {
+    "mtime": 1792672755.7658317,
+    "ast_hash": "7722b5bbfed8ceeb397e6f332ad64e09",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__cash-and-bank-1f3db9a089df0370.js": {
+    "mtime": 1792672755.770924,
+    "ast_hash": "3ed92d68b3ad53aa53d213c0bfc0efa4",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__cash-and-bank__account-statement-5bbb9f294d620ecf.js": {
+    "mtime": 1792672755.767917,
+    "ast_hash": "d0bffe294b0752c3a7156e2fd3065352",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__cash-and-bank__cheque-management-8cc065880489ac57.js": {
+    "mtime": 1792672755.769925,
+    "ast_hash": "921e222fc478b77594ef49724bd223a4",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__bulk-edit-bills-15d7f1b853c06f77.js": {
+    "mtime": 1792672755.7729273,
+    "ast_hash": "af2830dc761ab9647af948657fbb2113",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__business-profile-db9664ded8703327.js": {
+    "mtime": 1792672755.7739284,
+    "ast_hash": "756221792fac89c6d3f4cbc298a294cc",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__integrations-783822e85bcc6195.js": {
+    "mtime": 1792672755.7749283,
+    "ast_hash": "0997da5bd59837fdb271408beec0133d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__layout-e748f2c7101629df.js": {
+    "mtime": 1792672755.776929,
+    "ast_hash": "1a3818cd418e7793e2c92c8eeeaf102c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__migration-bd87296c7b82ce52.js": {
+    "mtime": 1792672755.7779286,
+    "ast_hash": "1b0830875b63ba27e930be31344e0689",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__picklist-settings-ae2c587e3d9ce526.js": {
+    "mtime": 1792672755.7799325,
+    "ast_hash": "b8b6b0f97f4eb734fc34dd2a7ddd6e22",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__plans-pricing-d7faf2e8aba4cfb3.js": {
+    "mtime": 1792672755.786929,
+    "ast_hash": "6af3644e273a47e4923f81767c943a04",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__prefix-sequences-20b14417f1a80bae.js": {
+    "mtime": 1792672755.7889278,
+    "ast_hash": "abdf137839e5efb76c7f94f9522be11b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__refer-earn-328664e1f4ea6b9b.js": {
+    "mtime": 1792672755.7909284,
+    "ast_hash": "cdf6248d7e1bd7866de56797fe7249d0",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__control-center__sale-settings-932b1d2325e261c7.js": {
+    "mtime": 1792672755.7919328,
+    "ast_hash": "e2f7752d09c550f865aa4e3856092b46",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__customer-orders-d70466f5a409fe36.js": {
+    "mtime": 1792672755.8049324,
+    "ast_hash": "ccb6a53b6580ad0607a9dfadaacc81d1",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__customer-orders__business-kyc-5821fd2ce1e394d5.js": {
+    "mtime": 1792672755.7939298,
+    "ast_hash": "a9d164c8dcc489bb711f655a76313373",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__customer-orders__order-detail-aa2c222b08ed5b28.js": {
+    "mtime": 1792672755.7959287,
+    "ast_hash": "01748ee7ec37c59b6163e2322b2c9da4",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__customer-orders__promote-medcart-c7e96fb77e52b9b2.js": {
+    "mtime": 1792672755.8019333,
+    "ast_hash": "f7c2365c4a26e4f9f9883ecd7508d54d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__dashboard__view-dashboard-db0efc3d39e7c688.js": {
+    "mtime": 1792672755.8069365,
+    "ast_hash": "99804992d6a2e74181cdf51d40afb483",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__expenses__add-expense__[expense_id]-8fc8cd520a3d1189.js": {
+    "mtime": 1792672755.809932,
+    "ast_hash": "4754b4a3a4075faa0b119b3f682044f9",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__expenses__view-expenses-7929ae125b9338b5.js": {
+    "mtime": 1792672755.8109355,
+    "ast_hash": "adebfdd701088a4154998bc9c5379bf7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__index-d244792227feccc9.js": {
+    "mtime": 1792672755.812935,
+    "ast_hash": "5685508fbb3992543856297562a49aa2",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations-05c1980a493c4e8f.js": {
+    "mtime": 1792672755.8329408,
+    "ast_hash": "76737ce3732392510e15cf9904b140ed",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations__aadhar-kyc-4b4f69768c696349.js": {
+    "mtime": 1792672755.8199356,
+    "ast_hash": "00aa3482725e6c2be90a0dee1c1b1f3a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations__business-detail-05f17eddbb974adf.js": {
+    "mtime": 1792672755.8229449,
+    "ast_hash": "b666c3cb0f8776158e697dac08c613da",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations__kyc-docs-7df8e2dcd87f7c06.js": {
+    "mtime": 1792672755.8249393,
+    "ast_hash": "65682a2df220d121a9a82052e042c295",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations__partner_integrations-683d5036926dd4f2.js": {
+    "mtime": 1792672755.82694,
+    "ast_hash": "ed4d2066dc17752e511dc9680968cfec",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__integrations__verify-email-f4b3203adca34218.js": {
+    "mtime": 1792672755.8289423,
+    "ast_hash": "4d8a4c48c2e0803866a0b050c028dba0",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__invoices__credit-note-f8fee11555c19bd0.js": {
+    "mtime": 1792672755.8359377,
+    "ast_hash": "1c705d9f227fe69f12f48073dfa73d1f",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__invoices__debit-note-9af3314eeb6f8995.js": {
+    "mtime": 1792672755.836939,
+    "ast_hash": "108e74561e4a5209dacca8ea1c3f6a94",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__invoices__e-way-bill-view-2c30f83a6b5106f8.js": {
+    "mtime": 1792672755.8389425,
+    "ast_hash": "238433ab0a2c4de30584a70172b0932d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__invoices__sale-invoice-new-ddb27b2e0f0e12a1.js": {
+    "mtime": 1792672755.8409457,
+    "ast_hash": "7a8f1a7df499eaf49faaee8763513e1b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login-89a131be1beb37a1.js": {
+    "mtime": 1792672755.8629453,
+    "ast_hash": "f0a6fdea3c77ff793bfdc6d899806452",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__create-password-1b52f03adafbb464.js": {
+    "mtime": 1792672755.8429468,
+    "ast_hash": "fe3f15255b6d1ed1590f16e90b1f0e08",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__login-a2f0c63e25e6b13e.js": {
+    "mtime": 1792672755.8449426,
+    "ast_hash": "78b60db71dd82a1946265901cb9afcd8",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__login-exhausted-c88a77814ab48051.js": {
+    "mtime": 1792672755.846948,
+    "ast_hash": "3de2aba65d07ea44a66b582436e6ce7c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__register-6d505d913ea9fc28.js": {
+    "mtime": 1792672755.8549447,
+    "ast_hash": "46a2db5b46e431329548ae1b60bb0e05",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__subscription-expired-b3f80523ff987888.js": {
+    "mtime": 1792672755.85795,
+    "ast_hash": "34afa17c9841186e284fd7564445b00f",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__support__[...params]-3acd439668cbe80c.js": {
+    "mtime": 1792672755.8599465,
+    "ast_hash": "4da4591a9b87ede72c054f107f3944b9",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__login__switch-business-309cbc76f2f797d9.js": {
+    "mtime": 1792672755.8609478,
+    "ast_hash": "df28ce3ba2b2ff2e948ea017f50496ac",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__dashboard-0e6373141d74b7dc.js": {
+    "mtime": 1792672755.8649478,
+    "ast_hash": "ce6d5b0a96be06f878f596111a82b9e2",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__distributors-17f7d3add71aefcd.js": {
+    "mtime": 1792672755.8699496,
+    "ast_hash": "3dad40a0ad07a5d3290a5b6053e9ff99",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__distributors__[distributor_id]-c8bc85a47aaa915a.js": {
+    "mtime": 1792672755.868948,
+    "ast_hash": "824dcaa0dd534e732410b969d0cd7c19",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__order-analysis-d84906d61276511b.js": {
+    "mtime": 1792672755.8719478,
+    "ast_hash": "85f549f08d85b75cccfdaaaf26f80230",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__product-list-dbc6e278ad126545.js": {
+    "mtime": 1792672755.8729491,
+    "ast_hash": "9fb49a2e29d67cbc979341782fb540b3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__products-already-to-order-e5085b2f72c42083.js": {
+    "mtime": 1792672755.8759522,
+    "ast_hash": "c83443d235e182be9c6484f786f7fd6d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__purchase-orders-7980a120069147b1.js": {
+    "mtime": 1792672755.8799503,
+    "ast_hash": "dddbae9e30e552f01ef3c70b2b9f6b3a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__purchase-orders__view-po-detail-596d8bc13d8ccea9.js": {
+    "mtime": 1792672755.8779497,
+    "ast_hash": "2da0f08fef1f2d987168593844b03db9",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__shortbook-d645f68a543feb6d.js": {
+    "mtime": 1792672755.8859522,
+    "ast_hash": "479de142695dd9c0c035afb93adce01e",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__view-cart-b7398bc06b32a91e.js": {
+    "mtime": 1792672755.8899512,
+    "ast_hash": "07e806f0d930d871d6b90dc3339ff4a7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__orderbook__view-cart__[order_id]-d120b877f33e834c.js": {
+    "mtime": 1792672755.887954,
+    "ast_hash": "df011862edd5a919ecb6e7f4dfeed8da",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__add-purchase-79a38d8585f0a26e.js": {
+    "mtime": 1792672755.89195,
+    "ast_hash": "5f9d716704c6207bf524a7db8790bf3d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__banner__b2connectbanner-c6129bb3006363f0.js": {
+    "mtime": 1792672755.8939526,
+    "ast_hash": "ec059985fc7945ecd2b83477006afe51",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__import-csv-0b6c2f17aa8b8f93.js": {
+    "mtime": 1792672755.8959527,
+    "ast_hash": "e7b566c39c13bca161e2519a8e07d42d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__return-expired-products-6c4870602348c05e.js": {
+    "mtime": 1792672755.9029555,
+    "ast_hash": "910c9c6bd76a65fdc6d6346112ce3a7f",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__return-purchase-1901213e2740068c.js": {
+    "mtime": 1792672755.9059534,
+    "ast_hash": "17bd583e092a9c13bc431c8e4434b3f3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__purchase__view-purchases-6bf38b68dcfa1a29.js": {
+    "mtime": 1792672755.9079554,
+    "ast_hash": "dd259529680de4b0b7199fd1dfdaf6b1",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__reminders__view-reminders-cf12f85f82f587f2.js": {
+    "mtime": 1792672755.9099557,
+    "ast_hash": "810b44de521b6c21076bac36080d01dd",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__reports__business-report-view__[report_id]-ddefcfaf42d00f77.js": {
+    "mtime": 1792672755.9249606,
+    "ast_hash": "8805467f7c9facc03dc04738f011b7c9",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__reports__business-reports-05590721bd92498b.js": {
+    "mtime": 1792672755.9119575,
+    "ast_hash": "b04b9d1952e41ae15ca2ecffeacd88e6",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sale__add-sale-45ecb47518b4776b.js": {
+    "mtime": 1792672755.9279613,
+    "ast_hash": "5f9471cfb76811ebf2463b8be27ee00c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sale__add-sale__[sale_id]-fb0b0f66b26631c8.js": {
+    "mtime": 1792672755.92696,
+    "ast_hash": "db0b405fc13360a0f57e888c69b74544",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sale__customer-facing-screen-78f7c1a90f7e99d0.js": {
+    "mtime": 1792672755.9299603,
+    "ast_hash": "7cd7d3d9c029e06b08760034b432fbfc",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sale__return-sale-4aa5d7e15305c790.js": {
+    "mtime": 1792672755.9349709,
+    "ast_hash": "244b86bb44a0b8993bf81859df2024b8",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sale__view-sales-cf7125da98954e99.js": {
+    "mtime": 1792672755.9369757,
+    "ast_hash": "5c341d6ad642890f4b0349f473005548",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__sales-routes-0155f90b9c97cdf0.js": {
+    "mtime": 1792672755.938973,
+    "ast_hash": "9b4f5615b788e3bf3b8e9bafa9ff4051",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__settings__subscriptions-19860b578778189a.js": {
+    "mtime": 1792672755.9399736,
+    "ast_hash": "5ed2a0d51d4cc45ada3a95ef11a5e317",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__settings__users-devices-68f8073ca5b231ba.js": {
+    "mtime": 1792672755.9419737,
+    "ast_hash": "99de640303299035ffa6c25a0b804f94",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stock-audit-e925e5ba6c51df3c.js": {
+    "mtime": 1792672755.956494,
+    "ast_hash": "07dde6ac46fad9f703b40edb265eda71",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stock-audit__view-audit__[stock_audit_id]-4bf7a5ce0584994d.js": {
+    "mtime": 1792672755.943981,
+    "ast_hash": "48ddaea2bb45f36c1161090d85ac59fe",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stock-audit__view-batches__[stock_audit_id]-f26a97525e8b1b1c.js": {
+    "mtime": 1792672755.9459739,
+    "ast_hash": "25b5978fa8913d97b1cfa0520f017ea7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stock-audit__view-products-b8e3b29b4d3a75a7.js": {
+    "mtime": 1792672755.9544902,
+    "ast_hash": "df13060ba132c9b42055843c9aa85f49",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__adjust-stocks-3b359e184710e2e8.js": {
+    "mtime": 1792672755.958494,
+    "ast_hash": "d0c21202c9aa606d1381617f23de444c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__bulk-update-settings-251da08e792a2cb7.js": {
+    "mtime": 1792672755.9604938,
+    "ast_hash": "c176e6ab9e9a4fb52b0d7e85c6c372b3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__print-barcode-labels-82a5118d99d4e9e8.js": {
+    "mtime": 1792672755.9634953,
+    "ast_hash": "879073e53410100dbc70ce3ca2a2e826",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__print-barcode-labels__stock-scan-qr-255443d045128e02.js": {
+    "mtime": 1792672755.9615016,
+    "ast_hash": "78d877e0e0c53d7b0139249ed78cb79b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__stock-picklist-a71fbeea3d6e8add.js": {
+    "mtime": 1792672826.3883574,
+    "ast_hash": "9fdb52831f921d6bb6c76ebd8aa7fbd6",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__stock-transfer__view-transfers-f05245693046c254.js": {
+    "mtime": 1792672755.9784968,
+    "ast_hash": "901309eec0d1a79600d89ecc622e0029",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__update-stock-info-8ff2e99855275c11.js": {
+    "mtime": 1792672755.9805002,
+    "ast_hash": "f0ace7917568a41eb421f2d36224f661",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__upload-stocks-d266bf6eea360301.js": {
+    "mtime": 1792672755.9845035,
+    "ast_hash": "5bda9f4565bedf49ded45102ce1788b7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__stocks__view-stocks-d686359abbb40817.js": {
+    "mtime": 1792672755.988499,
+    "ast_hash": "a7597a4dc1b49593ed203a16b032851a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__subscriptions__checkout-6601b55542530bd3.js": {
+    "mtime": 1792672755.9905033,
+    "ast_hash": "82291ef6181297eb691bdfeca47bb8d9",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__account-manager-dd18fec6ad021ee0.js": {
+    "mtime": 1792672755.9914987,
+    "ast_hash": "7a96da3449487e2bef6960423d234f52",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__reset-account-abcabc61909f6cbe.js": {
+    "mtime": 1792672755.993499,
+    "ast_hash": "f92f841fa9669e85b8f49eed3915e692",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__tickets-7f6ac09975caa851.js": {
+    "mtime": 1792672755.9965003,
+    "ast_hash": "6fd5fb2090c1492272d793b872fedaa8",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__tickets__[ticket_id]-69d92f63839bf583.js": {
+    "mtime": 1792672755.9944992,
+    "ast_hash": "b90fc047fe7dcc346da751e4e8f50b37",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__tickets__create-new-ticket-e499f5e45aa6870e.js": {
+    "mtime": 1792672755.9955,
+    "ast_hash": "3c24e405826d4d1fc34163da1ab8cfb7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__support__videos-resources-016f76300a6c9d80.js": {
+    "mtime": 1792672756.0005023,
+    "ast_hash": "8ef1d486a72f904f2d4c8a6e962995b7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__transactions__purchase-returns-9fe1b3e36a8fca7a.js": {
+    "mtime": 1792672756.002503,
+    "ast_hash": "e62ffbf622635f012633d5c3c7cd5996",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__transactions__purchases-c206b38324c7b744.js": {
+    "mtime": 1792672756.0035036,
+    "ast_hash": "dd044057e5f931a0f157b3ae1ad8232b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__transactions__sale-returns-2ad30bbee681f2a7.js": {
+    "mtime": 1792672756.0045028,
+    "ast_hash": "08a2d653b5143216649923079b579fc3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__transactions__sales-8b5958d7bd7bf11f.js": {
+    "mtime": 1792672756.0055025,
+    "ast_hash": "6c80c14dab6b2fa6ac459fb18c25591c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refchunks/static__chunks__pages__upload-migration-data-bc2503752b7e2534.js": {
+    "mtime": 1792672756.007503,
+    "ast_hash": "3506a60855e974fa21d2e7236ddc5985",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_tmp_ctx.ps1": {
+    "mtime": 1792674951.8017082,
+    "ast_hash": "1283ff90461e790f94e7dcbbdf6d7253",
+    "semantic_hash": ""
+  },
+  "src/pages/ExpenseFormPage.tsx": {
+    "mtime": 1792678908.656037,
+    "ast_hash": "06b0e19dc33f70b0a713f2967af47481",
+    "semantic_hash": ""
+  },
+  "src/pages/ExpensesPage.tsx": {
+    "mtime": 1792952394.0866039,
+    "ast_hash": "6bbef2f5bd0cb97e44b71c0ef84ee27d",
+    "semantic_hash": ""
+  },
+  "src/pages/StaffPage.tsx": {
+    "mtime": 1792680135.7579687,
+    "ast_hash": "8cb27f39658067d764a5df1aaf531a3d",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G1a.md": {
+    "mtime": 1792677744.2011235,
+    "ast_hash": "20d4062e7c9fc49e3b3f2a751c0d1c02",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G1b.md": {
+    "mtime": 1792678008.7887297,
+    "ast_hash": "97ea1ae373a06cb34bdd2093bd0ff6fc",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G2.md": {
+    "mtime": 1792677298.0001633,
+    "ast_hash": "b5a647905a36307963b5e16ef6ecdea4",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G3a.md": {
+    "mtime": 1792677786.6918912,
+    "ast_hash": "b93584880ee59db90f3d036d699508b7",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G3b.md": {
+    "mtime": 1792678217.9679942,
+    "ast_hash": "19a8cd85bee6539d8a38d486db41ab85",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G4a.md": {
+    "mtime": 1792677256.3742013,
+    "ast_hash": "71a525e21d434d10656c0e99f17c9149",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G4b1.md": {
+    "mtime": 1792677712.3922186,
+    "ast_hash": "bd058e056f5123a21b71bc166c71d3e3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/part-G4b2.md": {
+    "mtime": 1792677907.5549097,
+    "ast_hash": "2662d6084c157ad6d6ce3e17f840a355",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G1.md": {
+    "mtime": 1792677026.9482756,
+    "ast_hash": "0c76ccf1a3dab0c8a7266fd76b2181c4",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G1a.md": {
+    "mtime": 1792677467.4181569,
+    "ast_hash": "11dda9d1cb504d96d321ad76f72422d3",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G1b.md": {
+    "mtime": 1792677467.322275,
+    "ast_hash": "d3b98c06425b9abdc33ae24f71bb6147",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G2.md": {
+    "mtime": 1792677026.9584837,
+    "ast_hash": "1229369bd4bcabc1a23c6d5427585b62",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G3.md": {
+    "mtime": 1792677026.9547594,
+    "ast_hash": "4159c2c53a37b1dcdcac53e8b11fdc54",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G3a.md": {
+    "mtime": 1792677467.4389951,
+    "ast_hash": "b1b6ed04eae66b149be118aabf4398ea",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G3b.md": {
+    "mtime": 1792677467.4633887,
+    "ast_hash": "bde544f497459ca7967488ad095f28fb",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G4a.md": {
+    "mtime": 1792677026.8816495,
+    "ast_hash": "dc89254ff3d74d7ed5262d66dd593471",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G4b.md": {
+    "mtime": 1792677026.945222,
+    "ast_hash": "23304a319a9164be7b45b93b1ff6b28a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G4b1.md": {
+    "mtime": 1792677467.39764,
+    "ast_hash": "59d749f5dd1bc948b45192eba0729174",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_matrix/slice-G4b2.md": {
+    "mtime": 1792677467.4884245,
+    "ast_hash": "14327cdb2d297f71eabaed745b0ba4bc",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/_caps.md": {
+    "mtime": 1792676565.8803892,
+    "ast_hash": "66dc0c6cbddbf240d7833baf87675ca5",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-1.md": {
+    "mtime": 1792675179.3249178,
+    "ast_hash": "144ec71710023348057bab5daeb94b51",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-2.md": {
+    "mtime": 1792675551.1713204,
+    "ast_hash": "dab1227d2533733854ce465fb866a5ba",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-3.md": {
+    "mtime": 1792675497.2329087,
+    "ast_hash": "aa0268b108d98ff253e1b2729d8284c1",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-4.md": {
+    "mtime": 1792674915.606158,
+    "ast_hash": "25511bb1fb71c20de7494e6f0cef3adb",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-5a.md": {
+    "mtime": 1792675738.8514106,
+    "ast_hash": "88f35f66659ce3aafe2999b659995062",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-5b.md": {
+    "mtime": 1792675856.079256,
+    "ast_hash": "5370f55769320dd7fb1f302be0670833",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-5c.md": {
+    "mtime": 1792676016.5680423,
+    "ast_hash": "bc4dc5cf3b93c68fbe41f4fb23ecfb4b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_refparts/part-6.md": {
+    "mtime": 1792674937.3295636,
+    "ast_hash": "6da6f9f44209d472a607f899b289c97c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/our-screens.md": {
+    "mtime": 1792673387.60689,
+    "ast_hash": "f6fa2c1e9c12433e1867db6999a1d00a",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/parity-matrix.md": {
+    "mtime": 1792678309.7434115,
+    "ast_hash": "a6ba70b25ab75c300f4776ef3534e51e",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/parity-summary.md": {
+    "mtime": 1792679742.5729887,
+    "ast_hash": "8d4fe112d19889c0bd9e6f9529319e1c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/ref-api-operations.md": {
+    "mtime": 1792675620.9014254,
+    "ast_hash": "e4208729743d9e8646e0ee53b7973a8b",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/ref-screens.md": {
+    "mtime": 1792676388.2962997,
+    "ast_hash": "6b30f3c959012ece919327f13506ab46",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-10-22-localwell-full-parity.md": {
+    "mtime": 1792679804.4707272,
+    "ast_hash": "30535c7ad7d2c17ba9441ad13386ac2e",
+    "semantic_hash": ""
+  },
+  "apps/server/test/numbering.test.ts": {
+    "mtime": 1792681068.5513797,
+    "ast_hash": "340a23ffc32fb6d53f8c2069490fd5ca",
+    "semantic_hash": ""
+  },
+  "apps/server/test/purchase-correctness.test.ts": {
+    "mtime": 1792680894.105059,
+    "ast_hash": "a0da6d38ccdeeeace59ce96c69b2028a",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0019_payment_accounts.sql": {
+    "mtime": 1792895129.7157917,
+    "ast_hash": "4eeeaab39fb257667ce645c1580fa510",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0020_cheques.sql": {
+    "mtime": 1792895131.55751,
+    "ast_hash": "15856843187b39c3429344f713abb764",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0021_stock_depth.sql": {
+    "mtime": 1792894900.0922592,
+    "ast_hash": "09f0cd730144915e6c915ddd91e65969",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0022_picklist_transfer.sql": {
+    "mtime": 1792894900.7438848,
+    "ast_hash": "bee4002109a4efe3cb012af5c503ac82",
+    "semantic_hash": ""
+  },
+  "apps/server/src/db/migrations/0026_orderbook.sql": {
+    "mtime": 1792895208.0951014,
+    "ast_hash": "b518b1ff0ebf43b1803d4d58cd748405",
+    "semantic_hash": ""
+  },
+  "apps/server/src/routes/cheques.ts": {
+    "mtime": 1792896108.212341,
+    "ast_hash": "3abd731fa3839be42386d7c8405865fe",
+    "semantic_hash": ""
+  },
+  "apps/server/src/routes/orderbook.ts": {
+    "mtime": 1792895148.8468943,
+    "ast_hash": "d460f5163607053730b7678415010fde",
+    "semantic_hash": ""
+  },
+  "apps/server/src/routes/paymentAccounts.ts": {
+    "mtime": 1792895961.5243964,
+    "ast_hash": "d257a396e5d029eaa97f635cfac796e4",
+    "semantic_hash": ""
+  },
+  "apps/server/src/services/orderbook.ts": {
+    "mtime": 1792895874.537259,
+    "ast_hash": "bec3301cab8382b943731342e7edbe7a",
+    "semantic_hash": ""
+  },
+  "apps/server/src/services/orderbookProducts.ts": {
+    "mtime": 1792895055.015304,
+    "ast_hash": "40371a57b44cc6f22143cb8fc71ac918",
+    "semantic_hash": ""
+  },
+  "apps/server/test/cheques.test.ts": {
+    "mtime": 1792895809.6379335,
+    "ast_hash": "502672a9cf6041a3b9a106ab42b3cb96",
+    "semantic_hash": ""
+  },
+  "apps/server/test/orderbook.test.ts": {
+    "mtime": 1792895694.986771,
+    "ast_hash": "802505a8db8e3d9380b3dcd6c72fe960",
+    "semantic_hash": ""
+  },
+  "apps/server/test/payment-accounts.test.ts": {
+    "mtime": 1792895672.9316561,
+    "ast_hash": "2ac49f9879fcf9128336b55b1a335ae3",
+    "semantic_hash": ""
+  },
+  "capture_localwell.py": {
+    "mtime": 1792958591.1096785,
+    "ast_hash": "a3958db39715cc6ab7de47dc4a972ff5",
+    "semantic_hash": ""
+  },
+  "src/lib/chequesApi.ts": {
+    "mtime": 1792896351.9712043,
+    "ast_hash": "8022f803befe143c65e109d13ec66e5b",
+    "semantic_hash": ""
+  },
+  "src/lib/orderbookApi.ts": {
+    "mtime": 1792896104.8713567,
+    "ast_hash": "a8a693c7d7c30e8b7029c358ee064ee1",
+    "semantic_hash": ""
+  },
+  "src/lib/paymentAccountsApi.ts": {
+    "mtime": 1792896325.9896538,
+    "ast_hash": "cc59e9343f2455ad32cbc088f7760707",
+    "semantic_hash": ""
+  },
+  "src/pages/PaymentAccountsPage.tsx": {
+    "mtime": 1792896667.151755,
+    "ast_hash": "a6824440c149cca141e13ef0665685da",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookAlreadyToOrderPage.tsx": {
+    "mtime": 1792896354.5408428,
+    "ast_hash": "99054c2a05b0b02166574825ee190432",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookAnalysisPage.tsx": {
+    "mtime": 1792896567.7012937,
+    "ast_hash": "d42b3a5894fbebaf2901f61049c6366d",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookCartPage.tsx": {
+    "mtime": 1792896974.2714107,
+    "ast_hash": "3bbb3db872aa69750170f36e7d4cf599",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookDashboardPage.tsx": {
+    "mtime": 1792896190.5325506,
+    "ast_hash": "2cc028d94ecc6dce2eb25e6924f6945c",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookDistributorDetailPage.tsx": {
+    "mtime": 1792896669.96692,
+    "ast_hash": "314ca5bd33e83241ebb782b9b12917d0",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookDistributorsPage.tsx": {
+    "mtime": 1792896974.1880417,
+    "ast_hash": "4f7e9ef4009d4dceb5605d4d263a79c0",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookOrderDetailPage.tsx": {
+    "mtime": 1792896507.2681587,
+    "ast_hash": "6a84e9041438a9415dad7cec266ca1ca",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookPoDetailPage.tsx": {
+    "mtime": 1792896974.274497,
+    "ast_hash": "74b4f43c56c3679a43024f07a61261a1",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookProductListPage.tsx": {
+    "mtime": 1792897022.776017,
+    "ast_hash": "e8b0fa01bb52389b9344783b35db9617",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookPurchaseOrdersPage.tsx": {
+    "mtime": 1792897022.8251047,
+    "ast_hash": "bec6c9b5dabe1bf68c95df2160be38b7",
+    "semantic_hash": ""
+  },
+  "src/pages/orderbook/OrderbookShortbookPage.tsx": {
+    "mtime": 1792896952.3018758,
+    "ast_hash": "2b0f53f9036c6f56842e725b8e710bbc",
+    "semantic_hash": ""
+  },
+  "LOCALWELL_REPLICA.md": {
+    "mtime": 1792957555.9988053,
+    "ast_hash": "b962602fdcfc9db24e020a3b9f4b40bf",
+    "semantic_hash": ""
+  },
+  "docs/localwell-compare/_history-b16.md": {
+    "mtime": 1792682029.3790927,
+    "ast_hash": "d48b9aa9ab84ef0894c7eb261db2ea7c",
+    "semantic_hash": ""
+  },
+  "docs/localwell-parity.md": {
+    "mtime": 1792894261.3697927,
+    "ast_hash": "4ce7b1b09d72fecb4f1eb75688c5bf81",
+    "semantic_hash": ""
+  },
+  "docs/replication-plan.md": {
+    "mtime": 1792894226.9628417,
+    "ast_hash": "95dd02d0577c1002320236cc9d479aae",
+    "semantic_hash": ""
+  },
+  "localwell-captures/business_reports.txt": {
+    "mtime": 1792951844.1371999,
+    "ast_hash": "7f4754cb94c575668dc18c4fe855abd6",
+    "semantic_hash": ""
+  },
+  "localwell-captures/cash_bank_guess.txt": {
+    "mtime": 1792951855.2408438,
+    "ast_hash": "ca1e6ae60295b713e890fccf57b2f335",
+    "semantic_hash": ""
+  },
+  "localwell-captures/control_center.txt": {
+    "mtime": 1792951862.59836,
+    "ast_hash": "0dc054e19eb3e40f3d73a348bda17721",
+    "semantic_hash": ""
+  },
+  "localwell-captures/customer_orders.txt": {
+    "mtime": 1792951836.7899435,
+    "ast_hash": "b72c9c020cc3758c4c7bd665c835bbf6",
+    "semantic_hash": ""
+  },
+  "localwell-captures/dashboard.txt": {
+    "mtime": 1792951829.4679954,
+    "ast_hash": "c2961668cfaf6ea1e0139d40feb1ceb4",
+    "semantic_hash": ""
+  },
+  "localwell-captures/expenses.txt": {
+    "mtime": 1792951851.5723045,
+    "ast_hash": "47cadc587cc3ca302541f9a83c7d2943",
+    "semantic_hash": ""
+  },
+  "localwell-captures/invoices_guess.txt": {
+    "mtime": 1792951833.086519,
+    "ast_hash": "1db689bf3152c5de43ae18530475e59d",
+    "semantic_hash": ""
+  },
+  "localwell-captures/orderbook.txt": {
+    "mtime": 1792951840.4603198,
+    "ast_hash": "30b9ea17ce93ef7c6420326d65a07ac2",
+    "semantic_hash": ""
+  },
+  "localwell-captures/patient_followups.txt": {
+    "mtime": 1792951847.8699367,
+    "ast_hash": "b565b27b809d1c1c8ad290059f21f6c8",
+    "semantic_hash": ""
+  },
+  "localwell-captures/stock_audit.txt": {
+    "mtime": 1792951858.9183855,
+    "ast_hash": "085044046a0418a2e2877cc93af2d581",
+    "semantic_hash": ""
+  },
+  "localwell_view_stocks.html": {
+    "mtime": 1792941475.556285,
+    "ast_hash": "e784b6429c13f5acda9b99156f84e29c",
+    "semantic_hash": ""
+  },
+  "localwell-captures/business_reports.png": {
+    "mtime": 1792951844.1359892,
+    "ast_hash": "1f45e22e8fb47fb761b9e8d27c24cbdf",
+    "semantic_hash": ""
+  },
+  "localwell-captures/cash_bank_guess.png": {
+    "mtime": 1792951855.239825,
+    "ast_hash": "9809ac93c76ec8e7add733637decd982",
+    "semantic_hash": ""
+  },
+  "localwell-captures/control_center.png": {
+    "mtime": 1792951862.59836,
+    "ast_hash": "b050a3af2d1471ed7fdada070353c2b7",
+    "semantic_hash": ""
+  },
+  "localwell-captures/customer_orders.png": {
+    "mtime": 1792951836.7885103,
+    "ast_hash": "a055bf8b76435c6d4ba02b2bf8b6f09c",
+    "semantic_hash": ""
+  },
+  "localwell-captures/dashboard.png": {
+    "mtime": 1792951829.4669538,
+    "ast_hash": "e719889f5fc1814cf858d71e3e9c4196",
+    "semantic_hash": ""
+  },
+  "localwell-captures/expenses.png": {
+    "mtime": 1792951851.5702813,
+    "ast_hash": "16df6b2b07fd67d6637ef991dd854906",
+    "semantic_hash": ""
+  },
+  "localwell-captures/invoices_guess.png": {
+    "mtime": 1792951833.0855048,
+    "ast_hash": "9809ac93c76ec8e7add733637decd982",
+    "semantic_hash": ""
+  },
+  "localwell-captures/orderbook.png": {
+    "mtime": 1792951840.4592679,
+    "ast_hash": "cfaa57ab5698622a3ef57ef890f941c2",
+    "semantic_hash": ""
+  },
+  "localwell-captures/patient_followups.png": {
+    "mtime": 1792951847.86893,
+    "ast_hash": "8045dac65858daed75a4264efb3030f1",
+    "semantic_hash": ""
+  },
+  "localwell-captures/stock_audit.png": {
+    "mtime": 1792951858.9183855,
+    "ast_hash": "5bf62ae015f14b5d99d9423f3a917bb7",
     "semantic_hash": ""
   }
 }

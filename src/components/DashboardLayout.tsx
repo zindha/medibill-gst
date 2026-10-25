@@ -22,11 +22,13 @@ import {
   FileText,
   FileUp,
   Files,
+  Handshake,
   LayoutDashboard,
   Megaphone,
   MessageSquare,
   Package,
   Plug,
+  Receipt,
   RefreshCcw,
   ScanLine,
   Scale,
@@ -36,6 +38,7 @@ import {
   Stethoscope,
   Tag,
   Truck,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -55,53 +58,65 @@ interface NavItem {
   capability?: string;
 }
 
+// Sidebar mirrors LocalWell's navigation labels/order, mapped onto the existing
+// MediBillGST routes. Section headers are kept for scanning density.
 const navGroups: { label: string; items: NavItem[] }[] = [
   {
-    label: "Workspace",
+    label: "Main",
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
-      { to: "/dashboard/billing", icon: FileText, label: "New Bill", capability: "billing" },
-      { to: "/dashboard/invoices", icon: Activity, label: "Invoices" },
-      { to: "/dashboard/bulk-bills", icon: Files, label: "Bulk Edit Bills" },
+      { to: "/dashboard/invoices", icon: FileText, label: "Invoices" },
+      { to: "/dashboard/customers", icon: Users, label: "Customer" },
       { to: "/dashboard/orders", icon: ShoppingBag, label: "Orders", capability: "orders" },
-      { to: "/dashboard/returns", icon: RefreshCcw, label: "Returns" },
+      { to: "/dashboard/orderbook", icon: Handshake, label: "Orderbook" },
+      { to: "/dashboard/reports", icon: BarChart3, label: "Business Reports", capability: "reports" },
+      { to: "/dashboard/refills", icon: BellRing, label: "Patient Followups" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { to: "/dashboard/expenses", icon: Receipt, label: "Expenses" },
+      { to: "/dashboard/cash-bank", icon: Banknote, label: "Cash and Bank", capability: "reconciliation_view" },
       { to: "/dashboard/payments", icon: Wallet, label: "Payments" },
-      { to: "/dashboard/cash-bank", icon: Banknote, label: "Cash & Bank", capability: "reconciliation_view" },
-      { to: "/dashboard/scan", icon: ScanLine, label: "Scan Bill" },
-      { to: "/dashboard/refills", icon: BellRing, label: "Refills" },
+      { to: "/dashboard/accounting", icon: BookOpen, label: "Accounting", capability: "accounting_view" },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
+      { to: "/dashboard/inventory", icon: Package, label: "Stock", capability: "inventory" },
+      { to: "/dashboard/billing", icon: FileText, label: "Sales / New Bill", capability: "billing" },
+      { to: "/dashboard/purchases", icon: Truck, label: "Purchases", capability: "purchases" },
+      { to: "/dashboard/stock-audit", icon: ClipboardCheck, label: "Stock Audit", capability: "stock_audit" },
+      { to: "/dashboard/returns", icon: RefreshCcw, label: "Returns" },
+      { to: "/dashboard/labels", icon: Tag, label: "Labels" },
     ],
   },
   {
     label: "Manage",
     items: [
-      { to: "/dashboard/inventory", icon: Package, label: "Inventory", capability: "inventory" },
-      { to: "/dashboard/labels", icon: Tag, label: "Labels" },
-      { to: "/dashboard/stock-audit", icon: ClipboardCheck, label: "Stock Audit", capability: "stock_audit" },
-      { to: "/dashboard/purchases", icon: Truck, label: "Purchases", capability: "purchases" },
-      { to: "/dashboard/procurement", icon: Scale, label: "Procurement", capability: "purchases" },
-      { to: "/dashboard/purchase-import", icon: FileUp, label: "Import CSV", capability: "imports" },
-      { to: "/dashboard/customers", icon: Users, label: "Customers" },
       { to: "/dashboard/doctors", icon: Stethoscope, label: "Doctors" },
       { to: "/dashboard/prescriptions", icon: ClipboardList, label: "Prescriptions", capability: "prescriptions" },
       { to: "/dashboard/suppliers", icon: Truck, label: "Suppliers" },
-      { to: "/dashboard/reports", icon: BarChart3, label: "Reports", capability: "reports" },
-      // Scheduled CSV reports (Task 17) — same capability gate as Reports.
-      { to: "/dashboard/scheduled-reports", icon: CalendarClock, label: "Scheduled Reports", capability: "reports" },
-      // compliance = generate/cancel/e-way (admin|pharmacist) — the only nav
-      // item whose capability a role can legitimately lack.
-      { to: "/dashboard/compliance", icon: BadgeCheck, label: "e-Invoice", capability: "compliance" },
-      { to: "/dashboard/accounting", icon: BookOpen, label: "Accounting", capability: "accounting_view" },
+      { to: "/dashboard/scan", icon: ScanLine, label: "Scan Bill" },
       { to: "/dashboard/catalog", icon: Database, label: "Medicine DB" },
+      { to: "/dashboard/bulk-bills", icon: Files, label: "Bulk Edit Bills" },
+      { to: "/dashboard/procurement", icon: Scale, label: "Procurement", capability: "purchases" },
+      { to: "/dashboard/purchase-import", icon: FileUp, label: "Import CSV", capability: "imports" },
     ],
   },
   {
-    label: "Account",
+    label: "Control Center",
     items: [
       { to: "/dashboard/communications", icon: MessageSquare, label: "Communications", capability: "messaging" },
       { to: "/dashboard/campaigns", icon: Megaphone, label: "Campaigns", capability: "campaigns" },
       { to: "/dashboard/devices", icon: Smartphone, label: "Devices & Sync", capability: "devices" },
+      { to: "/dashboard/staff", icon: UserCog, label: "Staff", capability: "staff" },
       { to: "/dashboard/integrations", icon: Plug, label: "Integrations" },
       { to: "/dashboard/migration", icon: FileInput, label: "Data Migration" },
+      { to: "/dashboard/compliance", icon: BadgeCheck, label: "e-Invoice", capability: "compliance" },
+      { to: "/dashboard/scheduled-reports", icon: CalendarClock, label: "Scheduled Reports", capability: "reports" },
       { to: "/dashboard/settings", icon: Settings, label: "Settings", capability: "settings" },
     ],
   },
@@ -360,8 +375,49 @@ export default function DashboardLayout() {
       </nav>
 
       {/* Main Content — single scroll region; tall pages scroll, fit-pages keep inner scroll */}
-      <main className="min-w-0 h-dvh min-h-0 flex-1 overflow-hidden pb-20 md:pb-0">
-        <div ref={scrollRef} className="mx-auto flex h-full min-h-0 w-full max-w-7xl flex-col overflow-y-auto px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <main className="min-w-0 flex h-dvh min-h-0 flex-1 flex-col overflow-hidden pb-20 md:pb-0">
+        {/* Top header — mirrors LocalWell: logo left, business switcher center, bell right */}
+        <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-[90rem] items-center gap-3 px-3 sm:px-6">
+            <span className="font-display text-base font-semibold tracking-tight text-foreground md:hidden">
+              MediBill
+            </span>
+            <div className="hidden items-center gap-2.5 md:flex">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Cross className="h-4 w-4" strokeWidth={2.5} />
+              </div>
+              <span className="font-display text-sm font-semibold text-foreground">MediBill</span>
+            </div>
+
+            {/* Business switcher (collapsed-look pill) */}
+            <button
+              type="button"
+              className="ml-auto flex items-center gap-2 rounded-full border border-border bg-secondary/40 py-1 pl-1 pr-2 text-left text-xs hover:bg-secondary/70"
+              title="Switch store"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                {((user?.name || "M")[0] || "M").toUpperCase()}
+              </span>
+              <span className="max-w-[180px] truncate leading-tight">
+                <span className="block font-medium text-foreground">{user?.name || "My Store"}</span>
+                <span className="block text-[10px] text-muted-foreground">Retailer</span>
+              </span>
+              <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+
+            {/* Notification bell */}
+            <button
+              type="button"
+              className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+              aria-label="Notifications"
+            >
+              <BellRing className="h-[18px] w-[18px]" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#FE316A]" />
+            </button>
+          </div>
+        </header>
+
+        <div ref={scrollRef} className="mx-auto flex min-h-0 w-full max-w-[90rem] flex-1 flex-col overflow-y-auto px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <Outlet />
         </div>
         <p className="sr-only">Press Ctrl+K for the command palette, ? for all shortcuts.</p>
