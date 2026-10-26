@@ -196,10 +196,10 @@ export default function RefillsPage() {
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-            <BellRing className="h-5 w-5 text-primary" />Refill Reminders
+            <BellRing className="h-5 w-5 text-primary" />Patient Follow-ups
             {dueCount > 0 && <Badge variant="destructive">{dueCount} due</Badge>}
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">Monthly medicine refills for chronic patients — never miss a repeat sale.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Start building relationship with your customers</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -270,16 +270,17 @@ export default function RefillsPage() {
       </div>
 
       <div className="flex shrink-0 gap-1.5">
+        {/* LocalWell's Arriving / Expired vocabulary — same due/upcoming semantics */}
         {(["all", "due", "upcoming", "done"] as const).map((f) => (
-          <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} className="h-7 text-xs capitalize" onClick={() => setFilter(f)}>
-            {f === "due" && dueCount > 0 ? `Due (${dueCount})` : f}
+          <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFilter(f)}>
+            {f === "due" && dueCount > 0 ? `Expired (${dueCount})` : f === "due" ? "Expired" : f === "upcoming" ? "Arriving" : f === "all" ? "All" : "Done"}
           </Button>
         ))}
       </div>
 
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-0.5">
         {filtered.length === 0 ? (
-          <EmptyState icon={CalendarClock} title={filter === "due" ? "Nothing due" : "No refill reminders"} description="Set a monthly reminder when a chronic patient buys — the repeat sale comes to you." />
+          <EmptyState icon={CalendarClock} title="No Followups Found!" description="Set a monthly reminder when a chronic patient buys — the repeat sale comes to you." />
         ) : (
           filtered.map((r, idx) => {
             const d = daysUntil(r.reminderDate);
