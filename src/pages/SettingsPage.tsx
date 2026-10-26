@@ -530,8 +530,8 @@ export default function SettingsPage() {
   return (
     <div className="h-full min-h-0 space-y-6 max-w-3xl overflow-y-auto pr-1 pb-6">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Store information, invoice format, and data management</p>
+        <h1 className="text-xl font-semibold tracking-tight">Control Centre</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Select an option below to edit</p>
       </div>
 
       {/* Business Profile — Control Centre parity: BASIC/LICENSE/TAXATION/LOCATION/TIMINGS */}
@@ -541,7 +541,7 @@ export default function SettingsPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
             Business Profile
           </CardTitle>
-          <CardDescription>Control Centre — BUSINESS. Tabs map to existing store settings keys (no new backend).</CardDescription>
+          <CardDescription>View or Update the details below</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Sub-tabs */}

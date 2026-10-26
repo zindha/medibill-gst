@@ -107,7 +107,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: "Control Center",
+    label: "Control Centre",
     items: [
       { to: "/dashboard/communications", icon: MessageSquare, label: "Communications", capability: "messaging" },
       { to: "/dashboard/campaigns", icon: Megaphone, label: "Campaigns", capability: "campaigns" },

@@ -82,8 +82,8 @@ export default function OrderbookDashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Orderbook</h1>
-          <p className="text-sm text-muted-foreground">Distributor ordering at a glance</p>
+          <h1 className="text-xl font-semibold">Orderbook Dashboard</h1>
+          <p className="text-sm text-muted-foreground">List of Stock Products which are in Shortage</p>
         </div>
         <div className="flex gap-2">
           <Button asChild>
@@ -102,7 +102,7 @@ export default function OrderbookDashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Pending POs", value: String(pendingPos), icon: ClipboardList },
-          { label: "Open shortbook", value: String(analysis?.openShortbook ?? 0), icon: AlertTriangle },
+          { label: "Shortbook Items", value: String(analysis?.openShortbook ?? 0), icon: AlertTriangle },
           {
             label: "Spend (6 months)",
             value: formatMoney(analysis?.spendByMonth.reduce((s, m) => s + m.total, 0) ?? 0),
