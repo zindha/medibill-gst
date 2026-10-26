@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+﻿import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,13 +20,13 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 function formatDate(dateStr: string) {
-  if (!dateStr) return "—";
+  if (!dateStr) return "â€”";
   return new Date(dateStr).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 function formatMoney(n: number) {
   const v = Number(n) || 0;
-  return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `â‚¹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function getStatusInfo(inv: any) {
@@ -81,7 +81,7 @@ export default function InvoicesPage() {
   const [kpiSummary, setKpiSummary] = useState<any>(null);
   const [enrichMap, setEnrichMap] = useState<Map<string, any>>(new Map());
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Compliance (e-invoice) detail — fetched ONLY when a row is expanded.
+  // Compliance (e-invoice) detail â€” fetched ONLY when a row is expanded.
   const [complianceMap, setComplianceMap] = useState<Map<string, any>>(new Map());
   const [complianceBusy, setComplianceBusy] = useState<string | null>(null);
   const skipSearchRef = useRef(true);
@@ -102,7 +102,7 @@ export default function InvoicesPage() {
     }
   };
 
-  // Invoice sharing (Task 9) — dialog state
+  // Invoice sharing (Task 9) â€” dialog state
   const [shareInvoice, setShareInvoice] = useState<any>(null);
   const [shareChannels, setShareChannels] = useState<Record<string, boolean>>({ whatsapp: true, sms: false, email: false });
   const [shareCustomerId, setShareCustomerId] = useState<string>("none");
@@ -219,7 +219,7 @@ export default function InvoicesPage() {
         toast.error("No destination available for the selected channels");
       } else {
         toast.success(`Queued ${queued} message${queued === 1 ? "" : "s"}`, {
-          description: skipped ? `${skipped} skipped — no destination` : undefined,
+          description: skipped ? `${skipped} skipped â€” no destination` : undefined,
         });
       }
       setShareInvoice(null);
@@ -332,37 +332,37 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* 5 KPI cards — matches LocalWell screenshot 7.54.43 PM */}
+      {/* 5 KPI cards â€” matches LocalWell screenshot 7.54.43 PM */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <Card className="p-3 border-border/60">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Sales Count</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground ">Sales Count</p>
           {kpiLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" /> : <p className="text-xl font-semibold tabular-nums mt-1">{kpis.count}</p>}
         </Card>
         <Card className="p-3 border-border/60">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Sales Amt Sum</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground ">Sales Amt Sum</p>
           {kpiLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" /> : <p className="text-lg font-semibold tabular-nums mt-1">{formatMoney(kpis.salesAmtSum)}</p>}
         </Card>
         <Card className="p-3 border-border/60">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Sales Net Profit</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground ">Sales Net Profit</p>
           {kpiLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" /> : <p className="text-lg font-semibold tabular-nums mt-1 text-green-700">{formatMoney(kpis.netProfitSum)}</p>}
         </Card>
         <Card className="p-3 border-border/60">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Payable Sum</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground ">Payable Sum</p>
           {kpiLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" /> : <p className="text-lg font-semibold tabular-nums mt-1">{formatMoney(kpis.payableSum)}</p>}
         </Card>
         <Card className="p-3 border-border/60">
-          <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Balance Sum</p>
+          <p className="text-[11px] tracking-wide text-muted-foreground ">Balance Sum</p>
           {kpiLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mt-2" /> : <p className={`text-lg font-semibold tabular-nums mt-1 ${kpis.balanceSum > 0 ? "text-amber-700" : "text-muted-foreground"}`}>{formatMoney(kpis.balanceSum)}</p>}
         </Card>
       </div>
 
-      {/* Filters bar — INVOICE NO search, date range, FILTER BY, SORT BY */}
+      {/* Filters bar â€” INVOICE NO search, date range, FILTER BY, SORT BY */}
       <div className="flex flex-wrap items-end gap-3 p-3 rounded-sm border border-border/60 bg-card">
         <div className="flex-1 min-w-[180px]">
           <Label className="text-[11px] tracking-wide text-muted-foreground uppercase">Invoice No</Label>
           <div className="relative mt-1">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="INVOICE NO — search no / customer / phone" className={"pl-8 h-9 text-sm" + (searching ? " pr-8" : "")} />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="INVOICE NO â€” search no / customer / phone" className={"pl-8 h-9 text-sm" + (searching ? " pr-8" : "")} />
             {searching && <Loader2 className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin text-muted-foreground pointer-events-none" />}
           </div>
         </div>
@@ -448,7 +448,7 @@ export default function InvoicesPage() {
                         {inv.prescriptionId && (
                           <button
                             type="button"
-                            title={`Prescription ${inv.prescriptionStatus ? `· ${inv.prescriptionStatus}` : "linked"} — open Prescriptions`}
+                            title={`Prescription ${inv.prescriptionStatus ? `Â· ${inv.prescriptionStatus}` : "linked"} â€” open Prescriptions`}
                             onClick={() => navigate("/dashboard/prescriptions")}
                             className="ml-1.5 inline-flex h-4 items-center rounded-full border border-primary/40 bg-primary/10 px-1.5 font-sans text-[9px] font-semibold uppercase tracking-wide text-primary hover:bg-primary/20"
                           >
@@ -466,7 +466,7 @@ export default function InvoicesPage() {
                         <div className="text-sm font-medium text-green-700">{formatMoney(profit)}</div>
                         <div className="text-[11px] text-green-700/80 leading-none">{margin.toFixed(2)}%</div>
                       </TableCell>
-                      <TableCell className={"text-right tabular-nums text-xs whitespace-nowrap " + (adj > 0 ? "text-green-700" : adj < 0 ? "text-red-600" : "text-muted-foreground")}>{adj === 0 ? "₹0.00" : `${adj > 0 ? "+" : ""}${formatMoney(adj)}`}</TableCell>
+                      <TableCell className={"text-right tabular-nums text-xs whitespace-nowrap " + (adj > 0 ? "text-green-700" : adj < 0 ? "text-red-600" : "text-muted-foreground")}>{adj === 0 ? "â‚¹0.00" : `${adj > 0 ? "+" : ""}${formatMoney(adj)}`}</TableCell>
                       <TableCell className="text-right tabular-nums text-sm font-medium whitespace-nowrap">{formatMoney(payable)}</TableCell>
                       <TableCell className={"text-right tabular-nums text-sm whitespace-nowrap " + (balance > 0 ? "text-amber-700 font-medium" : "text-muted-foreground")}>{formatMoney(balance)}</TableCell>
                       <TableCell className="whitespace-nowrap">
@@ -496,12 +496,12 @@ export default function InvoicesPage() {
                             {inv.paymentMode && <><span className="text-muted-foreground">Mode:</span> <span>{inv.paymentMode}</span></>}
                           </div>
 
-                          {/* Compliance (e-invoice) — fetched only on expand */}
+                          {/* Compliance (e-invoice) â€” fetched only on expand */}
                           <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-border/50 pt-2 text-xs">
                             <span className="text-muted-foreground">e-Invoice:</span>
                             {complianceBusy === inv.id ? (
                               <span className="flex items-center gap-1.5 text-muted-foreground">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Checking…
+                                <Loader2 className="h-3 w-3 animate-spin" /> Checkingâ€¦
                               </span>
                             ) : complianceMap.has(inv.id) ? (
                               (() => {
@@ -544,7 +544,7 @@ export default function InvoicesPage() {
                                 );
                               })()
                             ) : (
-                              <span className="text-muted-foreground">—</span>
+                              <span className="text-muted-foreground">â€”</span>
                             )}
                           </div>
                         </TableCell>
@@ -583,7 +583,7 @@ export default function InvoicesPage() {
                   <div className="text-right">
                     <p className="text-muted-foreground text-xs">Date</p>
                     <p>{formatDate(viewInvoice.date ?? viewInvoice.createdAt)}</p>
-                    <p className="text-muted-foreground text-xs">{viewInvoice.paymentMode || "—"}</p>
+                    <p className="text-muted-foreground text-xs">{viewInvoice.paymentMode || "â€”"}</p>
                   </div>
                 </div>
 
@@ -595,11 +595,11 @@ export default function InvoicesPage() {
                         <div key={i} className="flex items-center justify-between text-sm py-1">
                           <div className="flex-1 min-w-0">
                             <span className="truncate block">{item.medicineName}</span>
-                            <span className="text-xs text-muted-foreground" title={`${item.quantity} pack units`}>{formatPackFraction(item.quantity, item.unitsPerPack)} × ₹{item.rate?.toFixed(2)}</span>
+                            <span className="text-xs text-muted-foreground" title={`${item.quantity} pack units`}>{formatPackFraction(item.quantity, item.unitsPerPack)} Ã— â‚¹{item.rate?.toFixed(2)}</span>
                           </div>
                           <div className="text-right shrink-0 ml-4">
-                            <span>₹{item.amount?.toFixed(2)}</span>
-                            <span className="block text-xs text-muted-foreground">GST: ₹{item.gstAmount?.toFixed(2)}</span>
+                            <span>â‚¹{item.amount?.toFixed(2)}</span>
+                            <span className="block text-xs text-muted-foreground">GST: â‚¹{item.gstAmount?.toFixed(2)}</span>
                           </div>
                         </div>
                       ))}
@@ -626,11 +626,11 @@ export default function InvoicesPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Paid</p>
-                          <p className="font-medium mt-1">₹{(viewInvoice.amountPaid ?? 0).toFixed(2)}</p>
+                          <p className="font-medium mt-1">â‚¹{(viewInvoice.amountPaid ?? 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Balance</p>
-                          <p className="font-medium mt-1">₹{bal.toFixed(2)}</p>
+                          <p className="font-medium mt-1">â‚¹{bal.toFixed(2)}</p>
                         </div>
                       </div>
 
@@ -650,7 +650,7 @@ export default function InvoicesPage() {
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0 ml-3">
                                     {out && <span className="px-1.5 py-0.5 rounded-sm border text-[10px] border-red-600/30 text-red-700 bg-red-600/5">Refunded</span>}
-                                    <span className={"font-semibold " + (out ? "text-red-600" : "text-green-700")}>{out ? "-" : "+"}₹{p.amount.toFixed(2)}</span>
+                                    <span className={"font-semibold " + (out ? "text-red-600" : "text-green-700")}>{out ? "-" : "+"}â‚¹{p.amount.toFixed(2)}</span>
                                   </div>
                                 </div>
                               );
@@ -663,11 +663,11 @@ export default function InvoicesPage() {
                 })()}
 
                 <div className="border-t border-border pt-3">
-                  <div className="flex justify-between text-sm font-medium"><span>Subtotal</span><span>₹{viewInvoice.subtotal?.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-sm text-muted-foreground"><span>CGST</span><span>₹{viewInvoice.cgst?.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-sm text-muted-foreground"><span>SGST</span><span>₹{viewInvoice.sgst?.toFixed(2)}</span></div>
-                  {viewInvoice.discount > 0 && <div className="flex justify-between text-sm text-muted-foreground"><span>Discount</span><span>-₹{viewInvoice.discount?.toFixed(2)}</span></div>}
-                  <div className="flex justify-between text-base font-semibold pt-2 border-t border-border mt-2"><span>Grand Total</span><span>₹{viewInvoice.grandTotal?.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm font-medium"><span>Subtotal</span><span>â‚¹{viewInvoice.subtotal?.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm text-muted-foreground"><span>CGST</span><span>â‚¹{viewInvoice.cgst?.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm text-muted-foreground"><span>SGST</span><span>â‚¹{viewInvoice.sgst?.toFixed(2)}</span></div>
+                  {viewInvoice.discount > 0 && <div className="flex justify-between text-sm text-muted-foreground"><span>Discount</span><span>-â‚¹{viewInvoice.discount?.toFixed(2)}</span></div>}
+                  <div className="flex justify-between text-base font-semibold pt-2 border-t border-border mt-2"><span>Grand Total</span><span>â‚¹{viewInvoice.grandTotal?.toFixed(2)}</span></div>
                 </div>
 
                 {viewInvoice.notes && (
@@ -687,11 +687,11 @@ export default function InvoicesPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
-            {viewInvoice && <p className="text-sm text-muted-foreground">{viewInvoice.invoiceNo} · Balance ₹{balance.toFixed(2)}</p>}
+            {viewInvoice && <p className="text-sm text-muted-foreground">{viewInvoice.invoiceNo} Â· Balance â‚¹{balance.toFixed(2)}</p>}
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Amount (₹)</Label>
+              <Label className="text-xs">Amount (â‚¹)</Label>
               <Input type="number" min={0} step={0.01} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="mt-1 h-9" autoFocus />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -745,11 +745,11 @@ export default function InvoicesPage() {
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">
-                    Invoice customer{shareInvoice?.customerPhone ? ` · ${shareInvoice.customerPhone}` : ""}
+                    Invoice customer{shareInvoice?.customerPhone ? ` Â· ${shareInvoice.customerPhone}` : ""}
                   </SelectItem>
                   {shareCustomers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}{c.phone ? ` · ${c.phone}` : ""}
+                      {c.name}{c.phone ? ` Â· ${c.phone}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

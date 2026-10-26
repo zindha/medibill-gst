@@ -1,0 +1,206 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Control Centre
+
+Select an option below to edit
+
+Business Profile
+View or Update the details below
+BASIC
+LICENSE
+TAXATION
+LOCATION
+TIMINGS
+SAFETY
+BUSINESS NAME *
+AYUSHMAN HFR ID
+
+Stored as store_ayushman_hfr_id — shown on bills when present.
+
+Phone
+Email
+STORE FRONT PICTURE
+No image — upload a storefront photo
+Upload image
+
+PNG/JPG under 800 KB — appears on bills header when set.
+
+Save Business Profile
+
+All tabs save together — only the visible tab’s fields are highlighted, but Save persists BASIC/LICENSE/TAXATION/LOCATION/TIMINGS.
+
+📄
+Invoice Format
+Invoice numbers are auto-generated. Change the prefix to match your existing numbering scheme.
+Invoice Prefix
+
+Format: MB-YYYY-NNNNNN (e.g. MB-2026-000001)
+
+Save Format
+Online Ordering
+Customers order through your public link — orders land in Dashboard → Orders as “pending”. When disabled, the public form refuses new orders (403) but the queue stays visible.
+Accept online orders
+
+Settings key online_orders — enabled by default on a new install.
+
+Public order link
+Copy link
+
+Share it on WhatsApp/status boards — opens the branded order form at /order?storeId=… (no login needed).
+
+Print Customization
+Laser A4 or thermal receipt, compact or detailed layout, logo, and which sections print. Applies to New Bill and Invoices.
+Printer paper
+Laser / Inkjet — A4 full invoice
+
+Full GST invoice with HSN tax table — for A4/letter printers.
+
+Layout
+Detailed — all columns
+
+Compact hides MRP, rate, and GST columns.
+
+Shop logo
+
+No logo
+Upload logo
+
+PNG/JPG under 500 KB — prints above your shop name.
+
+Sections on the bill
+
+Shop logo
+HSN column
+MRP column
+GST tax table
+You-save row
+Notes
+Terms text
+Terms / footer text
+Print copies
+1 copy
+Save Print Settings
+
+Toggles save instantly; the button confirms everything is stored on the server too.
+
+Data Backup
+Create local backups and configure automatic backup schedule.
+
+Manual Backup
+
+Take a point-in-time snapshot of your database now.
+
+Create Backup
+
+Auto-Backup Schedule
+
+Daily Backup Hour (IST)
+02:00
+Weekly Backup Day
+Sunday
+Weekly Backup Hour (IST)
+03:00
+Save Schedule
+
+Cloud Backup
+
+Google Drive is the primary backup target — one click to connect, weekly uploads are automatic. Amazon S3 or Cloudflare R2 remain for advanced setups. AES-256-GCM encryption is applied before upload — your data is never stored unencrypted in the cloud.
+
+Provider
+Google Drive (recommended)
+Drive Folder Name
+Encryption Key (64-char hex = 32 bytes)
+
+Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+Save the folder + encryption key first, then connect your Google account.
+
+Connect Google Drive
+Save Configuration
+Messaging & Automation
+Refill reminder automation and the base URL used in shared invoice links. Provider credentials (WHATSAPP_API_TOKEN, SMS_WEBHOOK_URL, EMAIL_WEBHOOK_URL) live only in the server .env — never in this page.
+Refill automation
+Off — send manually
+
+In Queue mode the server scans due reminders every 2 minutes and queues them (opt-outs and missing phones are skipped).
+
+App base URL
+
+Used for invoice share links (/dashboard/invoices/…). Defaults to http://localhost:5173 when empty.
+
+Save Messaging Settings
+Change Password
+Update the password of the account you are signed in with. Minimum 6 characters — an administrator can also reset it for you from Staff.
+Current password
+New password
+Confirm new password
+Change Password
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

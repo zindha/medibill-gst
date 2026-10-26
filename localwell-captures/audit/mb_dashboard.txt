@@ -1,0 +1,235 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+
+Monday, 26 October 2026
+
+Good evening
+
+Another day to keep the shelves full.
+
+From
+â€”
+To
+Apply
+New Bill
+
+Lakshmi Balaji Medicals Â· Showing 2026-10-19 to 2026-10-26
+
+Net Sales
+View entire list
+
+â‚¹0.00
+
+from â‚¹0.00 â†’0%
+
+sparkline â€” sales in range
+Profit
+View entire list
+
+â‚¹0.00
+
+from â‚¹0.00 â†’0%
+
+Profit in range
+Net Purchase
+View entire list
+
+â‚¹0.00
+
+from â‚¹0.00 â†’0%
+
+0 bills in range
+
+Net Payment Collection
+View entire list
+
+â‚¹0
+
+TOTAL PAYMENT IN
+
+â‚¹0
+
+TOTAL PAYMENT OUT
+
+â‚¹0
+
+RECEIVED
+
+â‚¹0
+
+PAID OUT
+
+â‚¹0
+
+EXPENSES
+
+â‚¹0
+
+Due Payments
+View entire list
+Customer
+Distributor
+
+Due date 2026-10-19 - 2026-10-26
+
+Total Due â‚¹0customers owe us
+
+No Due Payments Found
+
+TODAY'S SALES
+
+â‚¹0
+
+BILLS TODAY
+
+0
+
+PROFIT & LOSS Â· TODAY
+
+â‚¹0
+
+REGISTER SNAPSHOT
+
+Todayâ€™s counter activity
+
+TODAY'S GST
+
+â‚¹0
+
+View details
+
+LOW STOCK
+
+0
+
+View details
+
+EXPIRING SOON
+
+0
+
+View details
+
+PENDING CREDIT
+
+â‚¹0
+
+View details
+
+Stock Value
+View entire list
+MRP
+â‚¹0
+Sale
+â‚¹0
+Purchase
+â‚¹0
+
+0 packs on shelf
+
+Customers
+View entire list
+
+TOTAL
+
+0
+
+AVG ORDER
+
+â‚¹0
+
+NEW
+
+0
+
+REPEAT
+
+0
+
+Stock Movement
+Slow Moving
+Fast Moving
+
+No Products Found
+
+View entire list
+Refill Reminders
+View entire list
+
+No refill reminders in next 7 days
+
+Ready for your first bill?
+
+Create a GST invoice, add your medicines from the database, and watch your dashboard come alive.
+
+Create your first bill
+Add medicines
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

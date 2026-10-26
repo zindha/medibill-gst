@@ -100,7 +100,7 @@ function Auth({ redirectAfterAuth }: AuthProps) {
           {/* Mobile step */}
           {step === "mobile" && (
             <form onSubmit={handleMobileSubmit} className="w-full max-w-[328px]">
-              <p className="mb-1.5 text-center text-[13px] font-medium uppercase tracking-wide text-foreground">
+              <p className="mb-1.5 text-center text-[13px] font-medium tracking-wide text-foreground">
                 Sign In to Continue
               </p>
               <div
@@ -146,7 +146,7 @@ function Auth({ redirectAfterAuth }: AuthProps) {
                 </p>
               </div>
               <form onSubmit={handlePasswordSubmit} className="w-full max-w-[328px]">
-                <p className="mb-1.5 text-center text-[13px] font-medium uppercase tracking-wide text-foreground">
+                <p className="mb-1.5 text-center text-[13px] font-medium tracking-wide text-foreground">
                   Enter Password to Login
                 </p>
                 <div

@@ -1,0 +1,100 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Orderbook Dashboard
+
+List of Stock Products which are in Shortage
+
+Order products
+View cart
+Pending POs
+
+0
+
+Shortbook Items
+
+0
+
+Spend (6 months)
+
+₹0.00
+
+Fill rate
+
+0%
+
+Recent purchase orders
+
+No purchase orders yet — start from the product list.
+
+Awaiting supply
+
+Nothing pending — every demanded item is supplied.
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

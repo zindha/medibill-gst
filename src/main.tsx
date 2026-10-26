@@ -22,6 +22,7 @@ const PaymentsPage = lazy(() => import("./pages/PaymentsPage.tsx"));
 const ExpensesPage = lazy(() => import("./pages/ExpensesPage.tsx"));
 const ExpenseFormPage = lazy(() => import("./pages/ExpenseFormPage.tsx"));
 const CashBankPage = lazy(() => import("./pages/CashBankPage.tsx"));
+const PaymentAccountsPage = lazy(() => import("./pages/PaymentAccountsPage.tsx"));
 const PurchasesPage = lazy(() => import("./pages/PurchasesPage.tsx"));
 const PurchaseImportPage = lazy(() => import("./pages/PurchaseImportPage.tsx"));
 const ProcurementPage = lazy(() => import("./pages/ProcurementPage.tsx"));
@@ -128,6 +129,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="expenses" element={<ExpensesPage />} />
                 <Route path="expenses/:expenseId" element={<ExpenseFormPage />} />
                 <Route path="cash-bank" element={<CashBankPage />} />
+                <Route path="payment-accounts" element={<PaymentAccountsPage />} />
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="stock-audit" element={<StockAuditPage />} />
                 <Route path="labels" element={<LabelsPage />} />

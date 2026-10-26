@@ -1,0 +1,94 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Stock on hand
+
+SKU: 0 · Stock Value ₹0.00
+
+Scan
+Medicine DB
+Sort: Name
+Add New Item
+Add Composition
+Order Now
+F2
+Settings
+F4
+Show Zero Qty Batches
+Stock
+Expiry
+Low Stock
+History
+No medicines yet
+
+Add your first medicine to start tracking stock.
+
+Add Medicine
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

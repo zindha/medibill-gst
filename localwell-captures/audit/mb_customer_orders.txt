@@ -1,0 +1,95 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Customer Orders
+
+List of Online & Offline Customer Orders
+
+Refresh
+All
+0
+Pending
+0
+Accepted
+0
+Packed
+0
+Ready
+0
+Delivered
+0
+No online orders yet
+
+Share your public order link from Settings — customer orders will land here.
+
+Open Settings
+
+Customers order through Settings → Online Ordering → copy the public link.
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

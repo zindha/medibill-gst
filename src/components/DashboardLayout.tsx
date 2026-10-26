@@ -66,8 +66,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
       { to: "/dashboard/invoices", icon: FileText, label: "Invoices" },
-      { to: "/dashboard/customers", icon: Users, label: "Customer" },
-      { to: "/dashboard/orders", icon: ShoppingBag, label: "Orders", capability: "orders" },
+      { to: "/dashboard/orders", icon: ShoppingBag, label: "Customer Orders", capability: "orders" },
       { to: "/dashboard/orderbook", icon: Handshake, label: "Orderbook" },
       { to: "/dashboard/reports", icon: BarChart3, label: "Business Reports", capability: "reports" },
       { to: "/dashboard/refills", icon: BellRing, label: "Patient Followups" },
@@ -78,6 +77,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/dashboard/expenses", icon: Receipt, label: "Expenses" },
       { to: "/dashboard/cash-bank", icon: Banknote, label: "Cash and Bank", capability: "reconciliation_view" },
+      { to: "/dashboard/payment-accounts", icon: Wallet, label: "Payment Accounts" },
       { to: "/dashboard/payments", icon: Wallet, label: "Payments" },
       { to: "/dashboard/accounting", icon: BookOpen, label: "Accounting", capability: "accounting_view" },
     ],
@@ -96,6 +96,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Manage",
     items: [
+      { to: "/dashboard/customers", icon: Users, label: "Customers" },
       { to: "/dashboard/doctors", icon: Stethoscope, label: "Doctors" },
       { to: "/dashboard/prescriptions", icon: ClipboardList, label: "Prescriptions", capability: "prescriptions" },
       { to: "/dashboard/suppliers", icon: Truck, label: "Suppliers" },

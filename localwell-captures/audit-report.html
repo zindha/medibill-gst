@@ -1,0 +1,92 @@
+<!doctype html><meta charset='utf-8'><title>LocalWell vs MediBill — screen audit</title>
+<style>body{font-family:system-ui;background:#1b1d24;color:#eee;margin:24px}h1{font-size:20px}
+section{margin:28px 0;border-top:1px solid #333;padding-top:12px}h2{font-size:15px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}figure{margin:0}
+figcaption{font-size:12px;color:#9a9aa5;margin-bottom:6px}img{width:100%;border:1px solid #333;border-radius:6px}
+.pass{color:#4ade80;font-size:12px}.drift{color:#f87171;font-size:12px}.none{color:#777;font-size:12px}
+li{color:#fca5a5;font-size:12px}</style>
+<h1>LocalWell vs MediBill — per-screen audit (14 screens)</h1>
+        <section>
+          <h2>login <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><p class='none'>no LW capture (DOM-text reference)</p></figure>
+          <figure><figcaption>MediBill (/auth)</figcaption><img src="mb_login.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>dashboard <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../dashboard.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard)</figcaption><img src="mb_dashboard.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>stock <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><p class='none'>no LW capture (DOM-text reference)</p></figure>
+          <figure><figcaption>MediBill (/dashboard/inventory)</figcaption><img src="mb_stock.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>expenses <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../expenses.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/expenses)</figcaption><img src="mb_expenses.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>customer_orders <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../customer_orders.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/orders)</figcaption><img src="mb_customer_orders.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>business_reports <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../business_reports.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/reports)</figcaption><img src="mb_business_reports.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>sales_transactions <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../child_invoices_transactions_sales.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/invoices)</figcaption><img src="mb_sales_transactions.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>payment_accounts <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../child_cash-and-bank_cash-and-bank.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/payment-accounts)</figcaption><img src="mb_payment_accounts.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>cash_bank_cheques <span class='drift'>DRIFT (2 missing)</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../child_cash-and-bank_cash-and-bank_cheque-management.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/cash-bank)</figcaption><img src="mb_cash_bank_cheques.png" loading="lazy"></figure></div>
+          <ul><li>Pending</li><li>Cleared</li></ul>
+        </section>
+        <section>
+          <h2>purchases <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../child_invoices_transactions_purchases.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/purchases)</figcaption><img src="mb_purchases.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>sale_returns <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../child_invoices_transactions_sale-returns.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/returns)</figcaption><img src="mb_sale_returns.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>patient_followups <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../patient_followups.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/refills)</figcaption><img src="mb_patient_followups.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>orderbook <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../orderbook.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/orderbook)</figcaption><img src="mb_orderbook.png" loading="lazy"></figure></div>
+          
+        </section>
+        <section>
+          <h2>control_centre <span class='pass'>PASS</span></h2>
+          <div class='pair'><figure><figcaption>LocalWell</figcaption><img src="../control_center.png" loading="lazy"></figure>
+          <figure><figcaption>MediBill (/dashboard/settings)</figcaption><img src="mb_control_centre.png" loading="lazy"></figure></div>
+          
+        </section>

@@ -1,0 +1,94 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Cash & Bank
+
+Cash book and bank book built from the ledger, plus bank statement reconciliation
+
+Payment accounts
+Import statement
+Cash Book
+Bank Book
+Cheques
+Cheque Register
+
+0 pending · ₹0.00 outstanding
+
+Add Cheque
+All statuses
+Issued + Received
+No data
+
+Track post-dated cheques here — clear, bounce or cancel them as they resolve.
+
+Add Cheque
+
+Press Ctrl+K for the command palette, ? for all shortcuts.
+
+Route not found

@@ -1,0 +1,152 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Business Reports
+
+View & Download Reports in CSV, PDF or XLS
+
+From
+To
+Apply
+7D
+30D
+90D
+Sales
+Stock
+Purchase
+Payments
+Profit
+Inventory
+GST Report
+Party
+Order
+Apply search
+
+Sales Register
+
+Invoice-wise & date-wise: taxable, GST, net profit, adj amount, payable, margin%
+
+Open
+
+Sale & Return Product-Level Detail
+
+Per-medicine saleQty / returnQty / netQty, taxable, GST, margin%
+
+View
+
+Sales & Returns Summary
+
+Group by product / company / category / customer / supplier / user
+
+View
+
+Sales Register Doctor-Wise
+
+Invoices linked to a doctor
+
+View
+
+Scheduled Drug Register
+
+Filter by schedule (H, H1, X, etc.)
+
+View
+
+Sales Register Party-Wise
+
+Filter by customer / party
+
+View
+
+Sales Register — Invoice-wise
+
+By Invoice
+By Date
+Export CSV
+
+Invoices
+
+0
+
+Taxable
+
+₹0.00
+
+GST
+
+₹0.00
+
+Net Profit
+
+₹0.00
+
+Invoice	Date	Customer	Taxable	GST	Net Profit	Adj	Payable	Bal	Margin%
+No sales in period
+
+Press Ctrl+K for the command palette, ? for all shortcuts.

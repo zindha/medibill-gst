@@ -1,0 +1,110 @@
+Skip to content
+Command palette
+
+Jump anywhere — type a page or action, Enter to go.
+
+MediBill
+GST Billing System
+Collapse
+
+MAIN
+
+Dashboard
+Invoices
+Customer Orders
+Orderbook
+Business Reports
+Patient Followups
+
+FINANCE
+
+Expenses
+Cash and Bank
+Payment Accounts
+Payments
+Accounting
+
+INVENTORY
+
+Stock
+Sales / New Bill
+Purchases
+Stock Audit
+Returns
+Labels
+
+MANAGE
+
+Customers
+Doctors
+Prescriptions
+Suppliers
+Scan Bill
+Medicine DB
+Bulk Edit Bills
+Procurement
+Import CSV
+
+CONTROL CENTRE
+
+Communications
+Campaigns
+Devices & Sync
+Staff
+Integrations
+Data Migration
+e-Invoice
+Scheduled Reports
+Settings
+
+Live sync
+
+Cloud backup active
+
+Shortcuts
+?
+MediBill
+A
+Audit Bot
+Retailer
+Sales Transactions
+
+View List of all your Sales Transactions here
+
+Sales Count
+
+0
+
+Sales Amt Sum
+
+â‚¹0.00
+
+Sales Net Profit
+
+â‚¹0.00
+
+Payable Sum
+
+â‚¹0.00
+
+Balance Sum
+
+â‚¹0.00
+
+INVOICE NO
+FROM
+TO
+FILTER BY
+All
+SORT BY
+Billed On
+Apply
+INVOICE NO	CUSTOMER NAME/INFO	BILLED ON	INV AMT	NET PROFIT	ADJ AMT	PAYABLE	BALANCE	PAID/DUE	USERNAME	
+
+No invoices in this period
+
+Adjust date range or create an invoice from billing.
+
+Create Invoice
+
+Press Ctrl+K for the command palette, ? for all shortcuts.
