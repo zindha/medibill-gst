@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -59,35 +58,57 @@ function Auth({ redirectAfterAuth }: AuthProps) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 px-4 py-8 sm:px-6">
-      {/* Hero glow behind the card, echoing LocalWell's login hero image */}
-      <div className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/20 blur-3xl" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-white px-4 py-8 sm:px-6">
+      {/* LocalWell login backdrop: pink→purple gradient, clipped diagonally */}
+      <div
+        aria-hidden
+        className="absolute inset-0 z-0"
+        style={{
+          clipPath: "polygon(60% 0, 100% 0, 100% 100%, 5% 100%)",
+          background: "linear-gradient(270deg, #fe316a, #832e8b)",
+        }}
+      />
+      {/* Soft hero glow, echoing LocalWell's 32%-opacity hero image */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 z-[1] h-full w-1/2 opacity-30"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 30% 40%, rgba(254,49,106,0.35), transparent 70%)",
+        }}
+      />
 
-      <div className="relative w-full max-w-[420px]">
-        {/* Card */}
-        <div className="rounded-2xl border border-white/10 bg-white p-7 shadow-2xl">
-          {/* Logo */}
-          <div className="flex justify-center">
+      <div className="relative z-10 w-full max-w-[408px]">
+        <div
+          className="flex flex-col items-center gap-10 rounded-2xl bg-white p-10"
+          style={{ boxShadow: "0 24px 64px 0 rgba(0,0,0,0.239)" }}
+        >
+          {/* Logo — MediBill mark on LocalWell's card */}
+          <div className="flex flex-col items-center gap-2">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <span className="text-lg font-bold">M</span>
             </div>
+            <span className="text-sm font-semibold tracking-tight text-foreground">MediBill</span>
           </div>
 
-          {/* Title */}
-          <div className="mt-5 text-center">
-            <h1 className="text-xl font-semibold text-slate-900">Login or Sign Up</h1>
-            <p className="mt-1 text-sm text-slate-500">GST Billing for Pharmacies</p>
+          {/* Title block */}
+          <div className="text-center">
+            <p className="text-base font-medium text-black">Login or Sign Up</p>
+            <p className="mt-2 text-[13px] text-[#666]">GST Billing for Pharmacies</p>
           </div>
 
           {/* Mobile step */}
           {step === "mobile" && (
-            <form onSubmit={handleMobileSubmit} className="mt-6">
-              <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+            <form onSubmit={handleMobileSubmit} className="w-full max-w-[328px]">
+              <p className="mb-1.5 text-center text-[13px] font-medium uppercase tracking-wide text-foreground">
                 Sign In to Continue
               </p>
-              <div className="flex items-center rounded-lg border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-primary/40">
-                <span className="pl-3 text-sm font-semibold text-slate-700">+91</span>
-                <Input
+              <div
+                className="flex min-h-[44px] items-center rounded-lg border border-[#dadada] bg-white"
+                style={{ boxShadow: "inset 3px 3px 4px 1px rgba(0,0,0,0.04)" }}
+              >
+                <span className="pl-3 text-[13px] font-semibold text-foreground">+91</span>
+                <input
                   type="number"
                   inputMode="numeric"
                   autoComplete="tel"
@@ -95,13 +116,15 @@ function Auth({ redirectAfterAuth }: AuthProps) {
                   placeholder="Enter 10-digit mobile number"
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-                  className="border-0 bg-transparent text-center shadow-none focus-visible:ring-0"
+                  className="min-w-0 flex-1 border-none bg-transparent text-center text-sm font-medium text-black outline-none placeholder:font-normal placeholder:text-[#bdbdbd]"
                   aria-label="Mobile number"
                 />
-                <span className="pr-3 text-xs tabular-nums text-slate-400">{mobile.length}/10</span>
+                <span className="pr-3 text-sm font-semibold tabular-nums text-[#757575]">
+                  {mobile.length}<span className="font-normal">/10</span>
+                </span>
               </div>
-              <p className="mt-2 min-h-5 text-center text-sm text-red-500">{error}</p>
-              <Button type="submit" className="mt-3 w-full rounded-full" disabled={isLoading}>
+              <p className="mt-2 min-h-5 text-center text-[13px] text-[#fd1d1d]">{error}</p>
+              <Button type="submit" className="mt-5 w-full" disabled={isLoading || mobile.length !== 10}>
                 Submit to Login
               </Button>
             </form>
@@ -110,44 +133,46 @@ function Auth({ redirectAfterAuth }: AuthProps) {
           {/* Password step */}
           {step === "password" && (
             <>
-              <div className="mt-6 flex items-center gap-3">
+              <div className="w-full max-w-[328px]">
                 <button
                   type="button"
                   onClick={() => { setStep("mobile"); setError(null); }}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800"
+                  className="text-[13px] font-medium text-brand hover:text-[#ad4164]"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" /> Back
+                  ← Login as a different User
                 </button>
+                <p className="mt-3 text-center text-[13px] text-black">
+                  Welcome, <span className="font-semibold">{displayName}</span>!
+                </p>
               </div>
-              <div className="mt-3 text-center">
-                <p className="text-lg font-medium text-slate-900">Welcome, {displayName}!</p>
-                <p className="text-sm text-slate-500">Login as a different User</p>
-              </div>
-              <form onSubmit={handlePasswordSubmit} className="mt-5">
-                <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500">
+              <form onSubmit={handlePasswordSubmit} className="w-full max-w-[328px]">
+                <p className="mb-1.5 text-center text-[13px] font-medium uppercase tracking-wide text-foreground">
                   Enter Password to Login
                 </p>
-                <div className="relative">
-                  <Input
+                <div
+                  className="relative flex min-h-[44px] items-center rounded-lg border border-[#dadada] bg-white focus-within:border-[2px] focus-within:border-brand-deep"
+                  style={{ boxShadow: "inset 3px 3px 4px 1px rgba(0,0,0,0.04)" }}
+                >
+                  <input
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     placeholder="Enter your Password here"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="rounded-lg border-slate-300 text-center"
+                    className="min-w-0 flex-1 border-none bg-transparent px-3 text-center text-sm font-medium text-black outline-none placeholder:font-normal placeholder:text-[#bdbdbd]"
                     aria-label="Password"
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    className="pr-3 text-[#757575] hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="mt-2 min-h-5 text-center text-sm text-red-500">{error}</p>
-                <Button type="submit" className="mt-3 w-full rounded-full" disabled={isLoading}>
+                <p className="mt-2 min-h-5 text-center text-[13px] text-[#fd1d1d]">{error}</p>
+                <Button type="submit" className="mt-5 w-full" disabled={isLoading || !password}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Validating…
@@ -156,25 +181,21 @@ function Auth({ redirectAfterAuth }: AuthProps) {
                     "Validate Now"
                   )}
                 </Button>
-                <p className="mt-2 text-center text-xs font-medium text-slate-500">Forgot Password?</p>
+                <p className="mt-4 text-center text-[13px] font-medium text-[#757575]">Forgot Password?</p>
               </form>
             </>
           )}
 
-          {/* Footer */}
-          <div className="mt-8 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
-            <p>By continuing, you are agreeing to our</p>
-            <p className="mt-0.5">
-              <a href="#" className="font-medium text-primary hover:underline">Terms of Service</a>
-              {" & "}
-              <a href="#" className="font-medium text-primary hover:underline">Privacy Policy</a>
+          {/* Footer — LocalWell terms block */}
+          <div className="mt-auto w-full text-center">
+            <p className="text-[13px] text-black">By continuing, you are agreeing to our</p>
+            <p className="mt-2 flex items-center justify-center gap-2 text-[13px]">
+              <a href="#" className="font-semibold text-brand hover:underline">Terms of Service</a>
+              <span className="text-black">&</span>
+              <a href="#" className="font-semibold text-brand hover:underline">Privacy Policy</a>
             </p>
           </div>
         </div>
-
-        <p className="mt-4 text-center text-xs text-white/60">
-          MediBill · Enabling Pharmacies Since 2019
-        </p>
       </div>
     </div>
   );
