@@ -42,6 +42,7 @@ import {
   Search,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useHotkeys } from "@/hooks/useHotkeys";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ExpiryMMYYInput } from "@/components/ExpiryMMYYInput";
 import { useNavigate, useSearchParams } from "react-router";
@@ -103,6 +104,11 @@ export default function PurchasesPage() {
   const [medicines, setMedicines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>("bills");
+
+  // LocalWell's purchases shortcut: F2 opens the Create New Purchases tab.
+  useHotkeys([
+    { key: "f2", label: "Create New Purchases", handler: () => setActiveTab("new") },
+  ]);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const [page, setPage] = useState(initialPage);
@@ -580,11 +586,14 @@ export default function PurchasesPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabValue)}>
-      {/* Header */}
+      {/* Header — LocalWell "Purchases Transactions" */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Purchases</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Purchases Transactions</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
+            View List of all your Purchases Transactions here
+          </p>
+          <p className="text-xs text-muted-foreground/80 mt-0.5">
             {total != null && total > 0 ? (
               <>Showing {Math.min((page - 1) * 20 + 1, total)}–{Math.min(page * 20, total)} of {total} bills</>
             ) : (
@@ -603,7 +612,7 @@ export default function PurchasesPage() {
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search bills..." className={"pl-9 h-9 w-48 text-sm" + (searching ? " pr-8" : "")} />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="INVOICE NO — search no / supplier" className={"pl-9 h-9 w-56 text-sm" + (searching ? " pr-8" : "")} />
             {searching && <Loader2 className="absolute right-3 top-2 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />}
           </div>
           <TabsList className="h-9">
@@ -917,11 +926,14 @@ export default function PurchasesPage() {
       {/* ── PURCHASE RETURNS TAB ── */}
       <TabsContent value="returns" className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Goods going back to a supplier — stock leaves the batch and the ledger records the refund.
-          </p>
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Purchase Returns Transactions</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              View List of all your Purchase Returns Transactions here
+            </p>
+          </div>
           <Button size="sm" onClick={() => setReturnOpen(true)}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />New Return
+            <Plus className="h-3.5 w-3.5 mr-1.5" />Create New Purchase Returns
           </Button>
         </div>
 
@@ -939,19 +951,19 @@ export default function PurchasesPage() {
         ) : returnList.length === 0 ? (
           <EmptyState
             icon={RotateCcw}
-            title="No purchase returns yet"
+            title="No data"
             description="Return purchased goods to a supplier — the batch stock is deducted and the refund is posted to the ledger."
-            actions={[{ label: "New Return", onClick: () => setReturnOpen(true) }]}
+            actions={[{ label: "Create New Purchase Returns", onClick: () => setReturnOpen(true) }]}
           />
         ) : (
           <div className="border rounded-sm overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Return No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead className="text-right">Refund</TableHead>
+                  <TableHead>Invoice No</TableHead>
+                  <TableHead>Billed On</TableHead>
+                  <TableHead>Distributor</TableHead>
+                  <TableHead className="text-right">Ret Amt</TableHead>
                   <TableHead>Mode</TableHead>
                   <TableHead>Reason</TableHead>
                 </TableRow>

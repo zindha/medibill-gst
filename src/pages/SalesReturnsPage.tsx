@@ -32,6 +32,7 @@ import {
   Search,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useHotkeys } from "@/hooks/useHotkeys";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -78,6 +79,11 @@ export default function SalesReturnsPage() {
 
   // Create-return state
   const [showCreate, setShowCreate] = useState(false);
+
+  // LocalWell's sale-returns shortcut: F2 opens the Create New Sale Returns dialog.
+  useHotkeys([
+    { key: "f2", label: "Create New Sale Returns", handler: () => setShowCreate(true) },
+  ]);
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceResults, setInvoiceResults] = useState<any[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
@@ -266,15 +272,18 @@ export default function SalesReturnsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header — LocalWell "Sale Returns Transactions" */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sales Returns</h1>
-          <p className="text-sm text-muted-foreground">Process customer returns and credit notes</p>
+          <h1 className="text-xl font-semibold tracking-tight">Sale Returns Transactions</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            View List of all your Sale Returns Transactions here
+          </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={() => setShowCreate(true)} title="Create New Sale Returns (F2)">
           <RefreshCcw className="h-4 w-4 mr-2" />
-          New Return
+          Create New Sale Returns
+          <kbd className="ml-1.5 rounded border border-border bg-background px-1 font-mono text-[9px]">F2</kbd>
         </Button>
       </div>
 
@@ -299,7 +308,7 @@ export default function SalesReturnsPage() {
       ) : filteredReturns.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No returns found"
+          title="No data"
           description="Sales returns will appear here once processed"
         />
       ) : (
