@@ -31,6 +31,7 @@ import {
   Receipt,
   RefreshCcw,
   ScanLine,
+  Search,
   Scale,
   Settings,
   ShoppingBag,
@@ -141,23 +142,18 @@ function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean })
       aria-label={item.label}
       className={({ isActive }) =>
         cn(
-          "group relative flex min-w-0 items-center gap-3 px-2.5 py-2 rounded-md text-sm transition-all duration-200 xl:px-3",
+          // LocalWell app-menu row: icon + 14px label, plain hover, bold-black active.
+          "group relative flex min-w-0 items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-all duration-200 xl:px-3",
           collapsed && "justify-center px-0 xl:px-0",
           isActive
-            ? "bg-primary/10 text-primary font-medium"
-            : "text-muted-foreground hover:text-foreground hover:bg-secondary/70",
+            ? "font-semibold text-black"
+            : "text-[#4c4c4c] hover:bg-[#f5f5f5] hover:text-black",
         )
       }
     >
       {({ isActive }) => (
         <>
-          <span
-            className={cn(
-              "absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full bg-primary transition-all duration-200",
-              isActive ? "opacity-100" : "opacity-0",
-            )}
-          />
-          <item.icon className="h-4 w-4 shrink-0" />
+          <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-black" : "text-[#757575]")} />
           {!collapsed && item.label}
         </>
       )}
@@ -274,25 +270,13 @@ export default function DashboardLayout() {
           </button>
         </div>
 
-        <nav className={cn("flex-1 overflow-y-auto space-y-5", collapsed ? "p-2" : "p-3")} aria-label="Workspace navigation">
-          {navGroups.map((group) => {
-            const visible = group.items.filter(canSee);
-            if (visible.length === 0) return null;
-            return (
-            <div key={group.label}>
-              {!collapsed && (
-                <p className="px-3 pb-1.5 text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                  {group.label}
-                </p>
-              )}
-              <div className="space-y-0.5">
-                {visible.map((item) => (
-                  <NavItemLink key={item.to} item={item} collapsed={collapsed} />
-                ))}
-              </div>
-            </div>
-            );
-          })}
+        <nav className={cn("flex-1 overflow-y-auto", collapsed ? "p-2" : "p-3")} aria-label="Workspace navigation">
+          {/* LocalWell's menu is a flat list — groups only set the order. */}
+          <div className="space-y-0.5">
+            {navGroups.flatMap((group) => group.items.filter(canSee)).map((item) => (
+              <NavItemLink key={item.to} item={item} collapsed={collapsed} />
+            ))}
+          </div>
         </nav>
 
         {/* Sync status */}
@@ -377,48 +361,100 @@ export default function DashboardLayout() {
 
       {/* Main Content — single scroll region; tall pages scroll, fit-pages keep inner scroll */}
       <main className="min-w-0 flex h-dvh min-h-0 flex-1 flex-col overflow-hidden pb-20 md:pb-0">
-        {/* Top header — mirrors LocalWell: logo left, business switcher center, bell right */}
-        <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-[90rem] items-center gap-3 px-3 sm:px-6">
-            <span className="font-display text-base font-semibold tracking-tight text-foreground md:hidden">
-              MediBill
-            </span>
-            <div className="hidden items-center gap-2.5 md:flex">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {/* Top header — LocalWell AppHeader: logo, business block, center tabs, actions */}
+        <header className="shrink-0 border-b border-border bg-sidebar">
+          <div className="flex h-14 items-center gap-4 px-4 sm:px-6">
+            {/* Logo */}
+            <div className="flex shrink-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Cross className="h-4 w-4" strokeWidth={2.5} />
               </div>
-              <span className="font-display text-sm font-semibold text-foreground">MediBill</span>
+              <span className="hidden font-display text-base font-semibold tracking-tight text-foreground sm:block">
+                MediBill
+              </span>
             </div>
 
-            {/* Business switcher (collapsed-look pill) */}
+            {/* Business block — initials chip + name, LocalWell style */}
             <button
               type="button"
-              className="ml-auto flex items-center gap-2 rounded-full border border-border bg-secondary/40 py-1 pl-1 pr-2 text-left text-xs hover:bg-secondary/70"
+              className="flex min-w-0 items-center gap-2.5 rounded-md py-1 pr-2 text-left hover:bg-[#f5f5f5]"
               title="Switch store"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
-                {((user?.name || "M")[0] || "M").toUpperCase()}
+              <span className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md bg-[#60096a] leading-none text-white">
+                <span className="text-[11px] font-bold">{((user?.name || "M")[0] || "M").toUpperCase()}</span>
+                <span className="text-[6px] uppercase tracking-wide">Retailer</span>
               </span>
-              <span className="max-w-[180px] truncate leading-tight">
-                <span className="block font-medium text-foreground">{user?.name || "My Store"}</span>
-                <span className="block text-[10px] text-muted-foreground">Retailer</span>
+              <span className="hidden min-w-0 leading-tight lg:block">
+                <span className="block max-w-[220px] truncate text-[13px] font-semibold text-black">
+                  {user?.name || "My Store"}
+                </span>
+                <span className="block max-w-[220px] truncate text-[11px] text-[#757575]">
+                  GST Billing System
+                </span>
               </span>
-              <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
 
-            {/* Notification bell */}
-            <button
-              type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-              aria-label="Notifications"
-            >
-              <BellRing className="h-[18px] w-[18px]" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#FE316A]" />
-            </button>
+            {/* Center module tabs — Purchases | Stock | Sales with pink underline */}
+            <nav className="mx-auto hidden h-full items-center gap-1 md:flex" aria-label="Module tabs">
+              {[
+                { to: "/dashboard/purchases", label: "Purchases" },
+                { to: "/dashboard/inventory", label: "Stock" },
+                { to: "/dashboard/billing", label: "Sales" },
+              ].map((tab) => (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex h-full items-center px-4 text-sm",
+                      isActive ? "font-semibold text-black" : "text-[#757575] hover:text-black",
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {tab.label}
+                      {isActive && (
+                        <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-t bg-brand" aria-hidden />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+
+            {/* Right actions — Search, Alert, user chip */}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setShortcutsOpen(true)}
+                className="hidden items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-[#757575] hover:bg-[#f5f5f5] hover:text-black sm:flex"
+                title="Search all (Ctrl+K)"
+              >
+                <Search className="h-3.5 w-3.5" />
+                Search
+              </button>
+              <button
+                type="button"
+                className="relative flex h-9 w-9 items-center justify-center rounded-md text-[#757575] hover:bg-[#f5f5f5] hover:text-black"
+                aria-label="Alerts"
+              >
+                <BellRing className="h-[18px] w-[18px]" />
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand" />
+              </button>
+              <div className="ml-1 flex items-center gap-2 rounded-md px-2 py-1 hover:bg-[#f5f5f5]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#60096a] text-[11px] font-bold text-white">
+                  {((user?.name || "U")[0] || "U").toUpperCase()}
+                </span>
+                <span className="hidden text-[11px] uppercase tracking-wide text-[#757575] lg:block">
+                  User
+                </span>
+              </div>
+            </div>
           </div>
         </header>
 
-        <div ref={scrollRef} className="mx-auto flex min-h-0 w-full max-w-[90rem] flex-1 flex-col overflow-y-auto px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
+        <div ref={scrollRef} className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-1 flex-col overflow-y-auto px-3 py-5 sm:px-6 sm:py-6 lg:px-8">
           <Outlet />
         </div>
         <p className="sr-only">Press Ctrl+K for the command palette, ? for all shortcuts.</p>

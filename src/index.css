@@ -146,6 +146,13 @@
 }
 
 @layer utilities {
+  /* LocalWell's white panel: soft border-less card with their double shadow. */
+  .lw-panel {
+    border: none;
+    box-shadow:
+      0 2px 4px 0 rgba(14, 30, 37, 0.12),
+      0 2px 16px 0 rgba(14, 30, 37, 0.32);
+  }
   /* A quiet counter-card lift; disabled for motion-sensitive users. */
   .card-hover {
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;

@@ -1,4 +1,4 @@
-﻿import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,20 @@ function pctBadge(pct: number | null | undefined) {
   return <span className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{arrow}{Math.abs(pct)}%</span>;
 }
 
+/** LocalWell money-card chart area: 5..0 axis + empty-state label. */
+function SparkArea({ emptyLabel, hasData }: { emptyLabel: string; hasData: boolean }) {
+  return (
+    <div className="mt-2 flex gap-1.5">
+      <div className="flex flex-col justify-between py-0.5 text-[9px] leading-none text-muted-foreground tabular-nums">
+        {[5, 4, 3, 2, 1, 0].map((n) => <span key={n}>{n}</span>)}
+      </div>
+      <div className="h-16 flex-1 rounded-sm border border-dashed border-border/60 bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground">
+        {hasData ? <TrendingUp className="h-4 w-4 text-brand" /> : emptyLabel}
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { isLoading: authLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -63,7 +77,7 @@ export default function DashboardPage() {
   const [stockFast, setStockFast] = useState<any[] | null>(null);
   const [stockSlow, setStockSlow] = useState<any[] | null>(null);
 
-  // Date range â€” screenshot: 17-09-2026 - 24-09-2026
+  // Date range — screenshot: 17-09-2026 - 24-09-2026
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().split("T")[0];
@@ -92,7 +106,7 @@ export default function DashboardPage() {
       setRefills(upcoming ?? []);
       if (profit && typeof profit.grossProfit === "number") setTodayProfit(profit.grossProfit);
       else if (data && typeof (data as any).grossProfit === "number") setTodayProfit((data as any).grossProfit);
-      // Fast/slow â€” best-effort; empty => "No Products Found" placeholder per screenshot
+      // Fast/slow — best-effort; empty => "No Products Found" placeholder per screenshot
       try {
         const [fast, slow] = await Promise.all([
           reportsApi.stockFast({ from: f, to: t, limit: 5 }).catch(() => null),
@@ -122,14 +136,14 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
         <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        Loading dashboardâ€¦
+        Loading dashboard…
       </div>
     );
   }
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const lines = ["Ready to serve your patients today?", "Another day to keep the shelves full.", "Fresh stock, happy customers, smooth billing.", "Every prescription matters â€” make today count.", "Small steps, healthy shop."];
+  const lines = ["Ready to serve your patients today?", "Another day to keep the shelves full.", "Fresh stock, happy customers, smooth billing.", "Every prescription matters — make today count.", "Small steps, healthy shop."];
   const motivation = lines[new Date().getDate() % lines.length];
   const dateLabel = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -153,10 +167,10 @@ export default function DashboardPage() {
   const customersRepeat = (kpis as any).customers?.repeat ?? 0;
 
   const cards = [
-    { label: "Today's GST", value: kpis.todayGst ?? 0, format: (v: number) => `â‚¹${Math.round(v).toLocaleString("en-IN")}`, icon: TrendingUp, tint: "bg-muted text-muted-foreground", to: "/dashboard/reports" },
+    { label: "Today's GST", value: kpis.todayGst ?? 0, format: (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`, icon: TrendingUp, tint: "bg-muted text-muted-foreground", to: "/dashboard/reports" },
     { label: "Low Stock", value: kpis.lowStockCount ?? 0, icon: PackageX, tint: "bg-red-500/10 text-red-600", alert: (kpis.lowStockCount ?? 0) > 0, to: "/dashboard/inventory?tab=low" },
     { label: "Expiring Soon", value: kpis.expiringCount ?? 0, icon: Clock, tint: "bg-amber-500/10 text-amber-600", alert: (kpis.expiringCount ?? 0) > 0, to: "/dashboard/inventory?tab=expiry" },
-    { label: "Pending Credit", value: kpis.outstandingCredit ?? 0, format: (v: number) => `â‚¹${Math.round(v).toLocaleString("en-IN")}`, icon: Wallet, tint: "bg-red-500/10 text-red-600", alert: (kpis.outstandingCredit ?? 0) > 0, to: "/dashboard/payments" },
+    { label: "Pending Credit", value: kpis.outstandingCredit ?? 0, format: (v: number) => `₹${Math.round(v).toLocaleString("en-IN")}`, icon: Wallet, tint: "bg-red-500/10 text-red-600", alert: (kpis.outstandingCredit ?? 0) > 0, to: "/dashboard/payments" },
   ];
 
   const statusPill = (status?: DashboardInvoice["status"]) => {
@@ -170,7 +184,7 @@ export default function DashboardPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative space-y-4">
-      {isVisualReview && <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary" role="note">Visual review mode Â· showing sample pharmacy data</div>}
+      {isVisualReview && <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary" role="note">Visual review mode · showing sample pharmacy data</div>}
       {/* Decorative glow */}
       <div className="pointer-events-none absolute -top-24 right-0 h-64 w-96 rounded-full bg-primary/10 blur-3xl" />
 
@@ -179,9 +193,9 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="min-w-0">
+            {/* LocalWell dashboard header: date, then the business name */}
             <p className="text-xs text-muted-foreground">{dateLabel}</p>
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-balance mt-1">{greeting}</h1>
-            <p className="text-sm text-muted-foreground mt-1 text-pretty">{motivation}</p>
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-balance mt-1">Lakshmi Balaji Medicals</h1>
           </div>
           <div className="flex flex-wrap items-end gap-2 shrink-0">
             <div className="flex items-end gap-2 rounded-sm border border-border/60 bg-card px-3 py-2">
@@ -189,7 +203,7 @@ export default function DashboardPage() {
                 <Label className="text-[10px] text-muted-foreground flex items-center gap-1"><CalendarRange className="h-3 w-3" />From</Label>
                 <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="mt-1 h-8 w-auto text-xs" />
               </div>
-              <span className="pb-2 text-muted-foreground text-xs">â€”</span>
+              <span className="pb-2 text-muted-foreground text-xs">—</span>
               <div>
                 <Label className="text-[10px] text-muted-foreground">To</Label>
                 <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="mt-1 h-8 w-auto text-xs" />
@@ -201,7 +215,6 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">Lakshmi Balaji Medicals Â· Showing <span className="font-medium text-foreground">{fromDate}</span> to <span className="font-medium text-foreground">{toDate}</span></p>
       </div>
 
       {/* â”€â”€ Money first: Net Sales / Profit / Net Purchase â”€â”€ */}
@@ -211,13 +224,11 @@ export default function DashboardPage() {
             <h3 className="text-xs font-semibold tracking-wider text-muted-foreground">Net Sales</h3>
             <button onClick={() => navigate("/dashboard/reports")} className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 shrink-0">View entire list <ArrowRight className="h-3 w-3" /></button>
           </div>
-          <p className="text-xl font-bold tracking-tight tabular-nums">â‚¹{netSales.toFixed(2)}</p>
+          <p className="text-xl font-bold tracking-tight tabular-nums">₹{netSales.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-            from â‚¹{(netSalesPrev ?? 0).toFixed(2)} {pctBadge(netSalesPct)}
+            from ₹{(netSalesPrev ?? 0).toFixed(2)} {pctBadge(netSalesPct)}
           </p>
-          <div className="mt-2 h-10 rounded bg-muted/40 border border-dashed border-border/60 flex items-center justify-center text-[10px] text-muted-foreground">
-            sparkline â€” sales in range
-          </div>
+          <SparkArea emptyLabel="No Sales Added!" hasData={netSales > 0} />
         </Card>
 
         <Card className="p-3 border-border/60 min-w-0">
@@ -225,14 +236,11 @@ export default function DashboardPage() {
             <h3 className="text-xs font-semibold tracking-wider text-muted-foreground">Profit</h3>
             <button onClick={() => navigate("/dashboard/reports?tab=profit")} className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 shrink-0">View entire list <ArrowRight className="h-3 w-3" /></button>
           </div>
-          <p className={`text-xl font-bold tracking-tight tabular-nums ${grossProfit >= 0 ? "text-green-700" : "text-red-600"}`}>â‚¹{grossProfit.toFixed(2)}</p>
+          <p className={`text-xl font-bold tracking-tight tabular-nums ${grossProfit >= 0 ? "text-green-700" : "text-red-600"}`}>₹{grossProfit.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-            from â‚¹{(grossProfitPrev ?? 0).toFixed(2)} {pctBadge(grossProfitPct)}
+            from ₹{(grossProfitPrev ?? 0).toFixed(2)} {pctBadge(grossProfitPct)}
           </p>
-          <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${grossProfit >= 0 ? "bg-green-500/10 text-green-700 border-green-500/20" : "bg-red-500/10 text-red-600 border-red-500/20"}`}>
-            {grossProfit >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {grossProfit >= 0 ? "Profit" : "Loss"} in range
-          </div>
+          <SparkArea emptyLabel="No Profits Added!" hasData={grossProfit !== 0} />
         </Card>
 
         <Card className="p-3 border-border/60 min-w-0">
@@ -240,11 +248,11 @@ export default function DashboardPage() {
             <h3 className="text-xs font-semibold tracking-wider text-muted-foreground">Net Purchase</h3>
             <button onClick={() => navigate("/dashboard/reports?tab=purchase")} className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 shrink-0">View entire list <ArrowRight className="h-3 w-3" /></button>
           </div>
-          <p className="text-xl font-bold tracking-tight tabular-nums">â‚¹{netPurchase.toFixed(2)}</p>
+          <p className="text-xl font-bold tracking-tight tabular-nums">₹{netPurchase.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-            from â‚¹{(netPurchasePrev ?? 0).toFixed(2)} {pctBadge(netPurchasePct)}
+            from ₹{(netPurchasePrev ?? 0).toFixed(2)} {pctBadge(netPurchasePct)}
           </p>
-          <p className="text-[10px] text-muted-foreground mt-2">{(kpis as any).netPurchaseCount ?? 0} bills in range</p>
+          <SparkArea emptyLabel="No Purchases Added!" hasData={netPurchase > 0} />
         </Card>
       </div>
 
@@ -259,21 +267,21 @@ export default function DashboardPage() {
               View entire list <ArrowRight className="h-3 w-3" />
             </button>
           </div>
-          <p className="text-xl font-bold tracking-tight tabular-nums">â‚¹{Math.round((kpis.collections as any)?.totalIn ?? kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p>
+          <p className="text-xl font-bold tracking-tight tabular-nums">₹{Math.round((kpis.collections as any)?.totalIn ?? kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p>
           <div className="grid grid-cols-2 gap-2 mt-2 text-xs tabular-nums">
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Payment In</p>
-              <p className="font-semibold text-green-700">â‚¹{Math.round((kpis.collections as any)?.totalIn ?? kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p>
+              <p className="font-semibold text-green-700">₹{Math.round((kpis.collections as any)?.totalIn ?? kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p>
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Payment Out</p>
-              <p className="font-semibold text-red-600">â‚¹{Math.round((kpis.collections as any)?.totalOut ?? ( (kpis.collections?.paid ?? 0) + (kpis.collections?.expenses ?? 0))).toLocaleString("en-IN")}</p>
+              <p className="font-semibold text-red-600">₹{Math.round((kpis.collections as any)?.totalOut ?? ( (kpis.collections?.paid ?? 0) + (kpis.collections?.expenses ?? 0))).toLocaleString("en-IN")}</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-border/40 text-[10px] tabular-nums">
-            <div><p className="text-muted-foreground uppercase tracking-wider">Received</p><p className="font-medium">â‚¹{Math.round(kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p></div>
-            <div><p className="text-muted-foreground uppercase tracking-wider">Paid out</p><p className="font-medium">â‚¹{Math.round(kpis.collections?.paid ?? 0).toLocaleString("en-IN")}</p></div>
-            <div><p className="text-muted-foreground uppercase tracking-wider">Expenses</p><p className="font-medium">â‚¹{Math.round(kpis.collections?.expenses ?? 0).toLocaleString("en-IN")}</p></div>
+            <div><p className="text-muted-foreground uppercase tracking-wider">Received</p><p className="font-medium">₹{Math.round(kpis.collections?.received ?? 0).toLocaleString("en-IN")}</p></div>
+            <div><p className="text-muted-foreground uppercase tracking-wider">Paid out</p><p className="font-medium">₹{Math.round(kpis.collections?.paid ?? 0).toLocaleString("en-IN")}</p></div>
+            <div><p className="text-muted-foreground uppercase tracking-wider">Expenses</p><p className="font-medium">₹{Math.round(kpis.collections?.expenses ?? 0).toLocaleString("en-IN")}</p></div>
           </div>
         </Card>
 
@@ -297,7 +305,7 @@ export default function DashboardPage() {
           </div>
           <p className="text-[10px] text-muted-foreground">Due date {fromDate} - {toDate}</p>
           <p className="text-base font-bold tracking-tight tabular-nums mt-0.5">
-            Total Due <span className="text-red-600">â‚¹{Math.round(duesTab === "customers" ? (kpis.dues?.customerTotal ?? 0) : (kpis.dues?.supplierTotal ?? 0)).toLocaleString("en-IN")}</span>
+            Total Due <span className="text-red-600">₹{Math.round(duesTab === "customers" ? (kpis.dues?.customerTotal ?? 0) : (kpis.dues?.supplierTotal ?? 0)).toLocaleString("en-IN")}</span>
             <span className="ml-2 text-[10px] font-normal text-muted-foreground">
               {duesTab === "customers" ? "customers owe us" : "we owe suppliers"}
             </span>
@@ -312,7 +320,7 @@ export default function DashboardPage() {
                     {d.name}
                     {d.phone && <span className="text-muted-foreground ml-1.5">{d.phone}</span>}
                   </span>
-                  <span className="shrink-0 ml-2 tabular-nums font-medium">â‚¹{Math.round(d.balance).toLocaleString("en-IN")}</span>
+                  <span className="shrink-0 ml-2 tabular-nums font-medium">₹{Math.round(d.balance).toLocaleString("en-IN")}</span>
                 </div>
               ));
             })()}
@@ -329,7 +337,7 @@ export default function DashboardPage() {
           <div className="min-w-0">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Today's Sales</p>
             <p className="text-base font-semibold tracking-tight tabular-nums">
-              <AnimatedNumber value={today} format={(v) => `â‚¹${Math.round(v).toLocaleString("en-IN")}`} />
+              <AnimatedNumber value={today} format={(v) => `₹${Math.round(v).toLocaleString("en-IN")}`} />
             </p>
           </div>
         </Card>
@@ -347,12 +355,12 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Profit & Loss Â· today</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Profit & Loss · today</p>
             <p className={`text-base font-semibold tracking-tight tabular-nums ${(todayProfit ?? grossProfit ?? 0) >= 0 ? "text-green-700" : "text-red-600"}`}>
               {todayProfit === null && grossProfit === 0 ? (
-                <span className="text-sm font-normal text-muted-foreground">â€”</span>
+                <span className="text-sm font-normal text-muted-foreground">—</span>
               ) : (
-                <AnimatedNumber value={todayProfit ?? grossProfit} format={(v) => `${v < 0 ? "âˆ’" : ""}â‚¹${Math.abs(Math.round(v)).toLocaleString("en-IN")}`} />
+                <AnimatedNumber value={todayProfit ?? grossProfit} format={(v) => `${v < 0 ? "−" : ""}₹${Math.abs(Math.round(v)).toLocaleString("en-IN")}`} />
               )}
             </p>
           </div>
@@ -362,7 +370,7 @@ export default function DashboardPage() {
       {/* Register snapshot */}
       <div className="flex items-center justify-between border-y border-border/70 py-1.5">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Register snapshot</p>
-        <p className="text-xs text-muted-foreground">Todayâ€™s counter activity</p>
+        <p className="text-xs text-muted-foreground">Today’s counter activity</p>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {cards.map((card, i) => (
@@ -402,9 +410,9 @@ export default function DashboardPage() {
             <button onClick={() => navigate("/dashboard/inventory")} className="text-[11px] text-primary hover:underline inline-flex items-center gap-1 shrink-0">View entire list <ArrowRight className="h-3 w-3" /></button>
           </div>
           <div className="space-y-1 mt-1 text-xs tabular-nums">
-            <div className="flex justify-between"><span className="text-muted-foreground">MRP</span><span className="font-semibold">â‚¹{Math.round(kpis.stockValue?.mrpValue ?? 0).toLocaleString("en-IN")}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Sale</span><span className="font-semibold">â‚¹{Math.round(kpis.stockValue?.saleValue ?? 0).toLocaleString("en-IN")}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Purchase</span><span className="font-semibold">â‚¹{Math.round(kpis.stockValue?.costValue ?? 0).toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">MRP</span><span className="font-semibold">₹{Math.round(kpis.stockValue?.mrpValue ?? 0).toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Sale</span><span className="font-semibold">₹{Math.round(kpis.stockValue?.saleValue ?? 0).toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Purchase</span><span className="font-semibold">₹{Math.round(kpis.stockValue?.costValue ?? 0).toLocaleString("en-IN")}</span></div>
             <p className="text-[10px] text-muted-foreground pt-1 border-t border-border/40">{Math.round(kpis.stockValue?.packs ?? 0).toLocaleString("en-IN")} packs on shelf</p>
           </div>
         </Card>
@@ -421,7 +429,7 @@ export default function DashboardPage() {
             </div>
             <div className="rounded bg-muted/40 px-2 py-1.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Avg Order</p>
-              <p className="text-xs font-semibold tabular-nums leading-tight">â‚¹{Math.round(customersAvg).toLocaleString("en-IN")}</p>
+              <p className="text-xs font-semibold tabular-nums leading-tight">₹{Math.round(customersAvg).toLocaleString("en-IN")}</p>
             </div>
             <div className="rounded bg-muted/30 px-2 py-1.5">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">New</p>
@@ -458,7 +466,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 {rows.slice(0, 5).map((r: any, i: number) => (
                   <div key={r.medicineId ?? i} className="flex items-center justify-between text-xs py-1.5 border-b border-border/40 last:border-0">
-                    <span className="truncate min-w-0 font-medium">{r.medicineName ?? r.name ?? "â€”"}</span>
+                    <span className="truncate min-w-0 font-medium">{r.medicineName ?? r.name ?? "—"}</span>
                     <span className="shrink-0 ml-2 tabular-nums text-muted-foreground">{r.qtySold ?? r.stockPacks ?? 0} sold</span>
                   </div>
                 ))}
@@ -534,7 +542,7 @@ export default function DashboardPage() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusPill(inv.status)}`}>
                     {inv.status === "unpaid" ? "Unpaid" : inv.status === "partial" ? "Partial" : "Paid"}
                   </span>
-                  <span className="font-semibold tabular-nums">â‚¹{inv.grandTotal?.toLocaleString("en-IN")}</span>
+                  <span className="font-semibold tabular-nums">₹{inv.grandTotal?.toLocaleString("en-IN")}</span>
                 </div>
               </motion.div>
             ))}
